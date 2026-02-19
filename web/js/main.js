@@ -654,10 +654,6 @@ async function init() {
   for (const metric of state.metrics) {
     if (!metric.expr) fetchMetadata(metric.name, hooks);
   }
-  if (!restoredFromUrl) {
-    addMetric("hpc.capella.rack4.power", hooks);
-    addMetric("LZR.K21.KKR21.B29.MB", hooks);
-  }
   try {
     await hooks.loadData();
   } catch (_) {
