@@ -2,6 +2,7 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
+import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
 import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
@@ -55,12 +56,16 @@ export async function loadData(renderChart) {
   }
 
   applyAutoScaling(state.metrics, state.series);
+  renderMetricList({
+    renderChart,
+    loadData: () => loadData(renderChart),
+    renderCollapsedLegend,
+  });
   if (state.yAxisMode === "global") {
     try {
       await ensureGlobalYAxisRange();
     } catch (_) {}
   }
-  renderCollapsedLegend();
 
   dom.aggPointsEl.textContent = String(aggPoints);
   dom.rawPointsEl.textContent = String(rawPoints);
