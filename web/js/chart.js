@@ -244,29 +244,13 @@ export function renderChart() {
 
   for (const item of seriesList) {
     const { metric, series } = item;
-    const isComputed = Boolean(metric.expr);
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
-    ctx.setLineDash(isComputed ? [6, 4] : []);
 
     if (series.mode === "values") {
       const points = series.points || [];
       if (!metric.drawAvg || points.length === 0) continue;
-
-      if (isComputed) {
-        ctx.beginPath();
-        for (let i = 0; i < points.length; i += 1) {
-          const p = points[i];
-          const x = sx(p.t);
-          const y = sy(p.v * metric.factor);
-          if (i === 0) ctx.moveTo(x, y);
-          else ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-        continue;
-      }
 
       const radius = points.length > 2500 ? 1.2 : 1.8;
       for (let i = 0; i < points.length; i += 1) {
@@ -283,23 +267,21 @@ export function renderChart() {
     const points = series.aggregatePoints || [];
     if (points.length === 0) continue;
 
-    if (!isComputed) {
-      ctx.save();
-      ctx.globalAlpha = 0.2;
-      ctx.beginPath();
-      for (let i = 0; i < points.length; i += 1) {
-        const p = points[i];
-        if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
-        else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
-      }
-      for (let i = points.length - 1; i >= 0; i -= 1) {
-        const p = points[i];
-        ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
+      else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
     }
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      const p = points[i];
+      ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
 
     if (metric.drawAvg) {
       ctx.beginPath();
@@ -310,7 +292,6 @@ export function renderChart() {
       }
       ctx.stroke();
     }
-    ctx.setLineDash([]);
   }
 
   ctx.restore();
