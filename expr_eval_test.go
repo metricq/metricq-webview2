@@ -11,6 +11,8 @@ func TestParseExpressionSupportedForms(t *testing.T) {
 		"a-b",
 		"a*b",
 		"a/b",
+		"([a]+[b])/2",
+		"sum(a,b,3.5)",
 		"-a",
 		"log a",
 		"sum(a,b,c)",
@@ -26,6 +28,23 @@ func TestParseExpressionSupportedForms(t *testing.T) {
 		if node == nil {
 			t.Fatalf("parse returned nil node for %q", expr)
 		}
+	}
+}
+
+func TestEvalExpressionWithScalarLiteral(t *testing.T) {
+	inputs := map[string]map[int64]float64{
+		"a": {1000: 10, 2000: 20},
+	}
+	node, err := parseExpression("a/2")
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	got, err := evalExpression(node, inputs)
+	if err != nil {
+		t.Fatalf("eval failed: %v", err)
+	}
+	if got[1000] != 5 || got[2000] != 10 {
+		t.Fatalf("unexpected scalar division result: %#v", got)
 	}
 }
 
