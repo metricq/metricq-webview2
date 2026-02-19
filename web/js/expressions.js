@@ -205,7 +205,7 @@ function placeCaretAfterNode(node) {
   const next = node.nextSibling;
   if (next && next.nodeType === Node.TEXT_NODE) {
     const range = document.createRange();
-    range.setStart(next, 0);
+    range.setStart(next, next.textContent?.length || 0);
     range.collapse(true);
     const sel = window.getSelection();
     sel.removeAllRanges();
@@ -568,6 +568,14 @@ function maybeConvertTypedBracketExpression(event) {
 
 function maybePlaceCaretOutsideEdgeToken(event) {
   if (event.button !== 0) return;
+  const clickedToken = event.target?.closest?.(".expression-token");
+  if (clickedToken && dom.expressionInput.contains(clickedToken)) {
+    const rect = clickedToken.getBoundingClientRect();
+    event.preventDefault();
+    if (event.clientX < rect.left + rect.width / 2) placeCaretBeforeNode(clickedToken);
+    else placeCaretAfterNode(clickedToken);
+    return;
+  }
   if (event.target !== dom.expressionInput) return;
   const tokens = dom.expressionInput.querySelectorAll(".expression-token");
   if (tokens.length === 0) return;
