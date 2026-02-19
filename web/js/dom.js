@@ -67,6 +67,8 @@ export const dom = {
   expressionMetricHints: document.getElementById("expressionMetricHints"),
   expressionMetricPalette: document.getElementById("expressionMetricPalette"),
   btnSaveExpressionMetric: document.getElementById("btnSaveExpressionMetric"),
+  urlStateErrorModal: document.getElementById("urlStateErrorModal"),
+  urlStateErrorText: document.getElementById("urlStateErrorText"),
 };
 
 dom.ctx = dom.canvas.getContext("2d");

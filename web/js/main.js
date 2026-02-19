@@ -111,6 +111,15 @@ function applyResponsiveSidebarMode() {
   setSidebarCollapsed(false);
 }
 
+function showUrlStateErrorModal(message) {
+  const text = String(message || "").trim() || "Der Link-Status war ungültig und wurde entfernt.";
+  if (!dom.urlStateErrorModal || !dom.urlStateErrorText || !globalThis.bootstrap?.Modal) {
+    return;
+  }
+  dom.urlStateErrorText.textContent = text;
+  globalThis.bootstrap.Modal.getOrCreateInstance(dom.urlStateErrorModal).show();
+}
+
 function positionTimePopup() {
   const anchor = dom.btnTimeRange.getBoundingClientRect();
   const popup = dom.timePopup;
@@ -652,7 +661,7 @@ async function init() {
   const restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
   const urlStateError = consumeUrlStateError();
   if (urlStateError) {
-    window.alert(urlStateError);
+    showUrlStateErrorModal(urlStateError);
   }
   if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();

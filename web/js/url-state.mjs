@@ -11,8 +11,9 @@ let urlStateErrorMessage = "";
 
 function clearStateParamFromUrl() {
   const url = new URL(window.location.href);
-  if (!url.searchParams.has(URL_STATE_PARAM)) return;
-  url.searchParams.delete(URL_STATE_PARAM);
+  if (!url.searchParams.size && !url.hash) return;
+  url.search = "";
+  url.hash = "";
   history.replaceState(null, "", url);
 }
 
