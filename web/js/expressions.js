@@ -86,6 +86,8 @@ function normalizedDropRange(x, y) {
 function createTokenDragImage(label) {
   const text = String(label || "").trim() || "Metrik";
   const cappedText = text.length > 36 ? `${text.slice(0, 33)}...` : text;
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const isFirefox = /firefox/i.test(navigator.userAgent || "");
   const preview = document.createElement("span");
   preview.className = "expression-token expression-drag-preview";
   preview.textContent = cappedText;
@@ -95,15 +97,25 @@ function createTokenDragImage(label) {
   preview.style.margin = "0";
   preview.style.transform = "none";
   preview.style.zoom = "1";
+  if (isFirefox && dpr > 1) {
+    preview.style.fontSize = `${12 * dpr}px`;
+    preview.style.padding = `${0.02 * dpr}rem ${0.28 * dpr}rem`;
+    preview.style.borderWidth = `${dpr}px`;
+    preview.style.transform = `scale(${1 / dpr})`;
+    preview.style.transformOrigin = "top left";
+  }
   return preview;
 }
 
 function setTokenDragImage(event, label) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const isFirefox = /firefox/i.test(navigator.userAgent || "");
+  const hotspotScale = (isFirefox && dpr > 1) ? (1 / dpr) : 1;
   const image = createTokenDragImage(label);
   document.body.appendChild(image);
-  dataTransfer.setDragImage(image, 10, 10);
+  dataTransfer.setDragImage(image, Math.round(10 * hotspotScale), Math.round(10 * hotspotScale));
   window.setTimeout(() => image.remove(), 0);
 }
 
