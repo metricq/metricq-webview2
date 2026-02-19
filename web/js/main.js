@@ -33,13 +33,13 @@ import {
   updateRangeButtonLabel,
 } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
-import { applyStateFromUrl, scheduleUrlStateSync } from "./url-state.mjs";
+import { applyStateFromUrl, syncUrlStateNow } from "./url-state.mjs";
 
 const hooks = {
   renderChart,
-  loadData: () => loadData(renderChart, scheduleUrlStateSync),
+  loadData: () => loadData(renderChart, syncUrlStateNow),
   renderCollapsedLegend,
-  onStateChanged: scheduleUrlStateSync,
+  onStateChanged: syncUrlStateNow,
 };
 
 const presetTokenMap = {
