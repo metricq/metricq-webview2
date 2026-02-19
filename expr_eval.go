@@ -605,8 +605,6 @@ type tsValue struct {
 type metricCursor struct {
 	points []tsValue
 	index  int
-	value  float64
-	valid  bool
 }
 
 func sortedSeriesPoints(series map[int64]float64) []tsValue {
@@ -716,13 +714,15 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	for _, ts := range timestamps {
 		for _, metric := range metrics {
 			cursor := cursors[metric]
-			for cursor.index < len(cursor.points) && cursor.points[cursor.index].t <= ts {
-				cursor.value = cursor.points[cursor.index].v
-				cursor.valid = true
+			hasValues[metric] = false
+			if len(cursor.points) == 0 || ts < cursor.points[0].t {
+				continue
+			}
+			for cursor.index < len(cursor.points) && cursor.points[cursor.index].t < ts {
 				cursor.index++
 			}
-			if cursor.valid {
-				values[metric] = cursor.value
+			if cursor.index < len(cursor.points) {
+				values[metric] = cursor.points[cursor.index].v
 				hasValues[metric] = true
 			}
 		}

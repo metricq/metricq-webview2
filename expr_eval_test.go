@@ -140,7 +140,7 @@ func TestEvalExpressionFunctionsAndUnary(t *testing.T) {
 	}
 }
 
-func TestEvalExpressionUsesLastValueAcrossDifferentTimelines(t *testing.T) {
+func TestEvalExpressionUsesIntervalValueSincePreviousPoint(t *testing.T) {
 	inputs := map[string]map[int64]float64{
 		"a": {1000: 1, 2000: 2, 3000: 3},
 		"b": {2000: 20, 3000: 30, 4000: 40},
@@ -150,11 +150,32 @@ func TestEvalExpressionUsesLastValueAcrossDifferentTimelines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval failed: %v", err)
 	}
-	if len(got) != 3 {
+	if len(got) != 2 {
 		t.Fatalf("result size mismatch: %#v", got)
 	}
-	if got[2000] != 22 || got[3000] != 33 || got[4000] != 43 {
-		t.Fatalf("last-value merged values mismatch: %#v", got)
+	if got[2000] != 22 || got[3000] != 33 {
+		t.Fatalf("interval-semantics merged values mismatch: %#v", got)
+	}
+	if _, exists := got[4000]; exists {
+		t.Fatalf("did not expect extrapolation beyond last point: %#v", got)
+	}
+}
+
+func TestEvalExpressionDoesNotBackfillBeforeFirstPoint(t *testing.T) {
+	inputs := map[string]map[int64]float64{
+		"a": {1000: 1, 2000: 2},
+		"b": {2000: 20},
+	}
+	node, _ := parseExpression("a+b")
+	got, err := evalExpression(node, inputs)
+	if err != nil {
+		t.Fatalf("eval failed: %v", err)
+	}
+	if _, exists := got[1000]; exists {
+		t.Fatalf("did not expect value before first point of all dependencies: %#v", got)
+	}
+	if got[2000] != 22 {
+		t.Fatalf("expected merged value at 2000, got: %#v", got)
 	}
 }
 
