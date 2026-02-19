@@ -4,6 +4,7 @@ import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
+import { buildQueryTargets } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 
@@ -30,7 +31,7 @@ export async function loadData(renderChart) {
   }
 
   const req = {
-    metrics: state.metrics.map((m) => m.name),
+    targets: buildQueryTargets(state.metrics),
     from: state.from,
     to: state.to,
     maxDataPoints: computeMaxDataPoints(),

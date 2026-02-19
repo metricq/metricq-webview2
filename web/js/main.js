@@ -4,6 +4,7 @@ import { loadData } from "./data.js";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
+import { wireExpressionModal } from "./expressions.js";
 import {
   addMetric,
   clearMetrics,
@@ -279,6 +280,8 @@ function commitDragZoom() {
 }
 
 function wireEvents() {
+  wireExpressionModal(hooks);
+
   dom.btnShiftBack.addEventListener("click", () => {
     shiftRangeByFactor(-0.5);
     hooks.loadData();

@@ -196,3 +196,24 @@
 #metricsCol.compact-sidebar-mode.sidebar-overlay-open .metrics-card {
     display: flex;
 }
+
+.expression-input.expression-drop-target {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.expression-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    max-height: 190px;
+    overflow: auto;
+}
+
+.expression-chip {
+    max-width: 100%;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

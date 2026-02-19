@@ -88,6 +88,9 @@
                 <div class="input-group input-group-sm">
                   <input type="text" class="form-control" id="metricSearch" placeholder="Metrik suchen" />
                   <button class="btn btn-primary" id="btnAddMetric"><i class="bi bi-plus-lg"></i></button>
+                  <button class="btn btn-outline-primary" id="btnAddExpressionMetric" title="Berechnete Metrik hinzufügen">
+                    <i class="bi bi-fx"></i>
+                  </button>
                 </div>
                 <div id="metricHints" class="metric-hints"></div>
                 <ul class="list-group list-group-flush overflow-auto" id="metricList"></ul>
@@ -289,6 +292,38 @@
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
             <button class="btn btn-primary" id="btnApplyFactor">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Berechnete Metrik hinzufügen</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body d-grid gap-3">
+            <div>
+              <label class="form-label" for="expressionMetricName">Name</label>
+              <input id="expressionMetricName" class="form-control" placeholder="z.B. rack4.total.power" />
+            </div>
+            <div>
+              <label class="form-label" for="expressionInput">Ausdruck</label>
+              <textarea id="expressionInput" class="form-control expression-input" rows="3" placeholder="[metric.a] + [metric.b]"></textarea>
+              <div class="form-text">
+                Erlaubt: +, -, *, /, -a, log a, min(...), max(...), sum(...). Metriken als <code>[name]</code>.
+              </div>
+            </div>
+            <div>
+              <div class="small text-muted mb-1">Verfügbare Metriken (klicken oder ziehen)</div>
+              <div id="expressionMetricPalette" class="expression-palette"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button class="btn btn-primary" id="btnSaveExpressionMetric">Hinzufügen</button>
           </div>
         </div>
       </div>

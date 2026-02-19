@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -70,7 +72,12 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if len(req.Metrics) == 0 || req.ToUnixMS <= req.FromUnixMS {
+	targets, err := resolveQueryTargets(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(targets) == 0 || req.ToUnixMS <= req.FromUnixMS {
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -78,22 +85,175 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
 	defer cancel()
 
-	results := make([]apiQuerySeries, len(req.Metrics))
-	waitGroupRun(req.Metrics, func(i int, metric string) {
-		metric = strings.TrimSpace(metric)
-		if metric == "" {
-			results[i] = apiQuerySeries{Metric: metric, Error: "empty metric"}
+	type evalTarget struct {
+		name         string
+		sourceMetric string
+		expr         string
+		root         exprNode
+		parseErr     error
+		dependencies []string
+	}
+
+	planned := make([]evalTarget, len(targets))
+	sourceMetricSet := map[string]struct{}{}
+	for i, target := range targets {
+		planned[i] = evalTarget{
+			name:         target.Name,
+			sourceMetric: target.Metric,
+			expr:         target.Expr,
+		}
+		if target.Expr == "" {
+			sourceMetricSet[target.Metric] = struct{}{}
+			continue
+		}
+		root, parseErr := parseExpression(target.Expr)
+		if parseErr != nil {
+			planned[i].parseErr = parseErr
+			continue
+		}
+		deps := metricsInExpression(root)
+		planned[i].root = root
+		planned[i].dependencies = deps
+		for _, metric := range deps {
+			sourceMetricSet[metric] = struct{}{}
+		}
+	}
+
+	sourceMetrics := make([]string, 0, len(sourceMetricSet))
+	for metric := range sourceMetricSet {
+		sourceMetrics = append(sourceMetrics, metric)
+	}
+	sort.Strings(sourceMetrics)
+
+	sourceSeries := map[string]apiQuerySeries{}
+	sourceValueMaps := map[string]map[int64]float64{}
+	sourceErrs := map[string]string{}
+	var mu sync.Mutex
+	waitGroupRun(sourceMetrics, func(_ int, metric string) {
+		hr, duration, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
+		if qErr != nil {
+			mu.Lock()
+			sourceErrs[metric] = qErr.Error()
+			mu.Unlock()
 			return
 		}
-		hr, duration, err := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
-		if err != nil {
-			results[i] = apiQuerySeries{Metric: metric, Error: err.Error()}
-			return
+		series := historyToSeries(metric, hr, duration)
+		mu.Lock()
+		sourceSeries[metric] = series
+		if series.Error != "" {
+			sourceErrs[metric] = series.Error
+		} else {
+			sourceValueMaps[metric] = seriesToValueMap(series)
 		}
-		results[i] = historyToSeries(metric, hr, duration)
+		mu.Unlock()
 	})
 
+	results := make([]apiQuerySeries, len(planned))
+	for i, target := range planned {
+		if target.expr == "" {
+			base, ok := sourceSeries[target.sourceMetric]
+			if !ok {
+				results[i] = apiQuerySeries{Metric: target.name, Error: sourceErrs[target.sourceMetric]}
+				continue
+			}
+			base.Metric = target.name
+			results[i] = base
+			continue
+		}
+		if target.parseErr != nil {
+			results[i] = apiQuerySeries{
+				Metric: target.name,
+				Error:  fmt.Sprintf("invalid expression: %v", target.parseErr),
+			}
+			continue
+		}
+
+		inputs := make(map[string]map[int64]float64, len(target.dependencies))
+		depDuration := 0.0
+		missingMetric := ""
+		missingErr := ""
+		for _, metric := range target.dependencies {
+			if errText := strings.TrimSpace(sourceErrs[metric]); errText != "" {
+				missingMetric = metric
+				missingErr = errText
+				break
+			}
+			values, ok := sourceValueMaps[metric]
+			if !ok {
+				missingMetric = metric
+				missingErr = "missing source series"
+				break
+			}
+			inputs[metric] = values
+			if src, ok := sourceSeries[metric]; ok && src.Duration > depDuration {
+				depDuration = src.Duration
+			}
+		}
+		if missingMetric != "" {
+			results[i] = apiQuerySeries{
+				Metric: target.name,
+				Error:  fmt.Sprintf("source metric %q failed: %s", missingMetric, missingErr),
+			}
+			continue
+		}
+
+		values, evalErr := evalExpression(target.root, inputs)
+		if evalErr != nil {
+			results[i] = apiQuerySeries{
+				Metric: target.name,
+				Error:  fmt.Sprintf("failed to evaluate expression: %v", evalErr),
+			}
+			continue
+		}
+		results[i] = valuesToAggregateSeries(target.name, values, depDuration)
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"series": results})
+}
+
+func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
+	if len(req.Targets) == 0 {
+		targets := make([]apiQueryTarget, 0, len(req.Metrics))
+		for _, metric := range req.Metrics {
+			trimmed := strings.TrimSpace(metric)
+			if trimmed == "" {
+				continue
+			}
+			targets = append(targets, apiQueryTarget{Name: trimmed, Metric: trimmed})
+		}
+		return targets, nil
+	}
+
+	targets := make([]apiQueryTarget, 0, len(req.Targets))
+	seenNames := map[string]struct{}{}
+	for _, raw := range req.Targets {
+		name := strings.TrimSpace(raw.Name)
+		metric := strings.TrimSpace(raw.Metric)
+		expr := strings.TrimSpace(raw.Expr)
+		if metric == "" && expr == "" {
+			return nil, fmt.Errorf("target requires metric or expr")
+		}
+		if metric != "" && expr != "" {
+			return nil, fmt.Errorf("target %q has both metric and expr", name)
+		}
+		if name == "" {
+			if metric != "" {
+				name = metric
+			} else {
+				name = expr
+			}
+		}
+		if _, exists := seenNames[name]; exists {
+			return nil, fmt.Errorf("duplicate target name %q", name)
+		}
+		seenNames[name] = struct{}{}
+		targets = append(targets, apiQueryTarget{
+			Name:   name,
+			Metric: metric,
+			Expr:   expr,
+		})
+	}
+	return targets, nil
 }
 
 func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {

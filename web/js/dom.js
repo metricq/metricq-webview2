@@ -43,6 +43,7 @@ export const dom = {
   relativeUnit: document.getElementById("relativeUnit"),
   relativePreview: document.getElementById("relativePreview"),
   btnAddMetric: document.getElementById("btnAddMetric"),
+  btnAddExpressionMetric: document.getElementById("btnAddExpressionMetric"),
   btnHideAll: document.getElementById("btnHideAll"),
   btnShowAll: document.getElementById("btnShowAll"),
   btnClear: document.getElementById("btnClear"),
@@ -55,6 +56,11 @@ export const dom = {
   factorMetricName: document.getElementById("factorMetricName"),
   factorInput: document.getElementById("factorInput"),
   btnApplyFactor: document.getElementById("btnApplyFactor"),
+  expressionMetricModal: document.getElementById("expressionMetricModal"),
+  expressionMetricName: document.getElementById("expressionMetricName"),
+  expressionInput: document.getElementById("expressionInput"),
+  expressionMetricPalette: document.getElementById("expressionMetricPalette"),
+  btnSaveExpressionMetric: document.getElementById("btnSaveExpressionMetric"),
 };
 
 dom.ctx = dom.canvas.getContext("2d");

@@ -86,10 +86,17 @@ type metricLookupRequest struct {
 }
 
 type apiQueryRequest struct {
-	Metrics       []string `json:"metrics"`
-	FromUnixMS    int64    `json:"from"`
-	ToUnixMS      int64    `json:"to"`
-	MaxDataPoints int      `json:"maxDataPoints"`
+	Targets       []apiQueryTarget `json:"targets,omitempty"`
+	Metrics       []string         `json:"metrics,omitempty"`
+	FromUnixMS    int64            `json:"from"`
+	ToUnixMS      int64            `json:"to"`
+	MaxDataPoints int              `json:"maxDataPoints"`
+}
+
+type apiQueryTarget struct {
+	Name   string `json:"name,omitempty"`
+	Metric string `json:"metric,omitempty"`
+	Expr   string `json:"expr,omitempty"`
 }
 
 type apiQuerySeries struct {

@@ -19,6 +19,7 @@ export function addMetric(name, hooks) {
   if (!name || metricByName(name)) return;
   state.metrics.push({
     name,
+    expr: "",
     color: colors[state.metrics.length % colors.length],
     draw: true,
     drawAvg: true,
@@ -31,6 +32,27 @@ export function addMetric(name, hooks) {
   renderMetricList(hooks);
   hooks.loadData();
   fetchMetadata(name, hooks);
+}
+
+export function addExpressionMetric(name, expr, hooks) {
+  const metricName = String(name || "").trim();
+  const metricExpr = String(expr || "").trim();
+  if (!metricName || !metricExpr || metricByName(metricName)) return false;
+  state.metrics.push({
+    name: metricName,
+    expr: metricExpr,
+    color: colors[state.metrics.length % colors.length],
+    draw: true,
+    drawAvg: true,
+    factor: 1,
+    factorMode: "auto",
+    unit: "",
+    displayUnit: "",
+    description: "Berechnete Metrik",
+  });
+  renderMetricList(hooks);
+  hooks.loadData();
+  return true;
 }
 
 export function removeMetric(name, hooks) {
@@ -143,7 +165,8 @@ export function renderMetricList(hooks) {
     const factorSuffix = shownFactor ? ` x${shownFactor}` : "";
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";
-    mainText.textContent = metric.name + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
+    const formulaPrefix = metric.expr ? "ƒ " : "";
+    mainText.textContent = formulaPrefix + metric.name + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
@@ -151,6 +174,12 @@ export function renderMetricList(hooks) {
       desc.className = "metric-name-desc";
       desc.textContent = description;
       center.appendChild(desc);
+    }
+    if (metric.expr) {
+      const expr = document.createElement("div");
+      expr.className = "metric-name-desc";
+      expr.textContent = metric.expr;
+      center.appendChild(expr);
     }
     center.title = metric.description || metric.name;
 
