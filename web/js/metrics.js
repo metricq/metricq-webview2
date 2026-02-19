@@ -121,6 +121,7 @@ export async function fetchMetadata(name, hooks) {
     if (metric.factorMode !== "manual") metric.displayUnit = metric.unit;
     metric.description = String(body.metadata.description || "");
     applyAutoScaling(state.metrics, state.series);
+    applyPendingLegacyPostFactors();
     const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
     const factorsChanged = state.metrics.some((m) => {
       const before = beforeFactors.get(m.name);
@@ -134,6 +135,17 @@ export async function fetchMetadata(name, hooks) {
       hooks.loadData();
     }
   } catch (_) {}
+}
+
+function applyPendingLegacyPostFactors() {
+  for (const metric of state.metrics) {
+    const post = Number(metric.legacyPostFactor);
+    if (!Number.isFinite(post) || metric.legacyPostFactorApplied) continue;
+    metric.factor = (Number(metric.factor) || 1) * post;
+    metric.factorMode = "manual";
+    metric.displayUnit = metric.displayUnit || metric.unit || "";
+    metric.legacyPostFactorApplied = true;
+  }
 }
 
 export async function searchMetricHints(query) {

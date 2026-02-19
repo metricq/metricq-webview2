@@ -225,11 +225,12 @@ function parseLegacyMetricToken(token, index) {
     unit: "",
     displayUnit: "",
     description: "",
+    legacyPostFactor: null,
+    legacyPostFactorApplied: false,
   };
   const factor = Number(factorRaw);
   if (Number.isFinite(factor) && Math.abs(factor - 1) > 1e-12) {
-    metric.factor = factor;
-    metric.factorMode = "manual";
+    metric.legacyPostFactor = factor;
   }
   return metric;
 }
