@@ -235,6 +235,10 @@
     cursor: grabbing;
 }
 
+.expression-drag-preview {
+    font-size: 12px !important;
+}
+
 .expression-token-hover {
     position: fixed;
     z-index: 1090;

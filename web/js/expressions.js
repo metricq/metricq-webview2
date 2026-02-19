@@ -86,47 +86,24 @@ function normalizedDropRange(x, y) {
 function createTokenDragImage(label) {
   const text = String(label || "").trim() || "Metrik";
   const cappedText = text.length > 36 ? `${text.slice(0, 33)}...` : text;
-  const probeCanvas = document.createElement("canvas");
-  const probe = probeCanvas.getContext("2d");
-  probe.font = "12px sans-serif";
-  const textWidth = Math.ceil(probe.measureText(cappedText).width);
-  const width = Math.max(54, Math.min(240, textWidth + 18));
-  const height = 22;
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
-  const isFirefox = /firefox/i.test(navigator.userAgent || "");
-  const escaped = cappedText
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll("\"", "&quot;")
-    .replaceAll("'", "&#39;");
-  const svg = document.createElement("div");
-  svg.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-      <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="5" ry="5" fill="#e7f1ff" stroke="#0d6efd" stroke-width="1"/>
-      <text x="9" y="${Math.floor(height / 2) + 0.5}" fill="#084298" font-size="12" font-family="sans-serif" dominant-baseline="middle">${escaped}</text>
-    </svg>
-  `.trim();
-  const node = svg.firstElementChild;
-  node.style.position = "fixed";
-  node.style.left = "-10000px";
-  node.style.top = "-10000px";
-  if (isFirefox && dpr > 1) {
-    node.style.transform = `scale(${1 / dpr})`;
-    node.style.transformOrigin = "top left";
-  }
-  return node;
+  const preview = document.createElement("span");
+  preview.className = "expression-token expression-drag-preview";
+  preview.textContent = cappedText;
+  preview.style.position = "fixed";
+  preview.style.left = "-10000px";
+  preview.style.top = "-10000px";
+  preview.style.margin = "0";
+  preview.style.transform = "none";
+  preview.style.zoom = "1";
+  return preview;
 }
 
 function setTokenDragImage(event, label) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
-  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
-  const isFirefox = /firefox/i.test(navigator.userAgent || "");
-  const hotspotScale = (isFirefox && dpr > 1) ? (1 / dpr) : 1;
   const image = createTokenDragImage(label);
   document.body.appendChild(image);
-  dataTransfer.setDragImage(image, Math.round(10 * hotspotScale), Math.round(10 * hotspotScale));
+  dataTransfer.setDragImage(image, 10, 10);
   window.setTimeout(() => image.remove(), 0);
 }
 
