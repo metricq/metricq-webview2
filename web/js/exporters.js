@@ -42,6 +42,13 @@ function formatFactor(value) {
   return num.toPrecision(6).replace(/\.?0+$/, "");
 }
 
+function shownMetricFactor(metric) {
+  if (metric.factorMode === "manual") return formatFactor(metric.factor);
+  const post = Number(metric.legacyPostFactor);
+  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  return null;
+}
+
 function drawLegend(ctx, cssWidth, cssHeight) {
   const visible = state.metrics.filter((m) => m.draw);
   if (visible.length === 0) return;
@@ -55,7 +62,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
 
   const rows = visible.map((metric) => {
     const unit = metric.displayUnit || metric.unit || "";
-    const factor = metric.factorMode === "manual" ? formatFactor(metric.factor) : null;
+    const factor = shownMetricFactor(metric);
     const main = `${metric.name}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
     const desc = String(metric.description || "").trim();
     return { metric, main, desc };

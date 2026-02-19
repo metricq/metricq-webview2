@@ -8,6 +8,13 @@ function formatFactor(value) {
   return num.toPrecision(6).replace(/\.?0+$/, "");
 }
 
+function shownMetricFactor(metric) {
+  if (metric.factorMode === "manual") return formatFactor(metric.factor);
+  const post = Number(metric.legacyPostFactor);
+  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  return null;
+}
+
 function truncateMiddle(text, maxLen) {
   const raw = String(text || "");
   if (raw.length <= maxLen) return raw;
@@ -44,7 +51,7 @@ export function renderCollapsedLegend() {
     const label = document.createElement("div");
     label.className = "collapsed-legend-main";
     const unit = metric.displayUnit || metric.unit || "";
-    const factor = metric.factorMode === "manual" ? formatFactor(metric.factor) : null;
+    const factor = shownMetricFactor(metric);
     label.textContent = metric.name + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
     labelWrap.appendChild(label);
 

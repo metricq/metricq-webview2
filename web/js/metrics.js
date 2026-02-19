@@ -15,6 +15,13 @@ function formatFactor(value) {
   return num.toPrecision(6).replace(/\.?0+$/, "");
 }
 
+function shownMetricFactor(metric) {
+  if (metric.factorMode === "manual") return formatFactor(metric.factor);
+  const post = Number(metric.legacyPostFactor);
+  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  return null;
+}
+
 export function addMetric(name, hooks) {
   if (!name || metricByName(name)) return;
   state.metrics.push({
@@ -213,7 +220,7 @@ export function renderMetricList(hooks) {
     const center = document.createElement("div");
     center.className = "metric-name";
     const shownUnit = metric.displayUnit || metric.unit;
-    const shownFactor = metric.factorMode === "manual" ? formatFactor(metric.factor) : null;
+    const shownFactor = shownMetricFactor(metric);
     const factorSuffix = shownFactor ? ` x${shownFactor}` : "";
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";

@@ -19,6 +19,13 @@ function formatFactor(value) {
   return num.toPrecision(6).replace(/\.?0+$/, "");
 }
 
+function shownMetricFactor(metric) {
+  if (metric.factorMode === "manual") return formatFactor(metric.factor);
+  const post = Number(metric.legacyPostFactor);
+  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  return null;
+}
+
 function ensureHoverPointEl() {
   if (hoverPointEl) return hoverPointEl;
   hoverPointEl = document.createElement("div");
@@ -482,9 +489,7 @@ function renderHoverAt(clientX, clientY) {
   }
 
   const shownUnit = selected.metric.displayUnit || selected.metric.unit;
-  const factor = selected.metric.factorMode === "manual"
-    ? formatFactor(selected.metric.factor)
-    : null;
+  const factor = shownMetricFactor(selected.metric);
   const factorText = factor ? ` x${factor}` : "";
   const rowHtml = `<div><span style=\"display:inline-block;width:10px;height:10px;background:${selected.metric.color};margin-right:6px\"></span>${selected.metric.name}${factorText}: <strong>${selected.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
   dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
