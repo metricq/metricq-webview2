@@ -37,22 +37,23 @@ function sanitizeMetricEntry(raw, index) {
     draw,
     drawAvg: true,
     factor: 1,
+    manualFactor: 1,
     factorMode: "auto",
     unit: "",
     displayUnit: "",
     description: expr || "",
-    legacyPostFactor: null,
   };
 
   const factor = Number(raw?.f);
   if (String(raw?.fm || "") === "manual" && Number.isFinite(factor)) {
-    metric.factor = factor;
+    metric.manualFactor = factor;
     metric.factorMode = "manual";
-  }
-  if (raw?.pf != null) {
+  } else if (raw?.pf != null) {
+    // Backward compatibility with older links using `pf`.
     const postFactor = Number(raw.pf);
-    if (Number.isFinite(postFactor) && Math.abs(postFactor - 1) > 1e-12) {
-      metric.legacyPostFactor = postFactor;
+    if (Number.isFinite(postFactor)) {
+      metric.manualFactor = postFactor;
+      metric.factorMode = "manual";
     }
   }
 
@@ -69,16 +70,10 @@ function serializeMetricEntry(metric, index) {
   if (!metric.draw) entry.h = 1;
 
   if (metric.factorMode === "manual") {
-    const factor = Number(metric.factor);
+    const factor = Number(metric.manualFactor);
     if (Number.isFinite(factor) && Math.abs(factor - 1) > 1e-12) {
       entry.fm = "manual";
       entry.f = Number(factor.toPrecision(12));
-    }
-  }
-  if (metric.legacyPostFactor != null) {
-    const postFactor = Number(metric.legacyPostFactor);
-    if (Number.isFinite(postFactor) && Math.abs(postFactor - 1) > 1e-12) {
-      entry.pf = Number(postFactor.toPrecision(12));
     }
   }
 
@@ -234,15 +229,16 @@ function parseLegacyMetricToken(token, index) {
     draw: true,
     drawAvg: true,
     factor: 1,
+    manualFactor: 1,
     factorMode: "auto",
     unit: "",
     displayUnit: "",
     description: "",
-    legacyPostFactor: null,
   };
   const factor = Number(factorRaw);
   if (Number.isFinite(factor) && Math.abs(factor - 1) > 1e-12) {
-    metric.legacyPostFactor = factor;
+    metric.factorMode = "manual";
+    metric.manualFactor = factor;
   }
   return metric;
 }

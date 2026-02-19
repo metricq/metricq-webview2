@@ -121,36 +121,28 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
   for (const refName of refs) {
     const localMetric = byName.get(refName);
     if (localMetric) {
-      const localFactor = Number(localMetric.factor);
-      if (Number.isFinite(localFactor) && Math.abs(localFactor - 1) > 1e-12) {
-        refEntries.push({ name: refName, explicitFactor: localFactor });
-        continue;
-      }
       const unit = String(localMetric.unit || "").trim();
       const displayUnit = String(localMetric.displayUnit || "").trim();
+      const manual = localMetric.factorMode === "manual"
+        ? Number(localMetric.manualFactor)
+        : 1;
       refEntries.push({
         name: refName,
         parsedUnit: parseUnit(unit),
         displayParsed: parseUnit(displayUnit),
+        manualFactor: Number.isFinite(manual) ? manual : 1,
       });
       continue;
     }
 
     const unit = await resolveMetricUnit(refName, fetchMetricUnit);
-    refEntries.push({ name: refName, parsedUnit: parseUnit(unit), displayParsed: null });
+    refEntries.push({ name: refName, parsedUnit: parseUnit(unit), displayParsed: null, manualFactor: 1 });
   }
 
   const factorMap = new Map();
 
-  for (const ref of refEntries) {
-    if (Number.isFinite(ref.explicitFactor)) {
-      factorMap.set(ref.name, ref.explicitFactor);
-    }
-  }
-
   const families = new Map();
   for (const ref of refEntries) {
-    if (factorMap.has(ref.name)) continue;
     const family = ref.parsedUnit?.family;
     if (!family) continue;
     if (!families.has(family)) families.set(family, []);
@@ -161,7 +153,15 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
     const targetExp = pickTargetExp(refsInFamily);
     if (!Number.isFinite(targetExp)) continue;
     for (const ref of refsInFamily) {
-      factorMap.set(ref.name, computeFactorByUnit(ref, targetExp));
+      factorMap.set(ref.name, computeFactorByUnit(ref, targetExp) * (ref.manualFactor || 1));
+    }
+  }
+
+  for (const ref of refEntries) {
+    if (factorMap.has(ref.name)) continue;
+    const manual = Number(ref.manualFactor);
+    if (Number.isFinite(manual) && Math.abs(manual - 1) > 1e-12) {
+      factorMap.set(ref.name, manual);
     }
   }
 

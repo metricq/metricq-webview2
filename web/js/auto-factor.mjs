@@ -93,15 +93,18 @@ function chooseTargetExp(candidates) {
 }
 
 export function applyAutoScaling(metrics, seriesMap) {
+  const manualFactors = new Map();
   for (const metric of metrics) {
-    if (metric.factorMode === "manual") continue;
+    if (metric.factorMode === "manual") {
+      const manual = Number(metric.manualFactor);
+      manualFactors.set(metric.name, Number.isFinite(manual) ? manual : 1);
+    }
     metric.factor = 1;
     metric.displayUnit = metric.unit || "";
   }
 
   const groups = new Map();
   for (const metric of metrics) {
-    if (metric.factorMode === "manual") continue;
     const parsed = parseUnit(metric.unit);
     if (!parsed) continue;
     const rep = representativeMagnitude(seriesMap.get(metric.name));
@@ -117,5 +120,12 @@ export function applyAutoScaling(metrics, seriesMap) {
       item.metric.factor = 10 ** (item.exp - targetExp);
       item.metric.displayUnit = targetUnit;
     }
+  }
+
+  for (const metric of metrics) {
+    if (metric.factorMode !== "manual") continue;
+    const manual = manualFactors.get(metric.name);
+    if (!Number.isFinite(manual)) continue;
+    metric.factor *= manual;
   }
 }

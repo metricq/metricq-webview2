@@ -16,9 +16,7 @@ function formatFactor(value) {
 }
 
 function shownMetricFactor(metric) {
-  if (metric.factorMode === "manual") return formatFactor(metric.factor);
-  const post = Number(metric.legacyPostFactor);
-  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  if (metric.factorMode === "manual") return formatFactor(metric.manualFactor);
   return null;
 }
 
@@ -31,8 +29,8 @@ export function addMetric(name, hooks) {
     draw: true,
     drawAvg: true,
     factor: 1,
+    manualFactor: 1,
     factorMode: "auto",
-    legacyPostFactor: null,
     unit: "",
     displayUnit: "",
     description: "",
@@ -54,8 +52,8 @@ export function addExpressionMetric(name, expr, hooks) {
     draw: true,
     drawAvg: true,
     factor: 1,
+    manualFactor: 1,
     factorMode: "auto",
-    legacyPostFactor: null,
     unit: "",
     displayUnit: "",
     description: metricExpr,
@@ -127,10 +125,8 @@ export async function fetchMetadata(name, hooks) {
     if (!metric) return;
     const beforeFactors = new Map(state.metrics.map((m) => [m.name, Number(m.factor) || 1]));
     metric.unit = normalizeSIUnit(body?.metadata?.unit);
-    if (metric.factorMode !== "manual") metric.displayUnit = metric.unit;
     metric.description = String(body.metadata.description || "");
     applyAutoScaling(state.metrics, state.series);
-    applyLegacyPostFactors();
     const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
     const factorsChanged = state.metrics.some((m) => {
       const before = beforeFactors.get(m.name);
@@ -144,16 +140,6 @@ export async function fetchMetadata(name, hooks) {
       hooks.loadData();
     }
   } catch (_) {}
-}
-
-export function applyLegacyPostFactors() {
-  for (const metric of state.metrics) {
-    if (metric.legacyPostFactor == null || metric.factorMode === "manual") continue;
-    const post = Number(metric.legacyPostFactor);
-    if (!Number.isFinite(post)) continue;
-    metric.factor = (Number(metric.factor) || 1) * post;
-    metric.displayUnit = metric.displayUnit || metric.unit || "";
-  }
 }
 
 export async function searchMetricHints(query) {
@@ -280,7 +266,7 @@ function openFactorModal(metricName) {
   if (!metric) return;
   factorMetricName = metricName;
   dom.factorMetricName.textContent = metricName;
-  dom.factorInput.value = String(metric.factor ?? 1);
+  dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
   if (globalThis.bootstrap?.Modal) {
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).show();
   }
@@ -290,9 +276,9 @@ export function applyFactorFromModal(hooks) {
   if (!factorMetricName) return;
   const metric = metricByName(factorMetricName);
   if (!metric) return;
-  metric.factor = sanitizeFactor(dom.factorInput.value, metric.factor || 1);
+  metric.manualFactor = sanitizeFactor(dom.factorInput.value, metric.manualFactor || 1);
   metric.factorMode = "manual";
-  metric.displayUnit = metric.unit || "";
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
   hooks.onStateChanged?.();

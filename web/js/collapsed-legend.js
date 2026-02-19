@@ -9,9 +9,7 @@ function formatFactor(value) {
 }
 
 function shownMetricFactor(metric) {
-  if (metric.factorMode === "manual") return formatFactor(metric.factor);
-  const post = Number(metric.legacyPostFactor);
-  if (Number.isFinite(post) && Math.abs(post - 1) > 1e-12) return formatFactor(post);
+  if (metric.factorMode === "manual") return formatFactor(metric.manualFactor);
   return null;
 }
 

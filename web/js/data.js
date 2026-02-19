@@ -3,7 +3,7 @@ import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { deriveExpressionUnits } from "./expression-units.mjs";
-import { applyLegacyPostFactors, renderMetricList } from "./metrics.js";
+import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
@@ -63,7 +63,6 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
 
   deriveExpressionUnits(state.metrics);
   applyAutoScaling(state.metrics, state.series);
-  applyLegacyPostFactors();
   renderMetricList({
     renderChart,
     loadData: () => loadData(renderChart, onStateChanged),

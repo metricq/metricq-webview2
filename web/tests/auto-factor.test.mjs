@@ -22,7 +22,7 @@ test("applyAutoScaling aligns W and kW to a shared readable SI unit", () => {
 
 test("applyAutoScaling does not override manual factors", () => {
   const metrics = [
-    { name: "a", unit: "W", factor: 2, factorMode: "manual", displayUnit: "W" },
+    { name: "a", unit: "W", factor: 1, manualFactor: 2, factorMode: "manual", displayUnit: "W" },
     { name: "b", unit: "kW", factor: 1, factorMode: "auto", displayUnit: "kW" },
   ];
   const series = new Map([
@@ -32,10 +32,11 @@ test("applyAutoScaling does not override manual factors", () => {
 
   applyAutoScaling(metrics, series);
 
+  assert.equal(metrics[0].manualFactor, 2);
   assert.equal(metrics[0].factor, 2);
   assert.equal(metrics[0].displayUnit, "W");
-  assert.equal(metrics[1].displayUnit, "kW");
-  assert.equal(metrics[1].factor, 1);
+  assert.equal(metrics[1].displayUnit, "W");
+  assert.equal(metrics[1].factor, 1000);
 });
 
 test("applyAutoScaling scales single auto metric to a readable unit", () => {

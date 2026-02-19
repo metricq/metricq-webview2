@@ -141,10 +141,10 @@ test("auto-factor case matrix", async (t) => {
       },
     },
     {
-      name: "manual metric is never rewritten",
+      name: "manual factor is applied on top of normalization",
       input: {
         metrics: [
-          { name: "manual", unit: "W", factor: 42, factorMode: "manual", displayUnit: "W" },
+          { name: "manual", unit: "W", factor: 1, manualFactor: 42, factorMode: "manual", displayUnit: "W" },
           { name: "auto", unit: "kW", factor: 1, factorMode: "auto", displayUnit: "kW" },
         ],
         series: [
@@ -153,7 +153,7 @@ test("auto-factor case matrix", async (t) => {
         ],
       },
       expect: {
-        manual: { displayUnit: "W", factor: 42 },
+        manual: { displayUnit: "kW", factor: 0.042, manualFactor: 42 },
         auto: { displayUnit: "kW", factor: 1 },
       },
     },
@@ -248,6 +248,9 @@ test("auto-factor case matrix", async (t) => {
         assert.ok(metric, `metric '${metricName}' should exist`);
         assert.equal(metric.displayUnit, exp.displayUnit, `${metricName} displayUnit`);
         assert.equal(metric.factor, exp.factor, `${metricName} factor`);
+        if (Object.prototype.hasOwnProperty.call(exp, "manualFactor")) {
+          assert.equal(metric.manualFactor, exp.manualFactor, `${metricName} manualFactor`);
+        }
       }
     });
   }
