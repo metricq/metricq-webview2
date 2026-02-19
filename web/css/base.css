@@ -1,0 +1,94 @@
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
+:root {
+  --bg: #eff2f7;
+  --grid: #d9dee8;
+  --fg-soft: #667085;
+  --chart-bg: #ffffff;
+}
+
+body {
+  background: radial-gradient(circle at 15% 0%, #e6edf8, var(--bg) 40%);
+  min-height: 100dvh;
+  margin: 0;
+}
+
+.app-shell {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-controls {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-wrap: nowrap;
+}
+
+.top-controls > * {
+  flex: 0 0 auto;
+}
+
+.top-controls .form-check.form-switch {
+  display: inline-flex;
+  align-items: center;
+  padding-left: 0;
+  margin-bottom: 0;
+}
+
+.top-controls .form-check.form-switch .form-check-input {
+  float: none;
+  margin-top: 0;
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+.app-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-content {
+  height: 100%;
+  min-height: 0;
+  position: relative;
+}
+
+.min-h-0 {
+  min-height: 0;
+}
+
+.time-popup {
+  position: fixed;
+  z-index: 1100;
+  width: min(980px, calc(100vw - 16px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+}
+
+.time-dialog-grid {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 360px;
+}
+
+.time-dialog-left {
+  background: #f8f9fc;
+}
+
+.time-quick-list {
+  max-height: 300px;
+  overflow: auto;
+}
+
+@media (max-width: 900px) {
+  .time-dialog-grid {
+    grid-template-columns: 1fr;
+  }
+}

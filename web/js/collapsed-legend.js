@@ -1,0 +1,57 @@
+import { dom } from "./dom.js";
+import { state } from "./model.js";
+
+function formatFactor(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  if (Math.abs(num - 1) < 1e-12) return null;
+  return num.toPrecision(6).replace(/\.?0+$/, "");
+}
+
+export function renderCollapsedLegend() {
+  const host = dom.collapsedLegend;
+  if (!host) return;
+  host.innerHTML = "";
+
+  if (!state.sidebarCollapsed) {
+    host.classList.add("d-none");
+    return;
+  }
+
+  const visible = state.metrics.filter((m) => m.draw);
+  if (visible.length === 0) {
+    host.classList.add("d-none");
+    return;
+  }
+
+  for (const metric of visible) {
+    const row = document.createElement("div");
+    row.className = "collapsed-legend-item";
+
+    const swatch = document.createElement("span");
+    swatch.className = "collapsed-legend-color";
+    swatch.style.background = metric.color;
+
+    const labelWrap = document.createElement("div");
+    labelWrap.className = "collapsed-legend-label";
+    const label = document.createElement("div");
+    label.className = "collapsed-legend-main";
+    const unit = metric.displayUnit || metric.unit || "";
+    const factor = metric.factorMode === "manual" ? formatFactor(metric.factor) : null;
+    label.textContent = metric.name + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
+    labelWrap.appendChild(label);
+
+    const description = String(metric.description || "").trim();
+    if (description) {
+      const desc = document.createElement("div");
+      desc.className = "collapsed-legend-desc";
+      desc.textContent = description;
+      labelWrap.appendChild(desc);
+    }
+
+    row.append(swatch, labelWrap);
+    host.appendChild(row);
+  }
+
+  host.classList.remove("d-none");
+}

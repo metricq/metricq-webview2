@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MetricQ Codex</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+        <div class="container-fluid px-3">
+          <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+            <img src="/img/metricq-logo.png" width="34" height="34" alt="MetricQ" class="rounded-2" />
+            <span class="fw-semibold">MetricQ Codex</span>
+          </a>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse justify-content-end" id="topNav">
+            <div class="top-controls d-flex flex-nowrap gap-2 py-2 py-lg-0 align-items-center">
+              <button class="btn btn-outline-primary" id="btnYAxis" data-bs-toggle="modal" data-bs-target="#yAxisModal" title="Y-Achse konfigurieren">
+                <i class="bi bi-arrows-vertical"></i>
+              </button>
+              <button class="btn btn-outline-primary" id="btnAnalyze" data-bs-toggle="modal" data-bs-target="#analyzeModal">
+                <i class="bi bi-table"></i>
+              </button>
+              <button class="btn btn-outline-primary" id="btnExport" data-bs-toggle="modal" data-bs-target="#exportModal">
+                <i class="bi bi-download"></i>
+              </button>
+              <div class="form-check form-switch d-flex align-items-center px-2 mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="toggleBand" checked />
+                <label class="form-check-label ms-2" for="toggleBand">Werteumfang</label>
+              </div>
+              <div class="btn-group ms-auto">
+                <button class="btn btn-outline-primary" id="btnShiftBack" type="button" title="Zeitraum 50% zurück">
+                  <i class="bi bi-chevron-left"></i>
+                </button>
+                <button class="btn btn-outline-primary time-range-group text-start" id="btnTimeRange" type="button">
+                  <i class="bi bi-clock-history me-1"></i>
+                  Zeitraum
+                </button>
+                <button class="btn btn-outline-primary" id="btnShiftForward" type="button" title="Zeitraum 50% vor">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main class="container-fluid px-3 py-2 app-main">
+        <section class="row g-3 app-content" id="appContent">
+          <div class="col-12 col-xxl-9 h-100" id="chartCol">
+            <div class="card shadow-sm h-100 d-flex flex-column">
+              <div class="card-body p-0 chart-body flex-fill" id="chartWrap">
+                <canvas id="chartCanvas"></canvas>
+                <div id="hoverBox" class="hover-box d-none"></div>
+                <div id="dragSelectBox" class="drag-select-box d-none"></div>
+                <div id="zoomRangeBadge" class="zoom-range-badge"></div>
+                <div id="collapsedLegend" class="collapsed-legend d-none" aria-label="Legende"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-12 col-xxl-3 h-100" id="metricsCol">
+            <button class="btn btn-light btn-sm sidebar-toggle" id="btnSidebarToggle" type="button" title="Metrikleiste ein-/ausklappen">
+              <i class="bi bi-chevron-bar-right"></i>
+            </button>
+            <div class="card shadow-sm h-100 d-flex flex-column metrics-card">
+              <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold">Metriken</span>
+                <div class="btn-group btn-group-sm">
+                  <button class="btn btn-outline-secondary" id="btnHideAll" title="Alle ausblenden"><i class="bi bi-eye-slash"></i></button>
+                  <button class="btn btn-outline-secondary" id="btnShowAll" title="Alle zeigen"><i class="bi bi-eye"></i></button>
+                  <button class="btn btn-outline-secondary" id="btnRecolor" title="Neu färben"><i class="bi bi-palette"></i></button>
+                  <button class="btn btn-outline-danger" id="btnClear" title="Alle entfernen"><i class="bi bi-trash"></i></button>
+                </div>
+              </div>
+              <div class="card-body p-2 d-flex flex-column gap-2 flex-fill min-h-0 overflow-hidden">
+                <div class="input-group input-group-sm">
+                  <input type="text" class="form-control" id="metricSearch" placeholder="Metrik suchen" />
+                  <button class="btn btn-primary" id="btnAddMetric"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div id="metricHints" class="metric-hints"></div>
+                <ul class="list-group list-group-flush overflow-auto" id="metricList"></ul>
+                <div class="legend-badges pt-2 border-top">
+                  <span class="badge text-bg-secondary" id="perfBadge">HTTP: - ms</span>
+                  <span class="badge text-bg-secondary">Agg: <span id="aggPoints">0</span></span>
+                  <span class="badge text-bg-secondary">Raw: <span id="rawPoints">0</span></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div class="card shadow time-popup d-none" id="timePopup" role="dialog" aria-label="Zeitraum auswählen">
+      <div class="card-header d-flex align-items-center justify-content-between py-2">
+        <div>
+          <strong class="small mb-0 d-block">Zeitraum</strong>
+          <small class="text-muted" id="timePopupCurrentRange">-</small>
+        </div>
+        <button class="btn-close btn-sm" id="btnCloseTimePopup" aria-label="Schließen"></button>
+      </div>
+      <div class="card-body p-0">
+        <div class="time-dialog-grid">
+          <div class="time-dialog-left border-end p-3">
+            <div class="small text-muted mb-2">Schnellauswahl</div>
+            <div class="d-grid gap-1 time-quick-list" id="rangePresets">
+              <button class="btn btn-light btn-sm text-start" data-range="last_15m">Letzte 15 Minuten</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_1h">Letzte Stunde</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_6h">Letzte 6 Stunden</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_24h">Letzte 24 Stunden</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_3d">Letzte 3 Tage</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_7d">Letzte 7 Tage</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_30d">Letzte 30 Tage</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_3M">Letzte 3 Monate</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_6M">Letzte 6 Monate</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_1y">Letztes Jahr</button>
+              <button class="btn btn-light btn-sm text-start" data-range="last_3y">Letzte 3 Jahre</button>
+              <button class="btn btn-light btn-sm text-start" data-range="today">Heute</button>
+              <button class="btn btn-light btn-sm text-start" data-range="today_now">Heute bis jetzt</button>
+              <button class="btn btn-light btn-sm text-start" data-range="yesterday">Gestern</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_hour">Diese Stunde</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_week">Diese Woche</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_week_now">Diese Woche bis jetzt</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_month">Dieser Monat</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_month_now">Dieser Monat bis jetzt</button>
+              <button class="btn btn-light btn-sm text-start" data-range="prev_month">Vorheriger Monat</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_year">Dieses Jahr</button>
+              <button class="btn btn-light btn-sm text-start" data-range="this_year_now">Dieses Jahr bis jetzt</button>
+              <button class="btn btn-light btn-sm text-start" data-range="prev_year">Vorheriges Jahr</button>
+            </div>
+          </div>
+          <div class="time-dialog-right p-3">
+            <ul class="nav nav-tabs nav-tabs-sm mb-3" id="timeModeTabs">
+              <li class="nav-item">
+                <button class="nav-link active" id="tabRelative" type="button">Relativ</button>
+              </li>
+              <li class="nav-item">
+                <button class="nav-link" id="tabAbsolute" type="button">Absolut</button>
+              </li>
+            </ul>
+
+            <div id="relativePanel">
+              <div class="row g-2 align-items-end">
+                <div class="col-5">
+                  <label class="form-label">Letzte</label>
+                  <input type="number" min="1" class="form-control" id="relativeAmount" value="24" />
+                </div>
+                <div class="col-7">
+                  <label class="form-label">Einheit</label>
+                  <select class="form-select" id="relativeUnit">
+                    <option value="m">Minuten</option>
+                    <option value="h" selected>Stunden</option>
+                    <option value="d">Tage</option>
+                    <option value="w">Wochen</option>
+                    <option value="M">Monate</option>
+                    <option value="y">Jahre</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-text mt-2">Entspricht <code id="relativePreview">now-24h to now</code></div>
+            </div>
+
+            <div id="absolutePanel" class="d-none">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="fromTime">Von</label>
+                  <input type="datetime-local" class="form-control" id="fromTime" step="0.001" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="toTime">Bis</label>
+                  <input type="datetime-local" class="form-control" id="toTime" step="0.001" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer bg-white d-flex justify-content-end">
+        <button class="btn btn-outline-secondary me-2" id="btnCancelTimeRange">Abbrechen</button>
+        <button class="btn btn-primary" id="btnApplyTimeRange">Zeitraum übernehmen</button>
+      </div>
+    </div>
+
+    <div class="modal fade" id="yAxisModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Y-Achsenbereich</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeLocal" checked />
+              <label class="form-check-label" for="yAxisModeLocal">Lokal (sichtbarer Zeitraum)</label>
+            </div>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeGlobal" />
+              <label class="form-check-label" for="yAxisModeGlobal">Global (historisches Min/Max)</label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeManual" />
+              <label class="form-check-label" for="yAxisModeManual">Manuell</label>
+            </div>
+            <div class="row g-2">
+              <div class="col">
+                <label for="yAxisManualMin" class="form-label">Min</label>
+                <input id="yAxisManualMin" type="number" class="form-control" step="any" />
+              </div>
+              <div class="col">
+                <label for="yAxisManualMax" class="form-label">Max</label>
+                <input id="yAxisManualMax" type="number" class="form-control" step="any" />
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Schließen</button>
+            <button class="btn btn-primary" id="btnApplyYAxis" data-bs-dismiss="modal">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="analyzeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Analyse</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body">
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle">
+                <thead>
+                  <tr>
+                    <th>Farbe</th>
+                    <th>Metrik</th>
+                    <th>Beschreibung</th>
+                    <th class="text-end">Minimum</th>
+                    <th class="text-end">Mittelwert</th>
+                    <th class="text-end">Maximum</th>
+                    <th class="text-end">Anzahl</th>
+                  </tr>
+                </thead>
+                <tbody id="analyzeTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Export</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-body d-grid gap-2">
+            <button class="btn btn-outline-primary" id="btnExportPng">PNG exportieren</button>
+            <button class="btn btn-outline-primary" id="btnExportCsv">CSV exportieren</button>
+            <button class="btn btn-outline-primary" id="btnExportJson">JSON exportieren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="factorModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Metrik-Faktor</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2 text-muted small" id="factorMetricName">-</div>
+            <div class="mb-3">
+              <label for="factorInput" class="form-label">Faktor</label>
+              <input id="factorInput" type="number" class="form-control" step="any" />
+              <div class="form-text">Werte der Metrik werden mit diesem Faktor skaliert.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button class="btn btn-primary" id="btnApplyFactor">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+      integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
