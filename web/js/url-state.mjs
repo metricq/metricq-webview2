@@ -56,7 +56,7 @@ function serializeMetricEntry(metric, index) {
   if (metric.expr) entry.e = metric.expr;
 
   const color = String(metric.color || "").toLowerCase();
-  if (color && color !== defaultColorAt(index)) entry.c = metric.color;
+  if (color) entry.c = metric.color;
 
   if (!metric.draw) entry.h = 1;
 
