@@ -36,8 +36,33 @@ function clearDropMarker() {
   dropMarkerEl.remove();
 }
 
+function closestTokenElement(node) {
+  let current = node;
+  while (current && current !== dom.expressionInput) {
+    if (current.nodeType === Node.ELEMENT_NODE && current.classList.contains("expression-token")) {
+      return current;
+    }
+    current = current.parentNode;
+  }
+  return null;
+}
+
+function normalizedDropRange(x, y) {
+  const raw = rangeFromPoint(x, y);
+  if (!raw || !dom.expressionInput.contains(raw.startContainer)) return null;
+  const token = closestTokenElement(raw.startContainer);
+  if (!token) return raw;
+  const rect = token.getBoundingClientRect();
+  const before = x < rect.left + rect.width / 2;
+  const range = document.createRange();
+  if (before) range.setStartBefore(token);
+  else range.setStartAfter(token);
+  range.collapse(true);
+  return range;
+}
+
 function setDropMarkerAtPoint(x, y) {
-  const range = rangeFromPoint(x, y);
+  const range = normalizedDropRange(x, y);
   if (!range || !dom.expressionInput.contains(range.startContainer)) {
     clearDropMarker();
     return;
@@ -228,7 +253,7 @@ function makeMetricTokenNode(metricName) {
   token.dataset.tokenId = `tok-${tokenSequence++}`;
   token.draggable = true;
   token.contentEditable = "false";
-  token.textContent = `[${metricName}]`;
+  token.textContent = metricName;
   bindMetadataHover(token, metricName);
   token.addEventListener("dragstart", (event) => {
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(metricName));
@@ -300,7 +325,7 @@ function buildNextExpressionName() {
 function createMetricChip(name) {
   const chip = document.createElement("button");
   chip.type = "button";
-  chip.className = "btn btn-sm btn-outline-secondary expression-chip";
+  chip.className = "expression-token expression-chip";
   chip.textContent = name;
   chip.draggable = true;
   bindMetadataHover(chip, name);
@@ -390,7 +415,7 @@ function handleExpressionEditorDrop(event) {
     placeCaretAfterNode(token);
     return;
   }
-  const range = rangeFromPoint(event.clientX, event.clientY);
+  const range = normalizedDropRange(event.clientX, event.clientY);
   insertNodeAtRange(token, range);
   clearDropMarker();
 }
