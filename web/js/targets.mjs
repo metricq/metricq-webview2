@@ -123,7 +123,8 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
   for (const refName of refs) {
     const localMetric = byName.get(refName);
     if (localMetric) {
-      const unit = String(localMetric.unit || "").trim();
+      const localUnit = String(localMetric.unit || "").trim();
+      const unit = localUnit || (await resolveMetricUnit(refName, fetchMetricUnit));
       const displayUnit = String(localMetric.displayUnit || "").trim();
       const manual = localMetric.factorMode === "manual"
         ? Number(localMetric.manualFactor)

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildComputedExpression,
+  buildQueryTargetsResolved,
   buildQueryTargets,
   expressionTokenForMetric,
 } from "../js/targets.mjs";
@@ -41,4 +42,33 @@ test("buildComputedExpression applies factors per metric reference", () => {
     { name: "c", factor: 2.5 },
   ]);
   assert.equal(text, "sum(([a]*0.001), [b], ([c]*2.5))");
+});
+
+test("buildQueryTargetsResolved fetches units for local refs when missing", async () => {
+  const metrics = [
+    { name: "LZR.E00.EIN01.B83.W", unit: "", displayUnit: "", factorMode: "auto", expr: "" },
+    { name: "LZR.E00.EIN02.B83.W", unit: "", displayUnit: "", factorMode: "auto", expr: "" },
+    {
+      name: "PUE",
+      expr: "([LZR.E00.EIN01.B83.W]+[LZR.E00.EIN02.B83.W])/[LZR.IT.gesamt.Wirkleistung]",
+      unit: "",
+      displayUnit: "",
+      factorMode: "auto",
+    },
+  ];
+  const units = new Map([
+    ["LZR.E00.EIN01.B83.W", "W"],
+    ["LZR.E00.EIN02.B83.W", "W"],
+    ["LZR.IT.gesamt.Wirkleistung", "kW"],
+  ]);
+  const out = await buildQueryTargetsResolved(metrics, async (name) => units.get(name) || "");
+  const pue = out.find((t) => t.name === "PUE");
+  assert.ok(pue?.expr, "expected resolved expression for PUE");
+  // Equivalent normalization forms are acceptable:
+  // either both local W metrics are scaled to kW, or the kW denominator is scaled to W.
+  const scalesNumerator =
+    /\(\[LZR\.E00\.EIN01\.B83\.W\]\*0\.001\)/.test(pue.expr) &&
+    /\(\[LZR\.E00\.EIN02\.B83\.W\]\*0\.001\)/.test(pue.expr);
+  const scalesDenominator = /\(\[LZR\.IT\.gesamt\.Wirkleistung\]\*1000\)/.test(pue.expr);
+  assert.equal(scalesNumerator || scalesDenominator, true, `unexpected normalized expression: ${pue.expr}`);
 });
