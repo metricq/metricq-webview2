@@ -107,11 +107,11 @@
   padding: 0.35rem 0.5rem;
   z-index: 8;
   font-size: 0.75rem;
-  pointer-events: auto;
+  pointer-events: none;
   transition: opacity 120ms ease;
 }
 
-.collapsed-legend:hover {
+.collapsed-legend.is-faded {
   opacity: 0.18;
 }
 

@@ -44,6 +44,19 @@ function hideHoverPoint() {
   if (hoverPointEl) hoverPointEl.classList.add("d-none");
 }
 
+function updateCollapsedLegendFade(clientX, clientY) {
+  const legend = dom.collapsedLegend;
+  if (!legend || legend.classList.contains("d-none")) return;
+  const rect = legend.getBoundingClientRect();
+  if (rect.width <= 0 || rect.height <= 0) return;
+  const overLegend =
+    clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom;
+  legend.classList.toggle("is-faded", overLegend);
+}
+
 function getVisibleSeries() {
   const arr = [];
   for (const metric of state.metrics) {
@@ -428,6 +441,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
 
 function renderHoverAt(clientX, clientY) {
   if (!lastLayout) return;
+  updateCollapsedLegendFade(clientX, clientY);
   const t = timestampAtCanvasX(clientX);
   const candidates = [];
   const canvasRect = dom.canvas.getBoundingClientRect();
@@ -524,6 +538,7 @@ export function hideHover() {
   lastHoverClientX = null;
   lastHoverClientY = null;
   dom.hoverBox.classList.add("d-none");
+  if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
 }
 
