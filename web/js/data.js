@@ -65,8 +65,9 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   applyAutoScaling(state.metrics, state.series);
   renderMetricList({
     renderChart,
-    loadData: () => loadData(renderChart),
+    loadData: () => loadData(renderChart, onStateChanged),
     renderCollapsedLegend,
+    onStateChanged,
   });
   if (state.yAxisMode === "global") {
     try {
