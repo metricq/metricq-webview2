@@ -267,6 +267,22 @@ function openFactorModal(metricName) {
   factorMetricName = metricName;
   dom.factorMetricName.textContent = metricName;
   dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
+
+  const unit = String(metric.unit || "").trim();
+  const displayUnit = String(metric.displayUnit || "").trim();
+  const manual = metric.factorMode === "manual" ? sanitizeFactor(metric.manualFactor, 1) : 1;
+  const effective = sanitizeFactor(metric.factor, 1);
+  const normalization = sanitizeFactor(effective / manual, 1);
+  const shownNorm = formatFactor(normalization) || "1";
+
+  if (unit && displayUnit && unit !== displayUnit) {
+    dom.factorNormalizationFactor.textContent = `x${shownNorm}`;
+    dom.factorNormalizationUnits.textContent = `[${unit}] -> [${displayUnit}]`;
+    dom.factorNormalizationInfo.classList.remove("d-none");
+  } else {
+    dom.factorNormalizationInfo.classList.add("d-none");
+  }
+
   if (globalThis.bootstrap?.Modal) {
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).show();
   }
