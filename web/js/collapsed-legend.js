@@ -50,7 +50,8 @@ export function renderCollapsedLegend() {
     label.className = "collapsed-legend-main";
     const unit = metric.displayUnit || metric.unit || "";
     const factor = shownMetricFactor(metric);
-    label.textContent = metric.name + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
+    const formulaPrefix = metric.expr ? "ƒ " : "";
+    label.textContent = formulaPrefix + metric.name + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
     labelWrap.appendChild(label);
 
     const description = String(metric.description || "").trim();

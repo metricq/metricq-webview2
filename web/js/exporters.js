@@ -61,7 +61,8 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const rows = visible.map((metric) => {
     const unit = metric.displayUnit || metric.unit || "";
     const factor = shownMetricFactor(metric);
-    const main = `${metric.name}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
+    const formulaPrefix = metric.expr ? "ƒ " : "";
+    const main = `${formulaPrefix}${metric.name}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
     const desc = String(metric.description || "").trim();
     return { metric, main, desc };
   });
