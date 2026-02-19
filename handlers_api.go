@@ -267,7 +267,15 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	if len(req.Metrics) == 0 || req.ToUnixMS <= req.FromUnixMS {
+	targets, err := resolveQueryTargets(apiQueryRequest{
+		Targets: req.Targets,
+		Metrics: req.Metrics,
+	})
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(targets) == 0 || req.ToUnixMS <= req.FromUnixMS {
 		writeError(w, http.StatusBadRequest, "invalid request")
 		return
 	}
@@ -275,38 +283,176 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
 	defer cancel()
 
-	out := make([]apiAnalyzeEntry, len(req.Metrics))
-	waitGroupRun(req.Metrics, func(i int, metric string) {
-		metric = strings.TrimSpace(metric)
-		entry := apiAnalyzeEntry{Metric: metric}
-		hr, duration, err := s.requestHistory(ctx, historyRequest{
-			Metric:      metric,
-			StartTimeNS: req.FromUnixMS * int64(time.Millisecond),
-			EndTimeNS:   req.ToUnixMS * int64(time.Millisecond),
-			RequestType: historyRequestTypeAggregate,
-			Timeout:     s.cfg.QueryTimeout,
-		})
-		entry.Duration = duration
-		if err != nil {
-			entry.Error = err.Error()
-			out[i] = entry
+	type evalTarget struct {
+		name         string
+		sourceMetric string
+		expr         string
+		root         exprNode
+		parseErr     error
+		dependencies []string
+	}
+
+	planned := make([]evalTarget, len(targets))
+	sourceMetricSet := map[string]struct{}{}
+	for i, target := range targets {
+		planned[i] = evalTarget{
+			name:         target.Name,
+			sourceMetric: target.Metric,
+			expr:         target.Expr,
+		}
+		if target.Expr == "" {
+			continue
+		}
+		root, parseErr := parseExpression(target.Expr)
+		if parseErr != nil {
+			planned[i].parseErr = parseErr
+			continue
+		}
+		deps := metricsInExpression(root)
+		planned[i].root = root
+		planned[i].dependencies = deps
+		for _, metric := range deps {
+			sourceMetricSet[metric] = struct{}{}
+		}
+	}
+
+	sourceMetrics := make([]string, 0, len(sourceMetricSet))
+	for metric := range sourceMetricSet {
+		sourceMetrics = append(sourceMetrics, metric)
+	}
+	sort.Strings(sourceMetrics)
+
+	sourceSeries := map[string]apiQuerySeries{}
+	sourceValueMaps := map[string]map[int64]float64{}
+	sourceErrs := map[string]string{}
+	var mu sync.Mutex
+	waitGroupRun(sourceMetrics, func(_ int, metric string) {
+		// Slightly denser timeline for stable expression stats across zoom levels.
+		hr, duration, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, 4096)
+		if qErr != nil {
+			mu.Lock()
+			sourceErrs[metric] = qErr.Error()
+			mu.Unlock()
 			return
 		}
-		if len(hr.Agg) != 1 {
-			entry.Error = "unexpected response"
-			out[i] = entry
-			return
+		series := historyToSeries(metric, hr, duration)
+		mu.Lock()
+		sourceSeries[metric] = series
+		if series.Error != "" {
+			sourceErrs[metric] = series.Error
+		} else {
+			sourceValueMaps[metric] = seriesToValueMap(series)
 		}
-		agg := hr.Agg[0]
-		entry.Minimum = agg.Minimum
-		entry.Maximum = agg.Maximum
-		entry.Sum = agg.Sum
-		entry.Count = agg.Count
-		entry.Mean = safeMean(agg.Sum, agg.Count)
-		out[i] = entry
+		mu.Unlock()
 	})
 
+	out := make([]apiAnalyzeEntry, len(planned))
+	for i, target := range planned {
+		entry := apiAnalyzeEntry{Metric: target.name}
+		if target.expr == "" {
+			hr, duration, reqErr := s.requestHistory(ctx, historyRequest{
+				Metric:      target.sourceMetric,
+				StartTimeNS: req.FromUnixMS * int64(time.Millisecond),
+				EndTimeNS:   req.ToUnixMS * int64(time.Millisecond),
+				RequestType: historyRequestTypeAggregate,
+				Timeout:     s.cfg.QueryTimeout,
+			})
+			entry.Duration = duration
+			if reqErr != nil {
+				entry.Error = reqErr.Error()
+				out[i] = entry
+				return
+			}
+			if len(hr.Agg) != 1 {
+				entry.Error = "unexpected response"
+				out[i] = entry
+				return
+			}
+			agg := hr.Agg[0]
+			entry.Minimum = agg.Minimum
+			entry.Maximum = agg.Maximum
+			entry.Sum = agg.Sum
+			entry.Count = agg.Count
+			entry.Mean = safeMean(agg.Sum, agg.Count)
+			out[i] = entry
+			continue
+		}
+
+		if target.parseErr != nil {
+			entry.Error = fmt.Sprintf("invalid expression: %v", target.parseErr)
+			out[i] = entry
+			continue
+		}
+		inputs := make(map[string]map[int64]float64, len(target.dependencies))
+		failed := false
+		for _, metric := range target.dependencies {
+			if errText := strings.TrimSpace(sourceErrs[metric]); errText != "" {
+				entry.Error = fmt.Sprintf("source metric %q failed: %s", metric, errText)
+				out[i] = entry
+				failed = true
+				break
+			}
+			values, ok := sourceValueMaps[metric]
+			if !ok {
+				entry.Error = fmt.Sprintf("source metric %q missing", metric)
+				out[i] = entry
+				failed = true
+				break
+			}
+			inputs[metric] = values
+			if src := sourceSeries[metric]; src.Duration > entry.Duration {
+				entry.Duration = src.Duration
+			}
+		}
+		if failed {
+			continue
+		}
+
+		values, evalErr := evalExpression(target.root, inputs)
+		if evalErr != nil {
+			entry.Error = fmt.Sprintf("failed to evaluate expression: %v", evalErr)
+			out[i] = entry
+			continue
+		}
+		minimum, maximum, sum, count, ok := analyzeValueMap(values)
+		if !ok {
+			entry.Error = "no data"
+			out[i] = entry
+			continue
+		}
+		entry.Minimum = minimum
+		entry.Maximum = maximum
+		entry.Sum = sum
+		entry.Count = count
+		entry.Mean = safeMean(sum, count)
+		out[i] = entry
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{"entries": out})
+}
+
+func analyzeValueMap(values map[int64]float64) (minimum, maximum, sum float64, count uint64, ok bool) {
+	minimum = math.Inf(1)
+	maximum = math.Inf(-1)
+	sum = 0
+	count = 0
+	for _, v := range values {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			continue
+		}
+		if v < minimum {
+			minimum = v
+		}
+		if v > maximum {
+			maximum = v
+		}
+		sum += v
+		count++
+	}
+	if count == 0 || math.IsInf(minimum, 0) || math.IsInf(maximum, 0) {
+		return 0, 0, 0, 0, false
+	}
+	return minimum, maximum, sum, count, true
 }
 
 func (s *service) handleAPIYRangeGlobal(w http.ResponseWriter, r *http.Request) {

@@ -126,9 +126,10 @@ type apiAggPoint struct {
 }
 
 type apiAnalyzeRequest struct {
-	Metrics    []string `json:"metrics"`
-	FromUnixMS int64    `json:"from"`
-	ToUnixMS   int64    `json:"to"`
+	Targets    []apiQueryTarget `json:"targets,omitempty"`
+	Metrics    []string         `json:"metrics,omitempty"`
+	FromUnixMS int64            `json:"from"`
+	ToUnixMS   int64            `json:"to"`
 }
 
 type apiAnalyzeEntry struct {
