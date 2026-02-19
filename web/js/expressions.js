@@ -572,14 +572,6 @@ function maybeConvertTypedBracketExpression(event) {
 
 function maybePlaceCaretOutsideEdgeToken(event) {
   if (event.button !== 0) return;
-  const clickedToken = event.target?.closest?.(".expression-token");
-  if (clickedToken && dom.expressionInput.contains(clickedToken)) {
-    const rect = clickedToken.getBoundingClientRect();
-    event.preventDefault();
-    if (event.clientX < rect.left + rect.width / 2) placeCaretBeforeNode(clickedToken);
-    else placeCaretAfterNode(clickedToken);
-    return;
-  }
   if (event.target !== dom.expressionInput) return;
   const tokens = dom.expressionInput.querySelectorAll(".expression-token");
   if (tokens.length === 0) return;
@@ -594,6 +586,15 @@ function maybePlaceCaretOutsideEdgeToken(event) {
     event.preventDefault();
     placeCaretAfterNode(tokens[tokens.length - 1]);
   }
+}
+
+function placeCaretOnTokenClick(event) {
+  const clickedToken = event.target?.closest?.(".expression-token");
+  if (!clickedToken || !dom.expressionInput.contains(clickedToken)) return;
+  const rect = clickedToken.getBoundingClientRect();
+  event.preventDefault();
+  if (event.clientX < rect.left + rect.width / 2) placeCaretBeforeNode(clickedToken);
+  else placeCaretAfterNode(clickedToken);
 }
 
 export function wireExpressionModal(hooks) {
@@ -659,6 +660,7 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
+  dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
 
