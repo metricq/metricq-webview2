@@ -204,8 +204,12 @@ function serializeExpressionEditor() {
 function placeCaretAfterNode(node) {
   const next = node.nextSibling;
   if (next && next.nodeType === Node.TEXT_NODE) {
+    const text = String(next.textContent || "");
+    const onlySentinels = text.length > 0 && text.split(CARET_SENTINEL).join("").length === 0;
+    const atEditorEnd = !next.nextSibling;
+    const offset = (onlySentinels && atEditorEnd) ? text.length : 0;
     const range = document.createRange();
-    range.setStart(next, next.textContent?.length || 0);
+    range.setStart(next, offset);
     range.collapse(true);
     const sel = window.getSelection();
     sel.removeAllRanges();
