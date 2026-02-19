@@ -275,12 +275,17 @@ function openFactorModal(metricName) {
   const normalization = sanitizeFactor(effective / manual, 1);
   const shownNorm = formatFactor(normalization) || "1";
 
-  if (unit && displayUnit && unit !== displayUnit) {
-    dom.factorNormalizationFactor.textContent = `x${shownNorm}`;
-    dom.factorNormalizationUnits.textContent = `[${unit}] -> [${displayUnit}]`;
-    dom.factorNormalizationInfo.classList.remove("d-none");
-  } else {
-    dom.factorNormalizationInfo.classList.add("d-none");
+  const normInfo = dom.factorNormalizationInfo;
+  const normFactor = dom.factorNormalizationFactor;
+  const normUnits = dom.factorNormalizationUnits;
+  if (normInfo && normFactor && normUnits) {
+    if (unit && displayUnit && unit !== displayUnit) {
+      normFactor.textContent = `x${shownNorm}`;
+      normUnits.textContent = `[${unit}] -> [${displayUnit}]`;
+      normInfo.classList.remove("d-none");
+    } else {
+      normInfo.classList.add("d-none");
+    }
   }
 
   if (globalThis.bootstrap?.Modal) {
