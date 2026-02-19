@@ -35,7 +35,8 @@ function formatFactor(value) {
 }
 
 async function buildAnalyzeTargets() {
-  const resolved = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
+  const visibleMetrics = state.metrics.filter((metric) => metric.draw);
+  const resolved = await buildQueryTargetsResolved(visibleMetrics, async (metricName) => {
     const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
     return body?.metadata?.unit || "";
   });
@@ -62,7 +63,8 @@ async function ensureDescriptions() {
 }
 
 export async function runAnalyze() {
-  if (state.metrics.length === 0) {
+  const visibleMetrics = state.metrics.filter((metric) => metric.draw);
+  if (visibleMetrics.length === 0) {
     dom.analyzeTableBody.innerHTML = "";
     return;
   }
@@ -81,7 +83,7 @@ export async function runAnalyze() {
   const byMetric = new Map((body.entries || []).map((entry) => [entry.metric, entry]));
 
   dom.analyzeTableBody.innerHTML = "";
-  for (const metricRow of state.metrics) {
+  for (const metricRow of visibleMetrics) {
     const entry = byMetric.get(metricRow.name);
     if (!entry) continue;
     const metric = metricByName(entry.metric);
