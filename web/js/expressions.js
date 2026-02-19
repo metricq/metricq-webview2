@@ -18,6 +18,34 @@ function insertAtCursor(input, text) {
   input.setSelectionRange(nextPos, nextPos);
 }
 
+function metricTokenRangeForDelete(text, cursorPos, key) {
+  const pos = Number(cursorPos);
+  if (!Number.isFinite(pos)) return null;
+  if (key !== "Backspace" && key !== "Delete") return null;
+
+  const target = key === "Backspace" ? pos - 1 : pos;
+  if (target < 0 || target >= text.length) return null;
+  const ch = text[target];
+  if (ch !== "[" && ch !== "]") return null;
+
+  if (ch === "[") {
+    const end = text.indexOf("]", target + 1);
+    if (end < 0) return null;
+    return { start: target, end: end + 1 };
+  }
+
+  const start = text.lastIndexOf("[", target - 1);
+  if (start < 0) return null;
+  return { start, end: target + 1 };
+}
+
+function applyTokenDelete(input, range) {
+  const before = input.value.slice(0, range.start);
+  const after = input.value.slice(range.end);
+  input.value = `${before}${after}`;
+  input.setSelectionRange(range.start, range.start);
+}
+
 function clearValidation() {
   dom.expressionMetricName.classList.remove("is-invalid");
   dom.expressionInput.classList.remove("is-invalid");
@@ -158,6 +186,19 @@ export function wireExpressionModal(hooks) {
       || event.dataTransfer.getData("text/plain");
     if (!token) return;
     insertAtCursor(dom.expressionInput, token);
+  });
+
+  dom.expressionInput.addEventListener("keydown", (event) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (dom.expressionInput.selectionStart !== dom.expressionInput.selectionEnd) return;
+    const range = metricTokenRangeForDelete(
+      dom.expressionInput.value,
+      dom.expressionInput.selectionStart,
+      event.key,
+    );
+    if (!range) return;
+    event.preventDefault();
+    applyTokenDelete(dom.expressionInput, range);
   });
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
