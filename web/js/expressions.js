@@ -209,6 +209,15 @@ function placeCaretAfterNode(node) {
   sel.addRange(range);
 }
 
+function placeCaretBeforeNode(node) {
+  const range = document.createRange();
+  range.setStartBefore(node);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
 function placeCaretAtEnd(container) {
   const range = document.createRange();
   range.selectNodeContents(container);
@@ -360,6 +369,33 @@ function removeAdjacentToken(key) {
     return false;
   }
   target.remove();
+  return true;
+}
+
+function handleArrowAroundTokens(event) {
+  if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return false;
+  const range = getSelectionRangeInEditor();
+  if (!range || !range.collapsed) return false;
+
+  const container = range.startContainer;
+  const offset = range.startOffset;
+  let token = null;
+
+  if (container.nodeType === Node.TEXT_NODE) {
+    if (event.key === "ArrowLeft" && offset === 0) token = container.previousSibling;
+    if (event.key === "ArrowRight" && offset === (container.textContent || "").length) token = container.nextSibling;
+  } else if (container.nodeType === Node.ELEMENT_NODE && container === dom.expressionInput) {
+    const children = container.childNodes;
+    if (event.key === "ArrowLeft" && offset > 0) token = children[offset - 1] || null;
+    if (event.key === "ArrowRight") token = children[offset] || null;
+  }
+
+  if (!token || token.nodeType !== Node.ELEMENT_NODE || !token.classList.contains("expression-token")) {
+    return false;
+  }
+  event.preventDefault();
+  if (event.key === "ArrowLeft") placeCaretBeforeNode(token);
+  else placeCaretAfterNode(token);
   return true;
 }
 
@@ -541,6 +577,7 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionInput.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (handleArrowAroundTokens(event)) return;
     if (event.key !== "Backspace" && event.key !== "Delete") return;
     if (!removeAdjacentToken(event.key)) return;
     event.preventDefault();
