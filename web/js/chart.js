@@ -63,6 +63,7 @@ function getDomain(seriesList) {
       }
     } else {
       for (const p of item.series.aggregatePoints || []) {
+        if (Number(p.count) === 0) continue;
         minY = Math.min(minY, p.min * item.metric.factor);
         maxY = Math.max(maxY, p.max * item.metric.factor);
       }
@@ -267,30 +268,48 @@ export function renderChart() {
     const points = series.aggregatePoints || [];
     if (points.length === 0) continue;
 
+    const runs = [];
+    let run = [];
+    for (const p of points) {
+      if (Number(p.count) > 0) {
+        run.push(p);
+      } else if (run.length > 0) {
+        runs.push(run);
+        run = [];
+      }
+    }
+    if (run.length > 0) runs.push(run);
+
     ctx.save();
     ctx.globalAlpha = 0.2;
-    ctx.beginPath();
-    for (let i = 0; i < points.length; i += 1) {
-      const p = points[i];
-      if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
-      else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
+    for (const segment of runs) {
+      if (segment.length < 2) continue;
+      ctx.beginPath();
+      for (let i = 0; i < segment.length; i += 1) {
+        const p = segment[i];
+        if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
+        else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
+      }
+      for (let i = segment.length - 1; i >= 0; i -= 1) {
+        const p = segment[i];
+        ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
+      }
+      ctx.closePath();
+      ctx.fill();
     }
-    for (let i = points.length - 1; i >= 0; i -= 1) {
-      const p = points[i];
-      ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
-    }
-    ctx.closePath();
-    ctx.fill();
     ctx.restore();
 
     if (metric.drawAvg) {
-      ctx.beginPath();
-      for (let i = 0; i < points.length; i += 1) {
-        const p = points[i];
-        if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg * metric.factor));
-        else ctx.lineTo(sx(p.t), sy(p.avg * metric.factor));
+      for (const segment of runs) {
+        if (segment.length === 0) continue;
+        ctx.beginPath();
+        for (let i = 0; i < segment.length; i += 1) {
+          const p = segment[i];
+          if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg * metric.factor));
+          else ctx.lineTo(sx(p.t), sy(p.avg * metric.factor));
+        }
+        ctx.stroke();
       }
-      ctx.stroke();
     }
   }
 
@@ -327,12 +346,14 @@ function seriesValueAtTime(metric, series, t) {
   let best = points[0];
   let bestDiff = Math.abs(points[0].t - t);
   for (const p of points) {
+    if (series.mode !== "values" && Number(p.count) === 0) continue;
     const d = Math.abs(p.t - t);
     if (d < bestDiff) {
       best = p;
       bestDiff = d;
     }
   }
+  if (series.mode !== "values" && Number(best.count) === 0) return null;
 
   return {
     t: best.t,
@@ -341,6 +362,7 @@ function seriesValueAtTime(metric, series, t) {
 }
 
 function pointValue(series, point, factor) {
+  if (series.mode !== "values" && Number(point?.count) === 0) return null;
   return (series.mode === "values" ? point.v : point.avg) * factor;
 }
 
@@ -354,7 +376,9 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     let bestDist2 = Number.POSITIVE_INFINITY;
     for (const p of points) {
       const x = sx(p.t);
-      const y = sy(pointValue(series, p, metric.factor));
+      const value = pointValue(series, p, metric.factor);
+      if (!Number.isFinite(value)) continue;
+      const y = sy(value);
       const dx = x - cursorX;
       const dy = y - cursorY;
       const d2 = dx * dx + dy * dy;
@@ -383,7 +407,9 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   for (let i = from; i <= to; i += 1) {
     const p = points[i];
     const x = sx(p.t);
-    const y = sy(pointValue(series, p, metric.factor));
+    const value = pointValue(series, p, metric.factor);
+    if (!Number.isFinite(value)) continue;
+    const y = sy(value);
     const dx = x - cursorX;
     const dy = y - cursorY;
     const d2 = dx * dx + dy * dy;
@@ -422,6 +448,7 @@ function renderHoverAt(clientX, clientY) {
       lastLayout.sy,
     );
     if (nearestRaw) {
+      if (series.mode !== "values" && Number(nearestRaw.count) === 0) continue;
       const nearestValue = series.mode === "values"
         ? nearestRaw.v * metric.factor
         : nearestRaw.avg * metric.factor;

@@ -14,6 +14,7 @@ function collectSeriesExtents(seriesList) {
       }
     } else {
       for (const p of item.series.aggregatePoints || []) {
+        if (Number(p.count) === 0) continue;
         minY = Math.min(minY, p.min * item.metric.factor);
         maxY = Math.max(maxY, p.max * item.metric.factor);
       }
