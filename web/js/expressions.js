@@ -1,8 +1,10 @@
 import { dom } from "./dom.js";
 import { state } from "./model.js";
-import { addExpressionMetric } from "./metrics.js";
+import { addExpressionMetric, updateExpressionMetric } from "./metrics.js";
 import { expressionTokenForMetric } from "./targets.mjs";
 import { expandExpressionAliases } from "./expression-alias.mjs";
+
+let editingMetricName = "";
 
 function insertAtCursor(input, text) {
   const start = input.selectionStart ?? input.value.length;
@@ -67,23 +69,45 @@ function saveExpressionMetric(hooks) {
     markInvalid(dom.expressionInput);
     return;
   }
-  const created = addExpressionMetric(name, expr, hooks);
-  if (!created) {
+  const ok = editingMetricName
+    ? updateExpressionMetric(editingMetricName, name, expr, hooks)
+    : addExpressionMetric(name, expr, hooks);
+  if (!ok) {
     markInvalid(dom.expressionMetricName);
     return;
   }
+  editingMetricName = "";
   const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
   modal?.hide();
 }
 
 export function wireExpressionModal(hooks) {
-  dom.btnAddExpressionMetric.addEventListener("click", () => {
+  function openAddModal() {
+    editingMetricName = "";
     clearValidation();
+    dom.expressionMetricModalTitle.textContent = "Berechnete Metrik hinzufügen";
     dom.expressionMetricName.value = buildNextExpressionName();
     dom.expressionInput.value = "";
     renderMetricPalette();
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
+  }
+
+  function openEditModal(metricName) {
+    const metric = state.metrics.find((item) => item.name === metricName && item.expr);
+    if (!metric) return;
+    editingMetricName = metric.name;
+    clearValidation();
+    dom.expressionMetricModalTitle.textContent = "Berechnete Metrik bearbeiten";
+    dom.expressionMetricName.value = metric.name;
+    dom.expressionInput.value = metric.expr || "";
+    renderMetricPalette();
+    const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
+    modal?.show();
+  }
+
+  dom.btnAddExpressionMetric.addEventListener("click", () => {
+    openAddModal();
   });
 
   dom.expressionMetricModal.addEventListener("shown.bs.modal", () => {
@@ -111,4 +135,14 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
+
+  dom.expressionMetricModal.addEventListener("hidden.bs.modal", () => {
+    editingMetricName = "";
+  });
+
+  document.addEventListener("metricq:edit-expression", (event) => {
+    const name = String(event?.detail?.name || "").trim();
+    if (!name) return;
+    openEditModal(name);
+  });
 }

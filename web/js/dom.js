@@ -57,6 +57,7 @@ export const dom = {
   factorInput: document.getElementById("factorInput"),
   btnApplyFactor: document.getElementById("btnApplyFactor"),
   expressionMetricModal: document.getElementById("expressionMetricModal"),
+  expressionMetricModalTitle: document.getElementById("expressionMetricModalTitle"),
   expressionMetricName: document.getElementById("expressionMetricName"),
   expressionInput: document.getElementById("expressionInput"),
   expressionMetricPalette: document.getElementById("expressionMetricPalette"),

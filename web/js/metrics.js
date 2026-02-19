@@ -55,6 +55,25 @@ export function addExpressionMetric(name, expr, hooks) {
   return true;
 }
 
+export function updateExpressionMetric(originalName, name, expr, hooks) {
+  const original = String(originalName || "").trim();
+  const metricName = String(name || "").trim();
+  const metricExpr = String(expr || "").trim();
+  if (!original || !metricName || !metricExpr) return false;
+
+  const metric = metricByName(original);
+  if (!metric || !metric.expr) return false;
+  if (metricName !== original && metricByName(metricName)) return false;
+
+  state.series.delete(original);
+  metric.name = metricName;
+  metric.expr = metricExpr;
+  if (!metric.description) metric.description = "Berechnete Metrik";
+  renderMetricList(hooks);
+  hooks.loadData();
+  return true;
+}
+
 export function removeMetric(name, hooks) {
   state.metrics = state.metrics.filter((m) => m.name !== name);
   state.series.delete(name);
@@ -187,8 +206,12 @@ export function renderMetricList(hooks) {
     controls.className = "btn-group btn-group-sm";
     const toggleButtonClass = metric.draw ? "btn-outline-secondary" : "btn-secondary";
     const toggleIcon = metric.draw ? "bi-eye" : "bi-eye-slash";
+    const editButton = metric.expr
+      ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
+      : "";
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
+      ${editButton}
       <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
       <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>
     `;
@@ -201,6 +224,8 @@ export function renderMetricList(hooks) {
         metric.draw = !metric.draw;
         renderMetricList(hooks);
         hooks.renderChart();
+      } else if (action === "edit" && metric.expr) {
+        document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
       } else if (action === "delete") {
         removeMetric(metric.name, hooks);
       } else if (action === "factor") {
