@@ -163,7 +163,7 @@ export function renderChart() {
     dom.collapsedLegend.style.left = "auto";
     dom.collapsedLegend.style.top = `${margin.top + 4}px`;
     dom.collapsedLegend.style.right = `${margin.right + 4}px`;
-    dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.floor(plotW * 0.45))}px`;
+    dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * 0.34)))}px`;
   }
 
   const seriesList = getVisibleSeries();

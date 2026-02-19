@@ -8,6 +8,13 @@ function formatFactor(value) {
   return num.toPrecision(6).replace(/\.?0+$/, "");
 }
 
+function truncateMiddle(text, maxLen) {
+  const raw = String(text || "");
+  if (raw.length <= maxLen) return raw;
+  const keep = Math.max(8, Math.floor((maxLen - 1) / 2));
+  return `${raw.slice(0, keep)}…${raw.slice(raw.length - keep)}`;
+}
+
 export function renderCollapsedLegend() {
   const host = dom.collapsedLegend;
   if (!host) return;
@@ -45,7 +52,8 @@ export function renderCollapsedLegend() {
     if (description) {
       const desc = document.createElement("div");
       desc.className = "collapsed-legend-desc";
-      desc.textContent = description;
+      desc.textContent = truncateMiddle(description, 84);
+      desc.title = description;
       labelWrap.appendChild(desc);
     }
 
