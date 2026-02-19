@@ -234,6 +234,28 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 	if query != "" {
 		payload.Infix = query
 	}
+	return s.lookupMetricsByPayload(ctx, payload, metadata)
+}
+
+func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
+	payload := metricLookupRequest{
+		Function: "get_metrics",
+		Historic: true,
+		Hidden:   false,
+		Limit:    limit,
+	}
+	if metadata {
+		payload.Format = "object"
+	} else {
+		payload.Format = "array"
+	}
+	if selector != "" {
+		payload.Selector = selector
+	}
+	return s.lookupMetricsByPayload(ctx, payload, metadata)
+}
+
+func (s *service) lookupMetricsByPayload(ctx context.Context, payload metricLookupRequest, metadata bool) (map[string]map[string]any, []string, error) {
 
 	resp, err := s.agent.Rpc(ctx, "metricq.management", "get_metrics", payload)
 	if err != nil {

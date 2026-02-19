@@ -20,6 +20,7 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
+	infix, selector := splitMetricSearchQuery(query)
 	limit := 100
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 5000 {
@@ -30,12 +31,31 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 
-	_, list, err := s.lookupMetrics(ctx, query, false, limit)
+	var (
+		list []string
+		err  error
+	)
+	if selector != "" {
+		_, list, err = s.lookupMetricsSelector(ctx, selector, false, limit)
+	} else {
+		_, list, err = s.lookupMetrics(ctx, infix, false, limit)
+	}
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"metrics": list})
+}
+
+func splitMetricSearchQuery(query string) (infix, selector string) {
+	q := strings.TrimSpace(query)
+	if len(q) >= 2 && strings.HasPrefix(q, "/") && strings.HasSuffix(q, "/") {
+		mid := strings.TrimSpace(q[1 : len(q)-1])
+		if mid != "" {
+			return "", mid
+		}
+	}
+	return q, ""
 }
 
 func (s *service) handleAPIMetadata(w http.ResponseWriter, r *http.Request) {

@@ -36,3 +36,20 @@ func TestResolveQueryTargetsDuplicateNames(t *testing.T) {
 		t.Fatalf("expected duplicate name error")
 	}
 }
+
+func TestSplitMetricSearchQuery(t *testing.T) {
+	infix, selector := splitMetricSearchQuery("abc")
+	if infix != "abc" || selector != "" {
+		t.Fatalf("unexpected infix split: infix=%q selector=%q", infix, selector)
+	}
+
+	infix, selector = splitMetricSearchQuery("/foo.*/")
+	if infix != "" || selector != "foo.*" {
+		t.Fatalf("unexpected selector split: infix=%q selector=%q", infix, selector)
+	}
+
+	infix, selector = splitMetricSearchQuery("//")
+	if infix != "//" || selector != "" {
+		t.Fatalf("empty selector must fallback to infix: infix=%q selector=%q", infix, selector)
+	}
+}
