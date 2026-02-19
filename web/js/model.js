@@ -6,7 +6,6 @@ export const state = {
   loadedFrom: null,
   loadedTo: null,
   loadedMetricsKey: "",
-  showBand: true,
   yAxisMode: "local",
   yAxisManualMin: null,
   yAxisManualMax: null,

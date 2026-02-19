@@ -43,7 +43,6 @@ export const dom = {
   relativeUnit: document.getElementById("relativeUnit"),
   relativePreview: document.getElementById("relativePreview"),
   btnAddMetric: document.getElementById("btnAddMetric"),
-  toggleBand: document.getElementById("toggleBand"),
   btnHideAll: document.getElementById("btnHideAll"),
   btnShowAll: document.getElementById("btnShowAll"),
   btnClear: document.getElementById("btnClear"),

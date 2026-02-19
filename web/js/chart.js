@@ -267,23 +267,21 @@ export function renderChart() {
     const points = series.aggregatePoints || [];
     if (points.length === 0) continue;
 
-    if (state.showBand) {
-      ctx.save();
-      ctx.globalAlpha = 0.2;
-      ctx.beginPath();
-      for (let i = 0; i < points.length; i += 1) {
-        const p = points[i];
-        if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
-        else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
-      }
-      for (let i = points.length - 1; i >= 0; i -= 1) {
-        const p = points[i];
-        ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.2;
+    ctx.beginPath();
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
+      else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
     }
+    for (let i = points.length - 1; i >= 0; i -= 1) {
+      const p = points[i];
+      ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
 
     if (metric.drawAvg) {
       ctx.beginPath();

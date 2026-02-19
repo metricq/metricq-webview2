@@ -34,20 +34,6 @@ body {
   flex: 0 0 auto;
 }
 
-.top-controls .form-check.form-switch {
-  display: inline-flex;
-  align-items: center;
-  padding-left: 0;
-  margin-bottom: 0;
-}
-
-.top-controls .form-check.form-switch .form-check-input {
-  float: none;
-  margin-top: 0;
-  margin-left: 0;
-  margin-right: 0.5rem;
-}
-
 .app-main {
   flex: 1 1 auto;
   min-height: 0;

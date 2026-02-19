@@ -319,11 +319,6 @@ function wireEvents() {
     dom.metricHints.innerHTML = "";
   });
 
-  dom.toggleBand.addEventListener("change", (event) => {
-    state.showBand = event.target.checked;
-    renderChart();
-  });
-
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
   dom.btnClear.addEventListener("click", () => clearMetrics(hooks));
