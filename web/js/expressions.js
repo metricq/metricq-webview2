@@ -94,9 +94,6 @@ function createTokenDragImage(label) {
   const height = 22;
   const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
   const isFirefox = /firefox/i.test(navigator.userAgent || "");
-  const firefoxSizeCompensation = isFirefox ? (1 / dpr) : 1;
-  const dragWidth = Math.max(1, Math.round(width * firefoxSizeCompensation));
-  const dragHeight = Math.max(1, Math.round(height * firefoxSizeCompensation));
   const escaped = cappedText
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -105,7 +102,7 @@ function createTokenDragImage(label) {
     .replaceAll("'", "&#39;");
   const svg = document.createElement("div");
   svg.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${dragWidth}" height="${dragHeight}" viewBox="0 0 ${width} ${height}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="5" ry="5" fill="#e7f1ff" stroke="#0d6efd" stroke-width="1"/>
       <text x="9" y="${Math.floor(height / 2) + 0.5}" fill="#084298" font-size="12" font-family="sans-serif" dominant-baseline="middle">${escaped}</text>
     </svg>
@@ -114,15 +111,22 @@ function createTokenDragImage(label) {
   node.style.position = "fixed";
   node.style.left = "-10000px";
   node.style.top = "-10000px";
+  if (isFirefox && dpr > 1) {
+    node.style.transform = `scale(${1 / dpr})`;
+    node.style.transformOrigin = "top left";
+  }
   return node;
 }
 
 function setTokenDragImage(event, label) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const isFirefox = /firefox/i.test(navigator.userAgent || "");
+  const hotspotScale = (isFirefox && dpr > 1) ? (1 / dpr) : 1;
   const image = createTokenDragImage(label);
   document.body.appendChild(image);
-  dataTransfer.setDragImage(image, 10, 10);
+  dataTransfer.setDragImage(image, Math.round(10 * hotspotScale), Math.round(10 * hotspotScale));
   window.setTimeout(() => image.remove(), 0);
 }
 
