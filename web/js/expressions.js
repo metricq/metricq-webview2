@@ -36,6 +36,20 @@ function clearDropMarker() {
   dropMarkerEl.remove();
 }
 
+function editorStartRange() {
+  const range = document.createRange();
+  range.selectNodeContents(dom.expressionInput);
+  range.collapse(true);
+  return range;
+}
+
+function editorEndRange() {
+  const range = document.createRange();
+  range.selectNodeContents(dom.expressionInput);
+  range.collapse(false);
+  return range;
+}
+
 function closestTokenElement(node) {
   let current = node;
   while (current && current !== dom.expressionInput) {
@@ -48,8 +62,16 @@ function closestTokenElement(node) {
 }
 
 function normalizedDropRange(x, y) {
+  const editorRect = dom.expressionInput.getBoundingClientRect();
+  if (x >= editorRect.right - 2 || y >= editorRect.bottom - 2) return editorEndRange();
+  if (x <= editorRect.left + 2 && y <= editorRect.top + 20) return editorStartRange();
+
   const raw = rangeFromPoint(x, y);
-  if (!raw || !dom.expressionInput.contains(raw.startContainer)) return null;
+  if (!raw || !dom.expressionInput.contains(raw.startContainer)) {
+    if (x > editorRect.right) return editorEndRange();
+    if (x < editorRect.left) return editorStartRange();
+    return null;
+  }
   const token = closestTokenElement(raw.startContainer);
   if (!token) return raw;
   const rect = token.getBoundingClientRect();
@@ -59,6 +81,23 @@ function normalizedDropRange(x, y) {
   else range.setStartAfter(token);
   range.collapse(true);
   return range;
+}
+
+function setTokenDragImage(event, label) {
+  const dataTransfer = event.dataTransfer;
+  if (!dataTransfer) return;
+  const preview = document.createElement("span");
+  preview.className = "expression-token expression-drag-preview";
+  preview.textContent = label;
+  preview.style.position = "fixed";
+  preview.style.left = "-10000px";
+  preview.style.top = "-10000px";
+  preview.style.margin = "0";
+  preview.style.transform = "none";
+  preview.style.zoom = "1";
+  document.body.appendChild(preview);
+  dataTransfer.setDragImage(preview, 10, 10);
+  window.setTimeout(() => preview.remove(), 0);
 }
 
 function setDropMarkerAtPoint(x, y) {
@@ -259,6 +298,7 @@ function makeMetricTokenNode(metricName) {
     event.dataTransfer?.setData("application/x-metricq-metric", metricName);
     event.dataTransfer?.setData("application/x-metricq-token-id", String(token.dataset.tokenId || ""));
     event.dataTransfer.effectAllowed = "move";
+    setTokenDragImage(event, metricName);
   });
   return token;
 }
@@ -335,6 +375,7 @@ function createMetricChip(name) {
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(name));
     event.dataTransfer?.setData("application/x-metricq-metric", name);
     event.dataTransfer.effectAllowed = "copy";
+    setTokenDragImage(event, name);
   });
   return chip;
 }
