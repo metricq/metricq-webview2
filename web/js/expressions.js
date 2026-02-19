@@ -86,45 +86,39 @@ function normalizedDropRange(x, y) {
 function createTokenDragImage(label) {
   const text = String(label || "").trim() || "Metrik";
   const cappedText = text.length > 36 ? `${text.slice(0, 33)}...` : text;
-  const canvas = document.createElement("canvas");
-  const probe = canvas.getContext("2d");
+  const probeCanvas = document.createElement("canvas");
+  const probe = probeCanvas.getContext("2d");
   probe.font = "12px sans-serif";
   const textWidth = Math.ceil(probe.measureText(cappedText).width);
   const width = Math.max(54, Math.min(240, textWidth + 18));
   const height = 22;
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  ctx.clearRect(0, 0, width, height);
-  ctx.fillStyle = "#e7f1ff";
-  ctx.strokeStyle = "#0d6efd";
-  ctx.lineWidth = 1;
-  const radius = 5;
-  ctx.beginPath();
-  ctx.moveTo(radius, 0);
-  ctx.lineTo(width - radius, 0);
-  ctx.quadraticCurveTo(width, 0, width, radius);
-  ctx.lineTo(width, height - radius);
-  ctx.quadraticCurveTo(width, height, width - radius, height);
-  ctx.lineTo(radius, height);
-  ctx.quadraticCurveTo(0, height, 0, height - radius);
-  ctx.lineTo(0, radius);
-  ctx.quadraticCurveTo(0, 0, radius, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = "#084298";
-  ctx.font = "12px sans-serif";
-  ctx.textBaseline = "middle";
-  ctx.fillText(cappedText, 9, Math.floor(height / 2) + 0.5);
-  return canvas;
+  const escaped = cappedText
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll("\"", "&quot;")
+    .replaceAll("'", "&#39;");
+  const svg = document.createElement("div");
+  svg.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+      <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="5" ry="5" fill="#e7f1ff" stroke="#0d6efd" stroke-width="1"/>
+      <text x="9" y="${Math.floor(height / 2) + 0.5}" fill="#084298" font-size="12" font-family="sans-serif" dominant-baseline="middle">${escaped}</text>
+    </svg>
+  `.trim();
+  const node = svg.firstElementChild;
+  node.style.position = "fixed";
+  node.style.left = "-10000px";
+  node.style.top = "-10000px";
+  return node;
 }
 
 function setTokenDragImage(event, label) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
   const image = createTokenDragImage(label);
+  document.body.appendChild(image);
   dataTransfer.setDragImage(image, 10, 10);
+  window.setTimeout(() => image.remove(), 0);
 }
 
 function setDropMarkerAtPoint(x, y) {
