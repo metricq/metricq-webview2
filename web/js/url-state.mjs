@@ -7,19 +7,12 @@ const URL_STATE_VERSION = 1;
 const RELATIVE_UNITS = new Set(["m", "h", "d", "w", "M", "y"]);
 
 let syncTimer = null;
-let urlStateErrorMessage = "";
 
-function clearStateParamFromUrl() {
-  const url = new URL(window.location.href);
-  if (!url.searchParams.size && !url.hash) return;
-  url.search = "";
-  url.hash = "";
-  history.replaceState(null, "", url);
-}
-
-function markInvalidUrlState(message) {
-  urlStateErrorMessage = message;
-  clearStateParamFromUrl();
+export class InvalidUrlStateError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "InvalidUrlStateError";
+  }
 }
 
 function defaultColorAt(index) {
@@ -307,16 +300,14 @@ export function applyStateFromUrl() {
   try {
     payload = decodeStatePayload(encoded);
   } catch (_) {
-    markInvalidUrlState("Ungültiger URL-State wurde entfernt.");
-    return false;
+    throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
   }
 
   if (!applyRelativeConfig(payload?.r)) {
     const from = Number(payload?.f);
     const to = Number(payload?.t);
     if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
-      markInvalidUrlState("Ungültiger Zeitbereich im URL-State wurde entfernt.");
-      return false;
+      throw new InvalidUrlStateError("Der Link enthält einen ungültigen Zeitraum und konnte nicht geladen werden.");
     }
 
     state.timeMode = "absolute";
@@ -335,12 +326,6 @@ export function applyStateFromUrl() {
   applyYAxisConfig(payload?.y);
 
   return true;
-}
-
-export function consumeUrlStateError() {
-  const message = urlStateErrorMessage;
-  urlStateErrorMessage = "";
-  return message;
 }
 
 export function applyLegacyWebviewHashFallback() {

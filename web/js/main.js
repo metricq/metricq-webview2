@@ -36,7 +36,7 @@ import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 import {
   applyLegacyWebviewHashFallback,
   applyStateFromUrl,
-  consumeUrlStateError,
+  InvalidUrlStateError,
   syncUrlStateNow,
 } from "./url-state.mjs";
 
@@ -671,8 +671,19 @@ function applyTokenOffset(date, offset) {
 }
 
 async function init() {
-  const restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
-  const urlStateError = consumeUrlStateError();
+  let restoredFromUrl = false;
+  let urlStateError = "";
+  try {
+    restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
+  } catch (err) {
+    if (err instanceof InvalidUrlStateError) {
+      urlStateError = err.message;
+      clearUrlToBasePath();
+      restoredFromUrl = false;
+    } else {
+      throw err;
+    }
+  }
   suppressUrlStateSync = Boolean(urlStateError);
   if (urlStateError) {
     showUrlStateErrorModal(urlStateError);
