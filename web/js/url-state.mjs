@@ -151,6 +151,89 @@ function relativeRangeStart(now, amount, unit) {
   return now - delta;
 }
 
+function applyTokenOffset(date, offset) {
+  const match = /^([+-])(\d+)([mhdwMy])$/.exec(String(offset || "").trim());
+  if (!match) return date;
+  const sign = match[1] === "-" ? -1 : 1;
+  const value = sign * Number.parseInt(match[2], 10);
+  const unit = match[3];
+  const out = new Date(date);
+  if (unit === "m") out.setMinutes(out.getMinutes() + value);
+  else if (unit === "h") out.setHours(out.getHours() + value);
+  else if (unit === "d") out.setDate(out.getDate() + value);
+  else if (unit === "w") out.setDate(out.getDate() + value * 7);
+  else if (unit === "M") out.setMonth(out.getMonth() + value);
+  else if (unit === "y") out.setFullYear(out.getFullYear() + value);
+  return out;
+}
+
+function parseLegacyTimeExpr(expr, nowMs) {
+  const value = String(expr || "").trim();
+  if (!value) return null;
+  if (value === "now") return nowMs;
+
+  const rel = /^now([+-]\d+[mhdwMy])$/.exec(value);
+  if (rel) return applyTokenOffset(new Date(nowMs), rel[1]).getTime();
+
+  const asNumber = Number(value);
+  if (Number.isFinite(asNumber)) {
+    if (asNumber > 1e12) return Math.round(asNumber);
+    if (asNumber > 1e9) return Math.round(asNumber * 1000);
+  }
+
+  const asDate = new Date(value).getTime();
+  if (Number.isFinite(asDate)) return asDate;
+  return null;
+}
+
+function splitLegacyHashParts(hash) {
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (let i = 0; i < hash.length; i += 1) {
+    const ch = hash[i];
+    if (ch === "(") depth += 1;
+    if (ch === ")") depth = Math.max(0, depth - 1);
+    if (ch === "*" && depth === 0) {
+      parts.push(current);
+      current = "";
+      continue;
+    }
+    current += ch;
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
+function parseLegacyMetricToken(token, index) {
+  let raw = String(token || "").trim();
+  if (!raw) return null;
+  if (raw.startsWith("(") && raw.endsWith(")")) raw = raw.slice(1, -1).trim();
+  if (!raw) return null;
+
+  const [nameRaw, factorRaw] = raw.split("~", 2);
+  const name = String(nameRaw || "").trim();
+  if (!name) return null;
+  const metric = {
+    name,
+    expr: "",
+    color: defaultColorAt(index),
+    draw: true,
+    drawAvg: true,
+    factor: 1,
+    factorMode: "auto",
+    unit: "",
+    displayUnit: "",
+    description: "",
+  };
+  const factor = Number(factorRaw);
+  if (Number.isFinite(factor) && Math.abs(factor - 1) > 1e-12) {
+    metric.factor = factor;
+    metric.factorMode = "manual";
+  }
+  return metric;
+}
+
 function applyRelativeConfig(r) {
   const amount = Math.max(1, Number.parseInt(String(r?.a ?? "1"), 10) || 1);
   const unit = String(r?.u || "h");
@@ -227,4 +310,43 @@ export function applyStateFromUrl() {
   applyYAxisConfig(payload?.y);
 
   return true;
+}
+
+export function applyLegacyWebviewHashFallback() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.has(URL_STATE_PARAM)) return false;
+
+  const hash = String(url.hash || "");
+  if (!hash.startsWith("#.")) return false;
+
+  const payload = hash.slice(2).trim();
+  if (!payload) return false;
+  const parts = splitLegacyHashParts(payload);
+  if (parts.length < 3) return false;
+
+  const now = Date.now();
+  const from = parseLegacyTimeExpr(parts[0], now);
+  const to = parseLegacyTimeExpr(parts[1], now);
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) return false;
+
+  const rel = /^now-(\d+)([mhdwMy])$/.exec(String(parts[0] || "").trim());
+  const isRelative = rel && String(parts[1] || "").trim() === "now";
+
+  state.timeMode = isRelative ? "relative" : "absolute";
+  state.from = from;
+  state.to = to;
+  dom.fromInput.value = toLocalInput(new Date(from));
+  dom.toInput.value = toLocalInput(new Date(to));
+  if (isRelative && dom.relativeAmount && dom.relativeUnit) {
+    dom.relativeAmount.value = String(Number.parseInt(rel[1], 10));
+    dom.relativeUnit.value = rel[2];
+  }
+  updateRangeButtonLabel();
+
+  state.metrics = parts
+    .slice(2)
+    .map((item, index) => parseLegacyMetricToken(item, index))
+    .filter(Boolean);
+
+  return state.metrics.length > 0;
 }
