@@ -92,6 +92,11 @@ function createTokenDragImage(label) {
   const textWidth = Math.ceil(probe.measureText(cappedText).width);
   const width = Math.max(54, Math.min(240, textWidth + 18));
   const height = 22;
+  const dpr = Math.max(1, Number(window.devicePixelRatio) || 1);
+  const isFirefox = /firefox/i.test(navigator.userAgent || "");
+  const firefoxSizeCompensation = isFirefox ? (1 / dpr) : 1;
+  const dragWidth = Math.max(1, Math.round(width * firefoxSizeCompensation));
+  const dragHeight = Math.max(1, Math.round(height * firefoxSizeCompensation));
   const escaped = cappedText
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
@@ -100,7 +105,7 @@ function createTokenDragImage(label) {
     .replaceAll("'", "&#39;");
   const svg = document.createElement("div");
   svg.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+    <svg xmlns="http://www.w3.org/2000/svg" width="${dragWidth}" height="${dragHeight}" viewBox="0 0 ${width} ${height}">
       <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="5" ry="5" fill="#e7f1ff" stroke="#0d6efd" stroke-width="1"/>
       <text x="9" y="${Math.floor(height / 2) + 0.5}" fill="#084298" font-size="12" font-family="sans-serif" dominant-baseline="middle">${escaped}</text>
     </svg>
