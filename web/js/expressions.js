@@ -12,6 +12,7 @@ let tokenSequence = 1;
 let hoverInfoEl = null;
 let hoveredMetricName = "";
 let dropMarkerEl = null;
+let tokenDragImageEl = null;
 
 const metricMetadataCache = new Map();
 
@@ -83,21 +84,19 @@ function normalizedDropRange(x, y) {
   return range;
 }
 
-function setTokenDragImage(event, label) {
+function ensureTokenDragImage() {
+  if (tokenDragImageEl) return tokenDragImageEl;
+  const pixel = document.createElement("canvas");
+  pixel.width = 1;
+  pixel.height = 1;
+  tokenDragImageEl = pixel;
+  return tokenDragImageEl;
+}
+
+function setTokenDragImage(event) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
-  const preview = document.createElement("span");
-  preview.className = "expression-token expression-drag-preview";
-  preview.textContent = label;
-  preview.style.position = "fixed";
-  preview.style.left = "-10000px";
-  preview.style.top = "-10000px";
-  preview.style.margin = "0";
-  preview.style.transform = "none";
-  preview.style.zoom = "1";
-  document.body.appendChild(preview);
-  dataTransfer.setDragImage(preview, 10, 10);
-  window.setTimeout(() => preview.remove(), 0);
+  dataTransfer.setDragImage(ensureTokenDragImage(), 0, 0);
 }
 
 function setDropMarkerAtPoint(x, y) {
@@ -298,7 +297,7 @@ function makeMetricTokenNode(metricName) {
     event.dataTransfer?.setData("application/x-metricq-metric", metricName);
     event.dataTransfer?.setData("application/x-metricq-token-id", String(token.dataset.tokenId || ""));
     event.dataTransfer.effectAllowed = "move";
-    setTokenDragImage(event, metricName);
+    setTokenDragImage(event);
   });
   return token;
 }
@@ -375,7 +374,7 @@ function createMetricChip(name) {
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(name));
     event.dataTransfer?.setData("application/x-metricq-metric", name);
     event.dataTransfer.effectAllowed = "copy";
-    setTokenDragImage(event, name);
+    setTokenDragImage(event);
   });
   return chip;
 }
