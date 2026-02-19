@@ -141,8 +141,9 @@ export async function fetchMetadata(name, hooks) {
 
 export function applyLegacyPostFactors() {
   for (const metric of state.metrics) {
+    if (metric.legacyPostFactor == null || metric.factorMode === "manual") continue;
     const post = Number(metric.legacyPostFactor);
-    if (!Number.isFinite(post) || metric.factorMode === "manual") continue;
+    if (!Number.isFinite(post)) continue;
     metric.factor = (Number(metric.factor) || 1) * post;
     metric.displayUnit = metric.displayUnit || metric.unit || "";
   }
