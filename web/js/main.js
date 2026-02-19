@@ -231,6 +231,15 @@ function showZoomRangeBadge() {
   }, 900);
 }
 
+function forceAbsoluteTimeModeFromCurrentRange() {
+  if (state.timeMode !== "relative") return;
+  state.timeMode = "absolute";
+  switchTimeMode("absolute");
+  dom.fromInput.value = toLocalInput(new Date(state.from));
+  dom.toInput.value = toLocalInput(new Date(state.to));
+  updateRangeButtonLabel();
+}
+
 function getClampedClientX(clientX) {
   const rect = dom.canvas.getBoundingClientRect();
   const bounds = getPlotXBoundsInCanvas();
@@ -400,6 +409,7 @@ function wireEvents() {
     event.preventDefault();
     hideHover();
     if (event.ctrlKey) {
+      forceAbsoluteTimeModeFromCurrentRange();
       state.interactionMode = "pan";
       state.isPanning = true;
       state.panStartX = event.clientX;
@@ -443,6 +453,7 @@ function wireEvents() {
     "wheel",
     (event) => {
       event.preventDefault();
+      forceAbsoluteTimeModeFromCurrentRange();
       const center = timestampAtCanvasX(event.clientX);
       zoomAt(center, event.deltaY < 0 ? 0.8 : 1.25, () => {
         showZoomRangeBadge();
@@ -493,6 +504,7 @@ function wireEvents() {
 function shiftRangeByFactor(factor) {
   const range = state.to - state.from;
   if (!Number.isFinite(range) || range <= 0) return;
+  forceAbsoluteTimeModeFromCurrentRange();
   const delta = Math.round(range * factor);
   state.from += delta;
   state.to += delta;
