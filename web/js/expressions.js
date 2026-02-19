@@ -219,12 +219,11 @@ async function fetchMetricDetails(metricName) {
 }
 
 function renderMetricHoverHtml(metricName, details) {
-  const unit = details?.unit ? `Einheit: ${details.unit}` : "Einheit: -";
-  const desc = details?.description ? `Beschreibung: ${details.description}` : "Beschreibung: -";
+  const unitPart = details?.unit ? ` [${details.unit}]` : "";
+  const desc = details?.description || "-";
   return `
-    <div class="expression-token-hover-name">${metricName}</div>
-    <div>${unit}</div>
-    <div>${desc}</div>
+    <div class="expression-token-hover-name">${metricName}${unitPart}</div>
+    <div class="expression-token-hover-desc">${desc}</div>
   `;
 }
 
