@@ -33,10 +33,10 @@ test("applyAutoScaling does not override manual factors", () => {
   applyAutoScaling(metrics, series);
 
   assert.equal(metrics[0].manualFactor, 2);
-  assert.equal(metrics[0].factor, 2);
-  assert.equal(metrics[0].displayUnit, "W");
-  assert.equal(metrics[1].displayUnit, "W");
-  assert.equal(metrics[1].factor, 1000);
+  assert.equal(metrics[0].factor, 0.002);
+  assert.equal(metrics[0].displayUnit, "kW");
+  assert.equal(metrics[1].displayUnit, "kW");
+  assert.equal(metrics[1].factor, 1);
 });
 
 test("applyAutoScaling scales single auto metric to a readable unit", () => {

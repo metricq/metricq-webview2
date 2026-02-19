@@ -18,6 +18,15 @@ test("normalizeSIUnit keeps unknown values and handles empty input", () => {
   assert.equal(normalizeSIUnit(undefined), "");
 });
 
+test("normalizeSIUnit recognizes SI units with common suffixes and casing", () => {
+  assert.equal(normalizeSIUnit("Veff"), "V");
+  assert.equal(normalizeSIUnit("Vrms"), "V");
+  assert.equal(normalizeSIUnit("kVeff"), "kV");
+  assert.equal(normalizeSIUnit("kv"), "kV");
+  assert.equal(normalizeSIUnit("MW"), "MW");
+  assert.equal(normalizeSIUnit("µA"), "uA");
+});
+
 test("normalizeSIUnit extended mapping table", () => {
   const cases = [
     ["kilowatts", "kW"],

@@ -1,3 +1,5 @@
+import { normalizeSIUnit } from "./units.mjs";
+
 const SI_PREFIXES = [
   { exp: -9, prefix: "n" },
   { exp: -6, prefix: "u" },
@@ -24,7 +26,7 @@ const UNIT_TABLE = buildUnitTable();
 
 function parseUnit(unit) {
   if (!unit) return null;
-  const normalized = String(unit).trim();
+  const normalized = normalizeSIUnit(unit);
   return UNIT_TABLE.get(normalized) || null;
 }
 
@@ -72,21 +74,17 @@ function chooseTargetExp(candidates) {
     return best;
   }
 
+  // Keep the largest representative value in a readable SI bucket.
+  // This avoids a single large signal dwarfing all other series in the same unit family.
+  const maxLog = Math.max(...logs);
+  const rawTarget = Math.floor(maxLog / 3) * 3;
   let best = available[0];
-  let bestScore = Number.POSITIVE_INFINITY;
+  let bestDist = Number.POSITIVE_INFINITY;
   for (const exp of available) {
-    // Score transformed magnitudes to prefer human-readable ranges.
-    // target: mostly within [1, 1000), with a mild preference around ~30.
-    let score = 0;
-    for (const baseLog of logs) {
-      const transformedLog = baseLog - exp;
-      if (transformedLog < 0) score += (0 - transformedLog) * 2.0;
-      else if (transformedLog >= 3) score += (transformedLog - 3) * 1.0;
-      score += Math.abs(transformedLog - 1.5) * 0.15;
-    }
-    if (score < bestScore || (score === bestScore && exp > best)) {
+    const dist = Math.abs(exp - rawTarget);
+    if (dist < bestDist || (dist === bestDist && exp > best)) {
       best = exp;
-      bestScore = score;
+      bestDist = dist;
     }
   }
   return best;

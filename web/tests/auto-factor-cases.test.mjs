@@ -231,6 +231,26 @@ test("auto-factor case matrix", async (t) => {
       },
     },
     {
+      name: "voltage units with suffixes are normalized and scaled to readable prefix",
+      input: {
+        metrics: [
+          { name: "v1", unit: "Veff", factor: 1, factorMode: "auto", displayUnit: "Veff" },
+          { name: "v2", unit: "V", factor: 1, factorMode: "auto", displayUnit: "V" },
+          { name: "p1", unit: "kW", factor: 1, factorMode: "auto", displayUnit: "kW" },
+        ],
+        series: [
+          { name: "v1", data: { mode: "values", points: [{ t: 1, v: 12000 }] } },
+          { name: "v2", data: { mode: "values", points: [{ t: 1, v: 230 }] } },
+          { name: "p1", data: { mode: "values", points: [{ t: 1, v: 200 }] } },
+        ],
+      },
+      expect: {
+        v1: { displayUnit: "kV", factor: 0.001 },
+        v2: { displayUnit: "kV", factor: 0.001 },
+        p1: { displayUnit: "kW", factor: 1 },
+      },
+    },
+    {
       name: "no metrics: no crash",
       input: {
         metrics: [],

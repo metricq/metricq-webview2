@@ -1,3 +1,5 @@
+import { normalizeSIUnit } from "./units.mjs";
+
 const SI_PREFIXES = [
   { exp: -9, prefix: "n" },
   { exp: -6, prefix: "u" },
@@ -23,7 +25,7 @@ const UNIT_TABLE = (() => {
 })();
 
 function parseUnit(unit) {
-  return UNIT_TABLE.get(String(unit || "").trim()) || null;
+  return UNIT_TABLE.get(normalizeSIUnit(unit)) || null;
 }
 
 function formatUnit(family, exp) {

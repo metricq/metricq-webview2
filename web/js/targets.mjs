@@ -1,3 +1,5 @@
+import { normalizeSIUnit } from "./units.mjs";
+
 export function expressionTokenForMetric(name) {
   return `[${String(name || "").trim()}]`;
 }
@@ -29,7 +31,7 @@ const UNIT_TABLE = (() => {
 const metadataUnitCache = new Map();
 
 function parseUnit(unit) {
-  return UNIT_TABLE.get(String(unit || "").trim()) || null;
+  return UNIT_TABLE.get(normalizeSIUnit(unit)) || null;
 }
 
 function formatFactor(value) {
