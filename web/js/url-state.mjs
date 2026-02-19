@@ -130,15 +130,19 @@ function applyYAxisConfig(y) {
 function buildPayload() {
   const payload = {
     v: URL_STATE_VERSION,
-    f: Math.round(state.from),
-    t: Math.round(state.to),
     m: state.metrics.map((metric, index) => serializeMetricEntry(metric, index)),
   };
 
+  if (state.timeMode === "relative") {
+    const rel = serializeRelative();
+    if (rel) payload.r = rel;
+  } else {
+    payload.f = Math.round(state.from);
+    payload.t = Math.round(state.to);
+  }
+
   const y = serializeYAxis();
   if (y) payload.y = y;
-  const rel = serializeRelative();
-  if (rel) payload.r = rel;
 
   return payload;
 }
@@ -303,7 +307,20 @@ export function applyStateFromUrl() {
     throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
   }
 
-  if (!applyRelativeConfig(payload?.r)) {
+  const hasRelative = payload?.r != null;
+  const hasAbsolute = payload?.f != null || payload?.t != null;
+  if (hasRelative && hasAbsolute) {
+    throw new InvalidUrlStateError("Der Link enthält widersprüchliche Zeitangaben und konnte nicht geladen werden.");
+  }
+  if (!hasRelative && !hasAbsolute) {
+    throw new InvalidUrlStateError("Der Link enthält keine gültige Zeitangabe und konnte nicht geladen werden.");
+  }
+
+  if (hasRelative) {
+    if (!applyRelativeConfig(payload?.r)) {
+      throw new InvalidUrlStateError("Der Link enthält einen ungültigen relativen Zeitraum und konnte nicht geladen werden.");
+    }
+  } else {
     const from = Number(payload?.f);
     const to = Number(payload?.t);
     if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
