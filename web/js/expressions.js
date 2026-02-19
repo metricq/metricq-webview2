@@ -14,6 +14,7 @@ let hoveredMetricName = "";
 let dropMarkerEl = null;
 
 const metricMetadataCache = new Map();
+const CARET_SENTINEL = "\u200b";
 
 function ensureHoverInfoElement() {
   if (hoverInfoEl) return hoverInfoEl;
@@ -187,7 +188,7 @@ function serializeExpressionEditor() {
   let out = "";
   for (const node of dom.expressionInput.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
-      out += node.textContent || "";
+      out += (node.textContent || "").split(CARET_SENTINEL).join("");
       continue;
     }
     if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
@@ -201,8 +202,20 @@ function serializeExpressionEditor() {
 }
 
 function placeCaretAfterNode(node) {
+  const next = node.nextSibling;
+  if (next && next.nodeType === Node.TEXT_NODE) {
+    const range = document.createRange();
+    range.setStart(next, 0);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return;
+  }
+  const textNode = document.createTextNode(CARET_SENTINEL);
+  node.parentNode.insertBefore(textNode, next || null);
   const range = document.createRange();
-  range.setStartAfter(node);
+  range.setStart(textNode, 0);
   range.collapse(true);
   const sel = window.getSelection();
   sel.removeAllRanges();
@@ -210,8 +223,20 @@ function placeCaretAfterNode(node) {
 }
 
 function placeCaretBeforeNode(node) {
+  const prev = node.previousSibling;
+  if (prev && prev.nodeType === Node.TEXT_NODE) {
+    const range = document.createRange();
+    range.setStart(prev, prev.textContent?.length || 0);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    return;
+  }
+  const textNode = document.createTextNode(CARET_SENTINEL);
+  node.parentNode.insertBefore(textNode, node);
   const range = document.createRange();
-  range.setStartBefore(node);
+  range.setStart(textNode, textNode.textContent?.length || 0);
   range.collapse(true);
   const sel = window.getSelection();
   sel.removeAllRanges();
@@ -251,12 +276,30 @@ function getSelectionRangeInEditor() {
 function insertNodeAtRange(node, range) {
   if (!range || !dom.expressionInput.contains(range.startContainer)) {
     dom.expressionInput.appendChild(node);
+    ensureEditorBoundaries();
     placeCaretAfterNode(node);
     return;
   }
   range.deleteContents();
   range.insertNode(node);
+  ensureEditorBoundaries();
   placeCaretAfterNode(node);
+}
+
+function ensureEditorBoundaries() {
+  const first = dom.expressionInput.firstChild;
+  if (!first || first.nodeType !== Node.TEXT_NODE) {
+    dom.expressionInput.insertBefore(document.createTextNode(CARET_SENTINEL), first || null);
+  } else if (!String(first.textContent || "").includes(CARET_SENTINEL)) {
+    first.textContent = `${CARET_SENTINEL}${first.textContent || ""}`;
+  }
+
+  const last = dom.expressionInput.lastChild;
+  if (!last || last.nodeType !== Node.TEXT_NODE) {
+    dom.expressionInput.appendChild(document.createTextNode(CARET_SENTINEL));
+  } else if (!String(last.textContent || "").includes(CARET_SENTINEL)) {
+    last.textContent = `${last.textContent || ""}${CARET_SENTINEL}`;
+  }
 }
 
 function metricDetailsFromState(metricName) {
@@ -341,6 +384,7 @@ function renderExpressionEditor(expression) {
       dom.expressionInput.appendChild(document.createTextNode(part.value));
     }
   }
+  ensureEditorBoundaries();
 }
 
 function insertMetricTokenAtCursor(metricName) {
@@ -522,6 +566,24 @@ function maybeConvertTypedBracketExpression(event) {
   placeCaretAtEnd(dom.expressionInput);
 }
 
+function maybePlaceCaretOutsideEdgeToken(event) {
+  if (event.button !== 0) return;
+  if (event.target !== dom.expressionInput) return;
+  const tokens = dom.expressionInput.querySelectorAll(".expression-token");
+  if (tokens.length === 0) return;
+  const first = tokens[0].getBoundingClientRect();
+  const last = tokens[tokens.length - 1].getBoundingClientRect();
+  if (event.clientX <= first.left - 2) {
+    event.preventDefault();
+    placeCaretBeforeNode(tokens[0]);
+    return;
+  }
+  if (event.clientX >= last.right + 2) {
+    event.preventDefault();
+    placeCaretAfterNode(tokens[tokens.length - 1]);
+  }
+}
+
 export function wireExpressionModal(hooks) {
   function openAddModal() {
     editingMetricName = "";
@@ -584,6 +646,7 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
+  dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
 
