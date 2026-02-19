@@ -12,7 +12,6 @@ let tokenSequence = 1;
 let hoverInfoEl = null;
 let hoveredMetricName = "";
 let dropMarkerEl = null;
-let tokenDragImageEl = null;
 
 const metricMetadataCache = new Map();
 
@@ -84,19 +83,48 @@ function normalizedDropRange(x, y) {
   return range;
 }
 
-function ensureTokenDragImage() {
-  if (tokenDragImageEl) return tokenDragImageEl;
-  const pixel = document.createElement("canvas");
-  pixel.width = 1;
-  pixel.height = 1;
-  tokenDragImageEl = pixel;
-  return tokenDragImageEl;
+function createTokenDragImage(label) {
+  const text = String(label || "").trim() || "Metrik";
+  const cappedText = text.length > 36 ? `${text.slice(0, 33)}...` : text;
+  const canvas = document.createElement("canvas");
+  const probe = canvas.getContext("2d");
+  probe.font = "12px sans-serif";
+  const textWidth = Math.ceil(probe.measureText(cappedText).width);
+  const width = Math.max(54, Math.min(240, textWidth + 18));
+  const height = 22;
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = "#e7f1ff";
+  ctx.strokeStyle = "#0d6efd";
+  ctx.lineWidth = 1;
+  const radius = 5;
+  ctx.beginPath();
+  ctx.moveTo(radius, 0);
+  ctx.lineTo(width - radius, 0);
+  ctx.quadraticCurveTo(width, 0, width, radius);
+  ctx.lineTo(width, height - radius);
+  ctx.quadraticCurveTo(width, height, width - radius, height);
+  ctx.lineTo(radius, height);
+  ctx.quadraticCurveTo(0, height, 0, height - radius);
+  ctx.lineTo(0, radius);
+  ctx.quadraticCurveTo(0, 0, radius, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#084298";
+  ctx.font = "12px sans-serif";
+  ctx.textBaseline = "middle";
+  ctx.fillText(cappedText, 9, Math.floor(height / 2) + 0.5);
+  return canvas;
 }
 
-function setTokenDragImage(event) {
+function setTokenDragImage(event, label) {
   const dataTransfer = event.dataTransfer;
   if (!dataTransfer) return;
-  dataTransfer.setDragImage(ensureTokenDragImage(), 0, 0);
+  const image = createTokenDragImage(label);
+  dataTransfer.setDragImage(image, 10, 10);
 }
 
 function setDropMarkerAtPoint(x, y) {
@@ -297,7 +325,7 @@ function makeMetricTokenNode(metricName) {
     event.dataTransfer?.setData("application/x-metricq-metric", metricName);
     event.dataTransfer?.setData("application/x-metricq-token-id", String(token.dataset.tokenId || ""));
     event.dataTransfer.effectAllowed = "move";
-    setTokenDragImage(event);
+    setTokenDragImage(event, metricName);
   });
   return token;
 }
@@ -374,7 +402,7 @@ function createMetricChip(name) {
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(name));
     event.dataTransfer?.setData("application/x-metricq-metric", name);
     event.dataTransfer.effectAllowed = "copy";
-    setTokenDragImage(event);
+    setTokenDragImage(event, name);
   });
   return chip;
 }
