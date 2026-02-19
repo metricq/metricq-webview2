@@ -60,6 +60,8 @@ export const dom = {
   expressionMetricModalTitle: document.getElementById("expressionMetricModalTitle"),
   expressionMetricName: document.getElementById("expressionMetricName"),
   expressionInput: document.getElementById("expressionInput"),
+  expressionMetricSearch: document.getElementById("expressionMetricSearch"),
+  expressionMetricHints: document.getElementById("expressionMetricHints"),
   expressionMetricPalette: document.getElementById("expressionMetricPalette"),
   btnSaveExpressionMetric: document.getElementById("btnSaveExpressionMetric"),
 };

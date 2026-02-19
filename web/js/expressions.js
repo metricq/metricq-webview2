@@ -1,10 +1,11 @@
 import { dom } from "./dom.js";
 import { state } from "./model.js";
-import { addExpressionMetric, updateExpressionMetric } from "./metrics.js";
+import { addExpressionMetric, searchMetricHints, updateExpressionMetric } from "./metrics.js";
 import { expressionTokenForMetric } from "./targets.mjs";
 import { expandExpressionAliases } from "./expression-alias.mjs";
 
 let editingMetricName = "";
+let expressionSearchTimer = null;
 
 function insertAtCursor(input, text) {
   const start = input.selectionStart ?? input.value.length;
@@ -38,23 +39,44 @@ function renderMetricPalette() {
   dom.expressionMetricPalette.innerHTML = "";
   const baseMetrics = state.metrics.filter((metric) => !metric.expr);
   for (const metric of baseMetrics) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "btn btn-sm btn-outline-secondary expression-chip";
-    chip.textContent = metric.name;
-    chip.draggable = true;
-
-    const token = expressionTokenForMetric(metric.name);
-    chip.addEventListener("click", () => {
-      insertAtCursor(dom.expressionInput, token);
-    });
-    chip.addEventListener("dragstart", (event) => {
-      event.dataTransfer?.setData("text/plain", token);
-      event.dataTransfer?.setData("application/x-metricq-token", token);
-      event.dataTransfer.effectAllowed = "copy";
-    });
-    dom.expressionMetricPalette.appendChild(chip);
+    dom.expressionMetricPalette.appendChild(createMetricChip(metric.name));
   }
+}
+
+function createMetricChip(name) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "btn btn-sm btn-outline-secondary expression-chip";
+  chip.textContent = name;
+  chip.draggable = true;
+
+  const token = expressionTokenForMetric(name);
+  chip.addEventListener("click", () => {
+    insertAtCursor(dom.expressionInput, token);
+  });
+  chip.addEventListener("dragstart", (event) => {
+    event.dataTransfer?.setData("text/plain", token);
+    event.dataTransfer?.setData("application/x-metricq-token", token);
+    event.dataTransfer.effectAllowed = "copy";
+  });
+  return chip;
+}
+
+function renderMetricSearchHints(names) {
+  dom.expressionMetricHints.innerHTML = "";
+  for (const name of names) {
+    dom.expressionMetricHints.appendChild(createMetricChip(name));
+  }
+}
+
+async function updateMetricSearchHints() {
+  const query = dom.expressionMetricSearch.value.trim();
+  if (query.length < 2) {
+    renderMetricSearchHints([]);
+    return;
+  }
+  const names = await searchMetricHints(query);
+  renderMetricSearchHints(names);
 }
 
 function saveExpressionMetric(hooks) {
@@ -88,6 +110,8 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik hinzufügen";
     dom.expressionMetricName.value = buildNextExpressionName();
     dom.expressionInput.value = "";
+    dom.expressionMetricSearch.value = "";
+    renderMetricSearchHints([]);
     renderMetricPalette();
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
@@ -101,6 +125,8 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik bearbeiten";
     dom.expressionMetricName.value = metric.name;
     dom.expressionInput.value = metric.expr || "";
+    dom.expressionMetricSearch.value = "";
+    renderMetricSearchHints([]);
     renderMetricPalette();
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
@@ -138,6 +164,13 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionMetricModal.addEventListener("hidden.bs.modal", () => {
     editingMetricName = "";
+    dom.expressionMetricSearch.value = "";
+    renderMetricSearchHints([]);
+  });
+
+  dom.expressionMetricSearch.addEventListener("input", () => {
+    if (expressionSearchTimer != null) window.clearTimeout(expressionSearchTimer);
+    expressionSearchTimer = window.setTimeout(updateMetricSearchHints, 180);
   });
 
   document.addEventListener("metricq:edit-expression", (event) => {

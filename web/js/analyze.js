@@ -1,7 +1,7 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
 import { state } from "./model.js";
-import { buildComputedExpression } from "./targets.mjs";
+import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 
 function metricByName(name) {
@@ -34,23 +34,19 @@ function formatFactor(value) {
   return num.toPrecision(12).replace(/\.?0+$/, "");
 }
 
-function buildAnalyzeTargets() {
-  return state.metrics
-    .map((metric) => {
-      const name = String(metric?.name || "").trim();
-      if (!name) return null;
-      const factorText = formatFactor(metric.factor);
+async function buildAnalyzeTargets() {
+  const resolved = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
+    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    return body?.metadata?.unit || "";
+  });
 
-      if (metric.expr) {
-        let expr = buildComputedExpression(metric.expr, state.metrics);
-        if (factorText) expr = `(${expr})*${factorText}`;
-        return { name, expr };
-      }
-
-      if (!factorText) return { name, metric: name };
-      return { name, expr: `([${name}]*${factorText})` };
-    })
-    .filter(Boolean);
+  return resolved.map((target) => {
+    const metric = metricByName(target.name);
+    const factorText = formatFactor(metric?.factor);
+    if (!factorText) return target;
+    if (target.expr) return { name: target.name, expr: `(${target.expr})*${factorText}` };
+    return { name: target.name, expr: `([${target.name}]*${factorText})` };
+  });
 }
 
 async function ensureDescriptions() {
@@ -77,7 +73,7 @@ export async function runAnalyze() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      targets: buildAnalyzeTargets(),
+      targets: await buildAnalyzeTargets(),
       from: state.from,
       to: state.to,
     }),

@@ -5,7 +5,7 @@ import { dom } from "./dom.js";
 import { deriveExpressionUnits } from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
-import { buildQueryTargets } from "./targets.mjs";
+import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 
@@ -32,7 +32,10 @@ export async function loadData(renderChart) {
   }
 
   const req = {
-    targets: buildQueryTargets(state.metrics),
+    targets: await buildQueryTargetsResolved(state.metrics, async (metricName) => {
+      const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+      return body?.metadata?.unit || "";
+    }),
     from: state.from,
     to: state.to,
     maxDataPoints: computeMaxDataPoints(),
