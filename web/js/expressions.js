@@ -2,6 +2,7 @@ import { dom } from "./dom.js";
 import { state } from "./model.js";
 import { addExpressionMetric } from "./metrics.js";
 import { expressionTokenForMetric } from "./targets.mjs";
+import { expandExpressionAliases } from "./expression-alias.mjs";
 
 function insertAtCursor(input, text) {
   const start = input.selectionStart ?? input.value.length;
@@ -57,7 +58,7 @@ function renderMetricPalette() {
 function saveExpressionMetric(hooks) {
   clearValidation();
   const name = dom.expressionMetricName.value.trim();
-  const expr = dom.expressionInput.value.trim();
+  const expr = expandExpressionAliases(dom.expressionInput.value.trim(), state.metrics);
   if (!name) {
     markInvalid(dom.expressionMetricName);
     return;

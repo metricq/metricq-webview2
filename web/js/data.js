@@ -2,6 +2,7 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
+import { deriveExpressionUnits } from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
 import { buildQueryTargets } from "./targets.mjs";
@@ -56,6 +57,7 @@ export async function loadData(renderChart) {
     totalDbMs += Number(series.duration || 0) * 1000;
   }
 
+  deriveExpressionUnits(state.metrics);
   applyAutoScaling(state.metrics, state.series);
   renderMetricList({
     renderChart,
