@@ -7,6 +7,19 @@ const URL_STATE_VERSION = 1;
 const RELATIVE_UNITS = new Set(["m", "h", "d", "w", "M", "y"]);
 
 let syncTimer = null;
+let urlStateErrorMessage = "";
+
+function clearStateParamFromUrl() {
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(URL_STATE_PARAM)) return;
+  url.searchParams.delete(URL_STATE_PARAM);
+  history.replaceState(null, "", url);
+}
+
+function markInvalidUrlState(message) {
+  urlStateErrorMessage = message;
+  clearStateParamFromUrl();
+}
 
 function defaultColorAt(index) {
   return colors[index % colors.length].toLowerCase();
@@ -293,6 +306,7 @@ export function applyStateFromUrl() {
   try {
     payload = decodeStatePayload(encoded);
   } catch (_) {
+    markInvalidUrlState("Ungültiger URL-State wurde entfernt.");
     return false;
   }
 
@@ -300,6 +314,7 @@ export function applyStateFromUrl() {
     const from = Number(payload?.f);
     const to = Number(payload?.t);
     if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
+      markInvalidUrlState("Ungültiger Zeitbereich im URL-State wurde entfernt.");
       return false;
     }
 
@@ -319,6 +334,12 @@ export function applyStateFromUrl() {
   applyYAxisConfig(payload?.y);
 
   return true;
+}
+
+export function consumeUrlStateError() {
+  const message = urlStateErrorMessage;
+  urlStateErrorMessage = "";
+  return message;
 }
 
 export function applyLegacyWebviewHashFallback() {

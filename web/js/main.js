@@ -33,7 +33,12 @@ import {
   updateRangeButtonLabel,
 } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
-import { applyLegacyWebviewHashFallback, applyStateFromUrl, syncUrlStateNow } from "./url-state.mjs";
+import {
+  applyLegacyWebviewHashFallback,
+  applyStateFromUrl,
+  consumeUrlStateError,
+  syncUrlStateNow,
+} from "./url-state.mjs";
 
 const hooks = {
   renderChart,
@@ -645,6 +650,10 @@ function applyTokenOffset(date, offset) {
 
 async function init() {
   const restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
+  const urlStateError = consumeUrlStateError();
+  if (urlStateError) {
+    window.alert(urlStateError);
+  }
   if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();
   applyResponsiveSidebarMode();
