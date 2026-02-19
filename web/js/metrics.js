@@ -116,12 +116,23 @@ export async function fetchMetadata(name, hooks) {
     const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(name)}`);
     const metric = metricByName(name);
     if (!metric) return;
+    const beforeFactors = new Map(state.metrics.map((m) => [m.name, Number(m.factor) || 1]));
     metric.unit = normalizeSIUnit(body?.metadata?.unit);
     if (metric.factorMode !== "manual") metric.displayUnit = metric.unit;
     metric.description = String(body.metadata.description || "");
     applyAutoScaling(state.metrics, state.series);
+    const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
+    const factorsChanged = state.metrics.some((m) => {
+      const before = beforeFactors.get(m.name);
+      const after = Number(m.factor) || 1;
+      return !Number.isFinite(before) || Math.abs(after - before) > 1e-12;
+    });
     renderMetricList(hooks);
     hooks.renderChart();
+    hooks.onStateChanged?.();
+    if (hasExpressionMetrics && factorsChanged) {
+      hooks.loadData();
+    }
   } catch (_) {}
 }
 
