@@ -48,7 +48,7 @@ export function addExpressionMetric(name, expr, hooks) {
     factorMode: "auto",
     unit: "",
     displayUnit: "",
-    description: "Berechnete Metrik",
+    description: metricExpr,
   });
   renderMetricList(hooks);
   hooks.loadData();
@@ -68,7 +68,7 @@ export function updateExpressionMetric(originalName, name, expr, hooks) {
   state.series.delete(original);
   metric.name = metricName;
   metric.expr = metricExpr;
-  if (!metric.description) metric.description = "Berechnete Metrik";
+  metric.description = metricExpr;
   renderMetricList(hooks);
   hooks.loadData();
   return true;
@@ -193,12 +193,6 @@ export function renderMetricList(hooks) {
       desc.className = "metric-name-desc";
       desc.textContent = description;
       center.appendChild(desc);
-    }
-    if (metric.expr) {
-      const expr = document.createElement("div");
-      expr.className = "metric-name-desc";
-      expr.textContent = metric.expr;
-      center.appendChild(expr);
     }
     center.title = metric.description || metric.name;
 
