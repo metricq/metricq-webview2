@@ -182,13 +182,15 @@ export function renderMetricList(hooks) {
     colorInput.className = "metric-color-input";
     colorInput.value = metric.color;
     colorInput.setAttribute("aria-label", `Farbe fuer ${metric.name}`);
-    colorInput.addEventListener("input", () => {
+    const applyColorChange = () => {
       metric.color = colorInput.value;
       swatch.style.background = metric.color;
       renderCollapsedLegend();
       hooks.renderChart();
       hooks.onStateChanged?.();
-    });
+    };
+    colorInput.addEventListener("input", applyColorChange);
+    colorInput.addEventListener("change", applyColorChange);
 
     swatchButton.addEventListener("click", () => {
       colorInput.click();
