@@ -140,7 +140,7 @@ func TestEvalExpressionFunctionsAndUnary(t *testing.T) {
 	}
 }
 
-func TestEvalExpressionIntersectsTimestamps(t *testing.T) {
+func TestEvalExpressionUsesLastValueAcrossDifferentTimelines(t *testing.T) {
 	inputs := map[string]map[int64]float64{
 		"a": {1000: 1, 2000: 2, 3000: 3},
 		"b": {2000: 20, 3000: 30, 4000: 40},
@@ -150,11 +150,11 @@ func TestEvalExpressionIntersectsTimestamps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("eval failed: %v", err)
 	}
-	if len(got) != 2 {
-		t.Fatalf("intersection size mismatch: %#v", got)
+	if len(got) != 3 {
+		t.Fatalf("result size mismatch: %#v", got)
 	}
-	if got[2000] != 22 || got[3000] != 33 {
-		t.Fatalf("intersection values mismatch: %#v", got)
+	if got[2000] != 22 || got[3000] != 33 || got[4000] != 43 {
+		t.Fatalf("last-value merged values mismatch: %#v", got)
 	}
 }
 

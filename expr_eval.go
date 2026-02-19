@@ -597,18 +597,145 @@ func metricsInExpression(root exprNode) []string {
 	return out
 }
 
+type tsValue struct {
+	t int64
+	v float64
+}
+
+type metricCursor struct {
+	points []tsValue
+	index  int
+	value  float64
+	valid  bool
+}
+
+func sortedSeriesPoints(series map[int64]float64) []tsValue {
+	points := make([]tsValue, 0, len(series))
+	for t, v := range series {
+		points = append(points, tsValue{t: t, v: v})
+	}
+	sort.Slice(points, func(i, j int) bool { return points[i].t < points[j].t })
+	return points
+}
+
+func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]bool) (float64, bool, error) {
+	switch n := node.(type) {
+	case metricNode:
+		v, ok := values[n.name]
+		if !ok || !hasValues[n.name] {
+			return 0, false, nil
+		}
+		return v, true, nil
+	case numberNode:
+		return n.value, true, nil
+	case unaryNode:
+		child, ok, err := evalNodeAt(n.child, values, hasValues)
+		if err != nil || !ok {
+			return 0, ok, err
+		}
+		switch n.op {
+		case "-":
+			return -child, true, nil
+		case "log":
+			if child <= 0 {
+				return 0, false, nil
+			}
+			return math.Log10(child), true, nil
+		default:
+			return 0, false, fmt.Errorf("unknown unary operator %q", n.op)
+		}
+	case binaryNode:
+		left, leftOK, err := evalNodeAt(n.left, values, hasValues)
+		if err != nil || !leftOK {
+			return 0, leftOK, err
+		}
+		right, rightOK, err := evalNodeAt(n.right, values, hasValues)
+		if err != nil || !rightOK {
+			return 0, rightOK, err
+		}
+		v, ok, err := applyBinary(n.op, left, right)
+		return v, ok, err
+	case funcNode:
+		args := make([]float64, 0, len(n.args))
+		for _, arg := range n.args {
+			v, ok, err := evalNodeAt(arg, values, hasValues)
+			if err != nil || !ok {
+				return 0, ok, err
+			}
+			args = append(args, v)
+		}
+		folded, err := foldValues(n.name, args)
+		if err != nil {
+			return 0, false, err
+		}
+		return folded, true, nil
+	default:
+		return 0, false, fmt.Errorf("unsupported expression node")
+	}
+}
+
 func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int64]float64, error) {
 	if root == nil {
 		return nil, fmt.Errorf("empty expression")
 	}
-	value, err := root.eval(inputs)
-	if err != nil {
-		return nil, err
-	}
-	if value.isScalar() {
+	metrics := metricsInExpression(root)
+	if len(metrics) == 0 {
 		return map[int64]float64{}, nil
 	}
-	return value.series, nil
+
+	cursors := make(map[string]*metricCursor, len(metrics))
+	tsSet := make(map[int64]struct{})
+	for _, metric := range metrics {
+		series, ok := inputs[metric]
+		if !ok {
+			return nil, fmt.Errorf("unknown metric %q", metric)
+		}
+		points := sortedSeriesPoints(series)
+		cursors[metric] = &metricCursor{points: points}
+		for _, p := range points {
+			tsSet[p.t] = struct{}{}
+		}
+	}
+
+	timestamps := make([]int64, 0, len(tsSet))
+	for ts := range tsSet {
+		timestamps = append(timestamps, ts)
+	}
+	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
+	if len(timestamps) == 0 {
+		return map[int64]float64{}, nil
+	}
+
+	values := make(map[string]float64, len(metrics))
+	hasValues := make(map[string]bool, len(metrics))
+	for _, metric := range metrics {
+		hasValues[metric] = false
+	}
+
+	out := make(map[int64]float64, len(timestamps))
+	for _, ts := range timestamps {
+		for _, metric := range metrics {
+			cursor := cursors[metric]
+			for cursor.index < len(cursor.points) && cursor.points[cursor.index].t <= ts {
+				cursor.value = cursor.points[cursor.index].v
+				cursor.valid = true
+				cursor.index++
+			}
+			if cursor.valid {
+				values[metric] = cursor.value
+				hasValues[metric] = true
+			}
+		}
+
+		v, ok, err := evalNodeAt(root, values, hasValues)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			out[ts] = v
+		}
+	}
+	return out, nil
 }
 
 func seriesToValueMap(series apiQuerySeries) map[int64]float64 {
