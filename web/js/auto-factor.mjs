@@ -74,17 +74,22 @@ function chooseTargetExp(candidates) {
     return best;
   }
 
-  // Keep the largest representative value in a readable SI bucket.
-  // This avoids a single large signal dwarfing all other series in the same unit family.
-  const maxLog = Math.max(...logs);
-  const rawTarget = Math.floor(maxLog / 3) * 3;
   let best = available[0];
-  let bestDist = Number.POSITIVE_INFINITY;
+  let bestScore = Number.POSITIVE_INFINITY;
   for (const exp of available) {
-    const dist = Math.abs(exp - rawTarget);
-    if (dist < bestDist || (dist === bestDist && exp > best)) {
+    // Balance readability for both high and low magnitudes.
+    // This keeps large values compact, but avoids pushing whole groups to overly large prefixes.
+    let score = 0;
+    for (const baseLog of logs) {
+      const transformedLog = baseLog - exp;
+      if (transformedLog < -0.2) score += (-0.2 - transformedLog) * 3.0;
+      else if (transformedLog < 0) score += (0 - transformedLog) * 1.0;
+      if (transformedLog > 3) score += (transformedLog - 3) * 1.8;
+      score += Math.abs(transformedLog - 1.2) * 0.1;
+    }
+    if (score < bestScore || (score === bestScore && exp > best)) {
       best = exp;
-      bestDist = dist;
+      bestScore = score;
     }
   }
   return best;
