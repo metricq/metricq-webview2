@@ -197,9 +197,61 @@
     display: flex;
 }
 
+.expression-input {
+    min-height: calc(1.5em + 0.75rem + 2px);
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-y: auto;
+    cursor: text;
+}
+
+.expression-input:empty::before {
+    content: attr(data-placeholder);
+    color: #6c757d;
+}
+
 .expression-input.expression-drop-target {
     border-color: #0d6efd;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+.expression-token {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    border: 1px solid #0d6efd;
+    border-radius: 0.4rem;
+    padding: 0.05rem 0.38rem;
+    margin: 0 0.08rem;
+    background: #e7f1ff;
+    color: #084298;
+    font-size: 0.88em;
+    cursor: grab;
+    user-select: none;
+}
+
+.expression-token:active {
+    cursor: grabbing;
+}
+
+.expression-token-hover {
+    position: fixed;
+    z-index: 1090;
+    max-width: min(460px, calc(100vw - 2rem));
+    background: rgba(20, 24, 31, 0.95);
+    color: #fff;
+    border-radius: 0.4rem;
+    padding: 0.42rem 0.55rem;
+    font-size: 0.76rem;
+    line-height: 1.25;
+    pointer-events: none;
+    box-shadow: 0 0.45rem 1.15rem rgba(0, 0, 0, 0.25);
+}
+
+.expression-token-hover-name {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    word-break: break-all;
 }
 
 .expression-palette {
