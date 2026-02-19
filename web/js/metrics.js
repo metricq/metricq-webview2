@@ -36,6 +36,7 @@ export function addMetric(name, hooks) {
 export function removeMetric(name, hooks) {
   state.metrics = state.metrics.filter((m) => m.name !== name);
   state.series.delete(name);
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
 }
@@ -58,6 +59,7 @@ export function clearMetrics(hooks) {
   state.metrics = [];
   state.series.clear();
   factorMetricName = "";
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
 }
