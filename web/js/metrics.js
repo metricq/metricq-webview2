@@ -25,6 +25,7 @@ export function addMetric(name, hooks) {
     drawAvg: true,
     factor: 1,
     factorMode: "auto",
+    legacyPostFactor: null,
     unit: "",
     displayUnit: "",
     description: "",
@@ -47,6 +48,7 @@ export function addExpressionMetric(name, expr, hooks) {
     drawAvg: true,
     factor: 1,
     factorMode: "auto",
+    legacyPostFactor: null,
     unit: "",
     displayUnit: "",
     description: metricExpr,
@@ -121,7 +123,7 @@ export async function fetchMetadata(name, hooks) {
     if (metric.factorMode !== "manual") metric.displayUnit = metric.unit;
     metric.description = String(body.metadata.description || "");
     applyAutoScaling(state.metrics, state.series);
-    applyPendingLegacyPostFactors();
+    applyLegacyPostFactors();
     const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
     const factorsChanged = state.metrics.some((m) => {
       const before = beforeFactors.get(m.name);
@@ -137,14 +139,12 @@ export async function fetchMetadata(name, hooks) {
   } catch (_) {}
 }
 
-function applyPendingLegacyPostFactors() {
+export function applyLegacyPostFactors() {
   for (const metric of state.metrics) {
     const post = Number(metric.legacyPostFactor);
-    if (!Number.isFinite(post) || metric.legacyPostFactorApplied) continue;
+    if (!Number.isFinite(post) || metric.factorMode === "manual") continue;
     metric.factor = (Number(metric.factor) || 1) * post;
-    metric.factorMode = "manual";
     metric.displayUnit = metric.displayUnit || metric.unit || "";
-    metric.legacyPostFactorApplied = true;
   }
 }
 

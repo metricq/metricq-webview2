@@ -41,12 +41,17 @@ function sanitizeMetricEntry(raw, index) {
     unit: "",
     displayUnit: "",
     description: expr || "",
+    legacyPostFactor: null,
   };
 
   const factor = Number(raw?.f);
   if (String(raw?.fm || "") === "manual" && Number.isFinite(factor)) {
     metric.factor = factor;
     metric.factorMode = "manual";
+  }
+  const postFactor = Number(raw?.pf);
+  if (Number.isFinite(postFactor) && Math.abs(postFactor - 1) > 1e-12) {
+    metric.legacyPostFactor = postFactor;
   }
 
   return metric;
@@ -67,6 +72,10 @@ function serializeMetricEntry(metric, index) {
       entry.fm = "manual";
       entry.f = Number(factor.toPrecision(12));
     }
+  }
+  const postFactor = Number(metric.legacyPostFactor);
+  if (Number.isFinite(postFactor) && Math.abs(postFactor - 1) > 1e-12) {
+    entry.pf = Number(postFactor.toPrecision(12));
   }
 
   return entry;
@@ -226,7 +235,6 @@ function parseLegacyMetricToken(token, index) {
     displayUnit: "",
     description: "",
     legacyPostFactor: null,
-    legacyPostFactorApplied: false,
   };
   const factor = Number(factorRaw);
   if (Number.isFinite(factor) && Math.abs(factor - 1) > 1e-12) {
