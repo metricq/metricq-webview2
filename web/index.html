@@ -320,7 +320,19 @@
             </div>
             <div>
               <label class="form-label" for="expressionInput">Ausdruck</label>
-              <textarea id="expressionInput" class="form-control expression-input" rows="3" placeholder="[metric.a] + [metric.b]"></textarea>
+              <textarea
+                id="expressionInput"
+                class="form-control expression-input"
+                rows="3"
+                placeholder="[metric.a] + [metric.b]"
+                spellcheck="false"
+                autocorrect="off"
+                autocomplete="off"
+                autocapitalize="off"
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+              ></textarea>
               <div class="form-text">
                 Erlaubt: +, -, *, /, -a, log a, min(...), max(...), sum(...). Metriken als <code>[name]</code>.
               </div>
