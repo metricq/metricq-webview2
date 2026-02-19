@@ -220,12 +220,13 @@
     align-items: center;
     max-width: 100%;
     border: 1px solid #0d6efd;
-    border-radius: 0.4rem;
-    padding: 0.05rem 0.38rem;
-    margin: 0 0.08rem;
+    border-radius: 0.3rem;
+    padding: 0.02rem 0.28rem;
+    margin: 0 0.04rem;
     background: #e7f1ff;
     color: #084298;
-    font-size: 0.88em;
+    font-size: 0.8em;
+    line-height: 1.2;
     cursor: grab;
     user-select: none;
 }
@@ -252,6 +253,16 @@
     font-weight: 600;
     margin-bottom: 0.2rem;
     word-break: break-all;
+}
+
+.expression-drop-marker {
+    display: inline-block;
+    width: 0;
+    height: 1.05em;
+    margin: 0 1px;
+    border-left: 2px solid #0d6efd;
+    vertical-align: text-bottom;
+    pointer-events: none;
 }
 
 .expression-palette {

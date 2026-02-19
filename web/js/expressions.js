@@ -11,6 +11,7 @@ let expressionSearchTimer = null;
 let tokenSequence = 1;
 let hoverInfoEl = null;
 let hoveredMetricName = "";
+let dropMarkerEl = null;
 
 const metricMetadataCache = new Map();
 
@@ -20,6 +21,31 @@ function ensureHoverInfoElement() {
   hoverInfoEl.className = "expression-token-hover d-none";
   document.body.appendChild(hoverInfoEl);
   return hoverInfoEl;
+}
+
+function ensureDropMarker() {
+  if (dropMarkerEl) return dropMarkerEl;
+  dropMarkerEl = document.createElement("span");
+  dropMarkerEl.className = "expression-drop-marker";
+  dropMarkerEl.contentEditable = "false";
+  return dropMarkerEl;
+}
+
+function clearDropMarker() {
+  if (!dropMarkerEl) return;
+  dropMarkerEl.remove();
+}
+
+function setDropMarkerAtPoint(x, y) {
+  const range = rangeFromPoint(x, y);
+  if (!range || !dom.expressionInput.contains(range.startContainer)) {
+    clearDropMarker();
+    return;
+  }
+  const marker = ensureDropMarker();
+  clearDropMarker();
+  range.deleteContents();
+  range.insertNode(marker);
 }
 
 function showHoverInfo(x, y, html) {
@@ -358,8 +384,15 @@ function handleExpressionEditorDrop(event) {
   }
 
   const token = makeMetricTokenNode(droppedMetric);
+  if (dropMarkerEl?.parentNode) {
+    dropMarkerEl.parentNode.insertBefore(token, dropMarkerEl);
+    clearDropMarker();
+    placeCaretAfterNode(token);
+    return;
+  }
   const range = rangeFromPoint(event.clientX, event.clientY);
   insertNodeAtRange(token, range);
+  clearDropMarker();
 }
 
 function maybeConvertTypedBracketExpression(event) {
@@ -411,13 +444,16 @@ export function wireExpressionModal(hooks) {
     event.preventDefault();
     event.dataTransfer.dropEffect = "copy";
     dom.expressionInput.classList.add("expression-drop-target");
+    setDropMarkerAtPoint(event.clientX, event.clientY);
   });
 
   dom.expressionInput.addEventListener("dragleave", () => {
     dom.expressionInput.classList.remove("expression-drop-target");
+    clearDropMarker();
   });
 
   dom.expressionInput.addEventListener("drop", handleExpressionEditorDrop);
+  dom.expressionInput.addEventListener("dragend", clearDropMarker);
 
   dom.expressionInput.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
@@ -435,6 +471,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     hideHoverInfo();
+    clearDropMarker();
   });
 
   dom.expressionMetricSearch.addEventListener("input", () => {
