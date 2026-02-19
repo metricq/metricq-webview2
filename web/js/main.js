@@ -308,6 +308,7 @@ function wireEvents() {
       const from = new Date(dom.fromInput.value).getTime();
       const to = new Date(dom.toInput.value).getTime();
       if (Number.isFinite(from) && Number.isFinite(to) && from < to) {
+        state.timeMode = "absolute";
         state.from = from;
         state.to = to;
       }
@@ -507,6 +508,7 @@ function relativeRangeStart(now, amount, unit) {
 }
 
 function applyRelativeRange() {
+  state.timeMode = "relative";
   const amount = Math.max(
     1,
     Number.parseInt(dom.relativeAmount.value, 10) || 1,
