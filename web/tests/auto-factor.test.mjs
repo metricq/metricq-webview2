@@ -38,7 +38,7 @@ test("applyAutoScaling does not override manual factors", () => {
   assert.equal(metrics[1].factor, 1);
 });
 
-test("applyAutoScaling keeps original unit for single auto metric (restore after removals)", () => {
+test("applyAutoScaling scales single auto metric to a readable unit", () => {
   const metrics = [
     { name: "only", unit: "W", factor: 1, factorMode: "auto", displayUnit: "W" },
   ];
@@ -48,6 +48,6 @@ test("applyAutoScaling keeps original unit for single auto metric (restore after
 
   applyAutoScaling(metrics, series);
 
-  assert.equal(metrics[0].displayUnit, "W");
-  assert.equal(metrics[0].factor, 1);
+  assert.equal(metrics[0].displayUnit, "MW");
+  assert.equal(metrics[0].factor, 0.000001);
 });

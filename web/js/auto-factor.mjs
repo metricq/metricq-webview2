@@ -111,7 +111,7 @@ export function applyAutoScaling(metrics, seriesMap) {
   }
 
   for (const [family, group] of groups.entries()) {
-    const targetExp = group.length === 1 ? group[0].exp : chooseTargetExp(group);
+    const targetExp = chooseTargetExp(group);
     const targetUnit = formatUnit(family, targetExp);
     for (const item of group) {
       item.metric.factor = 10 ** (item.exp - targetExp);
