@@ -40,11 +40,17 @@ import {
   syncUrlStateNow,
 } from "./url-state.mjs";
 
+let suppressUrlStateSync = false;
+function syncUrlStateIfAllowed() {
+  if (suppressUrlStateSync) return;
+  syncUrlStateNow();
+}
+
 const hooks = {
   renderChart,
-  loadData: () => loadData(renderChart, syncUrlStateNow),
+  loadData: () => loadData(renderChart, syncUrlStateIfAllowed),
   renderCollapsedLegend,
-  onStateChanged: syncUrlStateNow,
+  onStateChanged: syncUrlStateIfAllowed,
 };
 
 const presetTokenMap = {
@@ -118,6 +124,13 @@ function showUrlStateErrorModal(message) {
   }
   dom.urlStateErrorText.textContent = text;
   globalThis.bootstrap.Modal.getOrCreateInstance(dom.urlStateErrorModal).show();
+}
+
+function clearUrlToBasePath() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  history.replaceState(null, "", url);
 }
 
 function positionTimePopup() {
@@ -660,6 +673,7 @@ function applyTokenOffset(date, offset) {
 async function init() {
   const restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
   const urlStateError = consumeUrlStateError();
+  suppressUrlStateSync = Boolean(urlStateError);
   if (urlStateError) {
     showUrlStateErrorModal(urlStateError);
   }
@@ -679,6 +693,12 @@ async function init() {
   } catch (_) {
     renderChart();
   }
+  if (urlStateError) {
+    clearUrlToBasePath();
+    suppressUrlStateSync = false;
+    return;
+  }
+  suppressUrlStateSync = false;
   hooks.onStateChanged();
 }
 

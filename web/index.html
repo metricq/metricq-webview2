@@ -347,7 +347,12 @@
             <button class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
           </div>
           <div class="modal-body">
-            <p class="mb-0" id="urlStateErrorText">Der Link-Status war ungültig und wurde entfernt.</p>
+            <p class="mb-2" id="urlStateErrorText">
+              Der Link enthielt einen ungültigen Zustand und konnte nicht vollständig geladen werden.
+            </p>
+            <p class="mb-0 text-muted small" id="urlStateErrorHint">
+              Die URL wurde auf einen sauberen Zustand zurückgesetzt. Passe den Zeitraum/Metriken neu an und teile danach den aktualisierten Link.
+            </p>
           </div>
           <div class="modal-footer">
             <button class="btn btn-primary" data-bs-dismiss="modal">OK</button>
