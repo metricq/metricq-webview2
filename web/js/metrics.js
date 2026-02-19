@@ -31,6 +31,7 @@ export function addMetric(name, hooks) {
   });
   renderMetricList(hooks);
   hooks.loadData();
+  hooks.onStateChanged?.();
   fetchMetadata(name, hooks);
 }
 
@@ -52,6 +53,7 @@ export function addExpressionMetric(name, expr, hooks) {
   });
   renderMetricList(hooks);
   hooks.loadData();
+  hooks.onStateChanged?.();
   return true;
 }
 
@@ -71,6 +73,7 @@ export function updateExpressionMetric(originalName, name, expr, hooks) {
   metric.description = metricExpr;
   renderMetricList(hooks);
   hooks.loadData();
+  hooks.onStateChanged?.();
   return true;
 }
 
@@ -80,6 +83,7 @@ export function removeMetric(name, hooks) {
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
+  hooks.onStateChanged?.();
 }
 
 export function recolorMetrics(hooks) {
@@ -88,12 +92,14 @@ export function recolorMetrics(hooks) {
   });
   renderMetricList(hooks);
   hooks.renderChart();
+  hooks.onStateChanged?.();
 }
 
 export function setAllVisible(draw, hooks) {
   for (const m of state.metrics) m.draw = draw;
   renderMetricList(hooks);
   hooks.renderChart();
+  hooks.onStateChanged?.();
 }
 
 export function clearMetrics(hooks) {
@@ -170,6 +176,7 @@ export function renderMetricList(hooks) {
       swatch.style.background = metric.color;
       renderCollapsedLegend();
       hooks.renderChart();
+      hooks.onStateChanged?.();
     });
 
     swatchButton.addEventListener("click", () => {
@@ -218,6 +225,7 @@ export function renderMetricList(hooks) {
         metric.draw = !metric.draw;
         renderMetricList(hooks);
         hooks.renderChart();
+        hooks.onStateChanged?.();
       } else if (action === "edit" && metric.expr) {
         document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
       } else if (action === "delete") {
@@ -254,6 +262,7 @@ export function applyFactorFromModal(hooks) {
   metric.displayUnit = metric.unit || "";
   renderMetricList(hooks);
   hooks.renderChart();
+  hooks.onStateChanged?.();
   if (globalThis.bootstrap?.Modal) {
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).hide();
   }

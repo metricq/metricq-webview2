@@ -8,6 +8,7 @@ import { wireExpressionModal } from "./expressions.js";
 import {
   addMetric,
   clearMetrics,
+  fetchMetadata,
   recolorMetrics,
   renderHints,
   renderMetricList,
@@ -32,11 +33,13 @@ import {
   updateRangeButtonLabel,
 } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
+import { applyStateFromUrl, scheduleUrlStateSync } from "./url-state.mjs";
 
 const hooks = {
   renderChart,
-  loadData: () => loadData(renderChart),
+  loadData: () => loadData(renderChart, scheduleUrlStateSync),
   renderCollapsedLegend,
+  onStateChanged: scheduleUrlStateSync,
 };
 
 const presetTokenMap = {
@@ -358,6 +361,7 @@ function wireEvents() {
       } catch (_) {}
     }
     renderChart();
+    hooks.onStateChanged();
   });
 
   dom.canvas.addEventListener("mousemove", showHover);
@@ -537,6 +541,7 @@ function applyPreset(preset) {
     updateRelativePreview();
     applyRelativeRange();
     updateRangeButtonLabel();
+    hooks.onStateChanged();
     return;
   }
 
@@ -555,6 +560,7 @@ function applyPreset(preset) {
   state.to = to.getTime();
   switchTimeMode("absolute");
   updateRangeButtonLabel();
+  hooks.onStateChanged();
 }
 
 function evalPresetToken(token, now) {
@@ -636,20 +642,28 @@ function applyTokenOffset(date, offset) {
 }
 
 async function init() {
-  setInitialRange();
+  const restoredFromUrl = applyStateFromUrl();
+  if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();
-  if (!state.compactSidebarMode) setSidebarCollapsed(false);
+  if (restoredFromUrl) setSidebarCollapsed(true);
+  else if (!state.compactSidebarMode) setSidebarCollapsed(false);
   renderMetricList(hooks);
-  addMetric("hpc.capella.rack4.power", hooks);
-  addMetric("LZR.K21.KKR21.B29.MB", hooks);
+  for (const metric of state.metrics) {
+    if (!metric.expr) fetchMetadata(metric.name, hooks);
+  }
+  if (!restoredFromUrl) {
+    addMetric("hpc.capella.rack4.power", hooks);
+    addMetric("LZR.K21.KKR21.B29.MB", hooks);
+  }
   try {
     await hooks.loadData();
   } catch (_) {
     renderChart();
   }
+  hooks.onStateChanged();
 }
 
 init();

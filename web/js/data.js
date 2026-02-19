@@ -17,10 +17,11 @@ function computeMaxDataPoints() {
   return Math.min(widthBased, hardCap);
 }
 
-export async function loadData(renderChart) {
+export async function loadData(renderChart, onStateChanged = () => {}) {
   if (state.metrics.length === 0) {
     state.series.clear();
     renderChart();
+    onStateChanged();
     return;
   }
 
@@ -81,4 +82,5 @@ export async function loadData(renderChart) {
   dom.perfBadge.textContent = `HTTP: ${totalHttpMs} ms | DB: ${totalDbRoundedMs} ms`;
 
   renderChart();
+  onStateChanged();
 }
