@@ -57,6 +57,8 @@ export const dom = {
   factorNormalizationInfo: document.getElementById("factorNormalizationInfo"),
   factorNormalizationFactor: document.getElementById("factorNormalizationFactor"),
   factorNormalizationUnits: document.getElementById("factorNormalizationUnits"),
+  factorExpressionNormalizationInfo: document.getElementById("factorExpressionNormalizationInfo"),
+  factorExpressionNormalizationList: document.getElementById("factorExpressionNormalizationList"),
   factorInput: document.getElementById("factorInput"),
   btnApplyFactor: document.getElementById("btnApplyFactor"),
   expressionMetricModal: document.getElementById("expressionMetricModal"),

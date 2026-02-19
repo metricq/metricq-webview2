@@ -7,6 +7,7 @@ import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let factorMetricName = "";
+const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
 function formatFactor(value) {
   const num = Number(value);
@@ -18,6 +19,31 @@ function formatFactor(value) {
 function shownMetricFactor(metric) {
   if (metric.factorMode === "manual") return formatFactor(metric.manualFactor);
   return null;
+}
+
+function collectExpressionReferences(expression) {
+  const refs = [];
+  const text = String(expression || "");
+
+  const bracketRegex = /\[([^\]]+)\]/g;
+  let m = bracketRegex.exec(text);
+  while (m) {
+    const name = String(m[1] || "").trim();
+    if (name) refs.push(name);
+    m = bracketRegex.exec(text);
+  }
+
+  const bare = text.replace(/\[[^\]]+\]/g, " ");
+  const identRegex = /\b([A-Za-z_][A-Za-z0-9_:.\-]*)\b/g;
+  let id = identRegex.exec(bare);
+  while (id) {
+    const token = id[1];
+    const lower = token.toLowerCase();
+    if (!RESERVED_EXPR_FUNCTIONS.has(lower)) refs.push(token);
+    id = identRegex.exec(bare);
+  }
+
+  return [...new Set(refs)];
 }
 
 export function addMetric(name, hooks) {
@@ -285,6 +311,45 @@ function openFactorModal(metricName) {
       normInfo.classList.remove("d-none");
     } else {
       normInfo.classList.add("d-none");
+    }
+  }
+
+  const exprNormInfo = dom.factorExpressionNormalizationInfo;
+  const exprNormList = dom.factorExpressionNormalizationList;
+  if (exprNormInfo && exprNormList) {
+    exprNormList.innerHTML = "";
+    const expr = String(metric.expr || "").trim();
+    if (!expr) {
+      exprNormInfo.classList.add("d-none");
+    } else {
+      const refs = collectExpressionReferences(expr);
+      for (const refName of refs) {
+        const refMetric = metricByName(refName);
+        const row = document.createElement("div");
+        row.className = "mb-1";
+        if (!refMetric) {
+          row.textContent = `[${refName}]: keine lokale Skalierung verfügbar`;
+          exprNormList.appendChild(row);
+          continue;
+        }
+        const refUnit = String(refMetric.unit || "").trim();
+        const refDisplayUnit = String(refMetric.displayUnit || "").trim();
+        const refManual = refMetric.factorMode === "manual"
+          ? sanitizeFactor(refMetric.manualFactor, 1)
+          : 1;
+        const refEffective = sanitizeFactor(refMetric.factor, 1);
+        const refNormalization = sanitizeFactor(refEffective / refManual, 1);
+        const shownRefNorm = formatFactor(refNormalization) || "1";
+        const shownRefEffective = formatFactor(refEffective) || "1";
+        const unitPart = refUnit && refDisplayUnit && refUnit !== refDisplayUnit
+          ? ` [${refUnit}] -> [${refDisplayUnit}]`
+          : refUnit
+            ? ` [${refUnit}]`
+            : "";
+        row.textContent = `[${refName}]: intern x${shownRefEffective}, Norm x${shownRefNorm}${unitPart}`;
+        exprNormList.appendChild(row);
+      }
+      exprNormInfo.classList.toggle("d-none", refs.length === 0);
     }
   }
 
