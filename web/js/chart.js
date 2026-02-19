@@ -5,7 +5,7 @@ import { buildXTicks, formatAbsoluteTime, formatAxisTime, pickTimeTickStep } fro
 import { resolveYAxisDomain } from "./y-axis.mjs";
 
 export const MIN_ZOOM_RANGE_MS = 1000;
-export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 3;
+export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
 
 let lastHoverClientX = null;
 let lastHoverClientY = null;
