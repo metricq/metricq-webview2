@@ -1,6 +1,24 @@
 import { dom } from "./dom.js";
 import { state } from "./model.js";
 
+function formatRelativeRangeLabel() {
+  const amount = Math.max(1, Number.parseInt(dom.relativeAmount?.value || "1", 10) || 1);
+  const unit = String(dom.relativeUnit?.value || "h");
+
+  const labels = {
+    m: ["Minute", "Minuten"],
+    h: ["Stunde", "Stunden"],
+    d: ["Tag", "Tage"],
+    w: ["Woche", "Wochen"],
+    M: ["Monat", "Monate"],
+    y: ["Jahr", "Jahre"],
+  };
+
+  const [one, many] = labels[unit] || labels.h;
+  const noun = amount === 1 ? one : many;
+  return `Letzte ${amount} ${noun}`;
+}
+
 export function toLocalInput(date) {
   const pad = (x) => String(x).padStart(2, "0");
   const ms = String(date.getMilliseconds()).padStart(3, "0");
@@ -30,6 +48,19 @@ export function parseRangeFromInputs() {
 
 export function updateRangeButtonLabel() {
   if (!dom.btnTimeRange) return;
+  if (state.timeMode === "relative") {
+    const relLabel = formatRelativeRangeLabel();
+    dom.btnTimeRange.innerHTML = `<i class="bi bi-clock-history me-1"></i>${relLabel}`;
+    if (dom.timePopupCurrentRange) {
+      const from = new Date(state.from);
+      const to = new Date(state.to);
+      dom.timePopupCurrentRange.textContent = Number.isFinite(from.getTime()) && Number.isFinite(to.getTime())
+        ? `${from.toLocaleString()} - ${to.toLocaleString()}`
+        : relLabel;
+    }
+    return;
+  }
+
   const from = new Date(state.from);
   const to = new Date(state.to);
   if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime())) {
