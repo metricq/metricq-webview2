@@ -190,17 +190,24 @@ func TestParseExpressionBracketMetricName(t *testing.T) {
 	}
 }
 
-func TestSeriesToValueMapAndAggregateConversion(t *testing.T) {
+func TestSeriesToEvalInputMapAndAggregateConversion(t *testing.T) {
 	series := apiQuerySeries{
 		Mode: "aggregates",
 		AggPoints: []apiAggPoint{
-			{T: 2, Avg: 20},
-			{T: 1, Avg: 10},
+			{T: 2, Min: 19, Max: 22, Avg: 20, Count: 3},
+			{T: 1, Min: 9, Max: 11, Avg: 10, Count: 2},
+			{T: 3, Min: 0, Max: 0, Avg: 0, Count: 0},
 		},
 	}
-	mapped := seriesToValueMap(series)
-	if mapped[1] != 10 || mapped[2] != 20 {
+	mapped := seriesToEvalInputMap(series)
+	if mapped[1].avg != 10 || mapped[2].avg != 20 {
 		t.Fatalf("unexpected mapped values: %#v", mapped)
+	}
+	if mapped[1].min != 9 || mapped[2].max != 22 {
+		t.Fatalf("unexpected mapped min/max values: %#v", mapped)
+	}
+	if _, exists := mapped[3]; exists {
+		t.Fatalf("count==0 aggregate point must be skipped: %#v", mapped)
 	}
 
 	converted := valuesToAggregateSeries("expr.total", map[int64]float64{2000: 2, 1000: 1}, 0.42)
@@ -209,5 +216,28 @@ func TestSeriesToValueMapAndAggregateConversion(t *testing.T) {
 	}
 	if converted.AggPoints[0].T != 1000 || converted.AggPoints[1].T != 2000 {
 		t.Fatalf("expected sorted timestamps, got: %#v", converted.AggPoints)
+	}
+}
+
+func TestEvalExpressionWithSamplesMinMaxUsesAggregateBounds(t *testing.T) {
+	node, err := parseExpression("max(a,b)-min(a,b)")
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	inputs := map[string]map[int64]evalSample{
+		"a": {
+			1000: {avg: 10, min: 8, max: 12},
+		},
+		"b": {
+			1000: {avg: 9, min: 5, max: 11},
+		},
+	}
+	got, err := evalExpressionWithSamples(node, inputs)
+	if err != nil {
+		t.Fatalf("eval failed: %v", err)
+	}
+	// max() should use aggregate.max and min() aggregate.min => 12 - 5 = 7
+	if got[1000] != 7 {
+		t.Fatalf("expected 7, got %#v", got)
 	}
 }

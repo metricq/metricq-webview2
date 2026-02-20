@@ -602,21 +602,33 @@ type tsValue struct {
 	v float64
 }
 
+type evalSample struct {
+	avg float64
+	min float64
+	max float64
+}
+
 type metricCursor struct {
 	points []tsValue
 	index  int
 }
 
-func sortedSeriesPoints(series map[int64]float64) []tsValue {
+func sortedSeriesPoints(series map[int64]evalSample, selector func(evalSample) float64) []tsValue {
 	points := make([]tsValue, 0, len(series))
-	for t, v := range series {
-		points = append(points, tsValue{t: t, v: v})
+	for t, sample := range series {
+		points = append(points, tsValue{t: t, v: selector(sample)})
 	}
 	sort.Slice(points, func(i, j int) bool { return points[i].t < points[j].t })
 	return points
 }
 
-func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]bool) (float64, bool, error) {
+func evalNodeAt(
+	node exprNode,
+	values map[string]float64,
+	hasValues map[string]bool,
+	minValues map[string]float64,
+	maxValues map[string]float64,
+) (float64, bool, error) {
 	switch n := node.(type) {
 	case metricNode:
 		v, ok := values[n.name]
@@ -627,7 +639,7 @@ func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]b
 	case numberNode:
 		return n.value, true, nil
 	case unaryNode:
-		child, ok, err := evalNodeAt(n.child, values, hasValues)
+		child, ok, err := evalNodeAt(n.child, values, hasValues, minValues, maxValues)
 		if err != nil || !ok {
 			return 0, ok, err
 		}
@@ -643,11 +655,11 @@ func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]b
 			return 0, false, fmt.Errorf("unknown unary operator %q", n.op)
 		}
 	case binaryNode:
-		left, leftOK, err := evalNodeAt(n.left, values, hasValues)
+		left, leftOK, err := evalNodeAt(n.left, values, hasValues, minValues, maxValues)
 		if err != nil || !leftOK {
 			return 0, leftOK, err
 		}
-		right, rightOK, err := evalNodeAt(n.right, values, hasValues)
+		right, rightOK, err := evalNodeAt(n.right, values, hasValues, minValues, maxValues)
 		if err != nil || !rightOK {
 			return 0, rightOK, err
 		}
@@ -655,8 +667,30 @@ func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]b
 		return v, ok, err
 	case funcNode:
 		args := make([]float64, 0, len(n.args))
+		useMetricBound := n.name == "min" || n.name == "max"
 		for _, arg := range n.args {
-			v, ok, err := evalNodeAt(arg, values, hasValues)
+			if useMetricBound {
+				if metricArg, ok := arg.(metricNode); ok {
+					if !hasValues[metricArg.name] {
+						return 0, false, nil
+					}
+					if n.name == "min" {
+						v, exists := minValues[metricArg.name]
+						if !exists {
+							return 0, false, nil
+						}
+						args = append(args, v)
+						continue
+					}
+					v, exists := maxValues[metricArg.name]
+					if !exists {
+						return 0, false, nil
+					}
+					args = append(args, v)
+					continue
+				}
+			}
+			v, ok, err := evalNodeAt(arg, values, hasValues, minValues, maxValues)
 			if err != nil || !ok {
 				return 0, ok, err
 			}
@@ -672,7 +706,7 @@ func evalNodeAt(node exprNode, values map[string]float64, hasValues map[string]b
 	}
 }
 
-func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int64]float64, error) {
+func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]float64, error) {
 	if root == nil {
 		return nil, fmt.Errorf("empty expression")
 	}
@@ -682,14 +716,20 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	}
 
 	cursors := make(map[string]*metricCursor, len(metrics))
+	minCursors := make(map[string]*metricCursor, len(metrics))
+	maxCursors := make(map[string]*metricCursor, len(metrics))
 	tsSet := make(map[int64]struct{})
 	for _, metric := range metrics {
 		series, ok := inputs[metric]
 		if !ok {
 			return nil, fmt.Errorf("unknown metric %q", metric)
 		}
-		points := sortedSeriesPoints(series)
+		points := sortedSeriesPoints(series, func(s evalSample) float64 { return s.avg })
+		minPoints := sortedSeriesPoints(series, func(s evalSample) float64 { return s.min })
+		maxPoints := sortedSeriesPoints(series, func(s evalSample) float64 { return s.max })
 		cursors[metric] = &metricCursor{points: points}
+		minCursors[metric] = &metricCursor{points: minPoints}
+		maxCursors[metric] = &metricCursor{points: maxPoints}
 		for _, p := range points {
 			tsSet[p.t] = struct{}{}
 		}
@@ -705,6 +745,8 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	}
 
 	values := make(map[string]float64, len(metrics))
+	minValues := make(map[string]float64, len(metrics))
+	maxValues := make(map[string]float64, len(metrics))
 	hasValues := make(map[string]bool, len(metrics))
 	for _, metric := range metrics {
 		hasValues[metric] = false
@@ -714,20 +756,26 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	for _, ts := range timestamps {
 		for _, metric := range metrics {
 			cursor := cursors[metric]
+			minCursor := minCursors[metric]
+			maxCursor := maxCursors[metric]
 			hasValues[metric] = false
 			if len(cursor.points) == 0 || ts < cursor.points[0].t {
 				continue
 			}
 			for cursor.index < len(cursor.points) && cursor.points[cursor.index].t < ts {
 				cursor.index++
+				minCursor.index++
+				maxCursor.index++
 			}
 			if cursor.index < len(cursor.points) {
 				values[metric] = cursor.points[cursor.index].v
+				minValues[metric] = minCursor.points[minCursor.index].v
+				maxValues[metric] = maxCursor.points[maxCursor.index].v
 				hasValues[metric] = true
 			}
 		}
 
-		v, ok, err := evalNodeAt(root, values, hasValues)
+		v, ok, err := evalNodeAt(root, values, hasValues, minValues, maxValues)
 		if err != nil {
 			return nil, err
 		}
@@ -738,17 +786,48 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	return out, nil
 }
 
-func seriesToValueMap(series apiQuerySeries) map[int64]float64 {
-	out := map[int64]float64{}
+func evalSampleFromValue(v float64) evalSample {
+	return evalSample{
+		avg: v,
+		min: v,
+		max: v,
+	}
+}
+
+func evalInputFromValueMap(values map[int64]float64) map[int64]evalSample {
+	out := make(map[int64]evalSample, len(values))
+	for t, v := range values {
+		out[t] = evalSampleFromValue(v)
+	}
+	return out
+}
+
+func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int64]float64, error) {
+	converted := make(map[string]map[int64]evalSample, len(inputs))
+	for name, series := range inputs {
+		converted[name] = evalInputFromValueMap(series)
+	}
+	return evalExpressionWithSamples(root, converted)
+}
+
+func seriesToEvalInputMap(series apiQuerySeries) map[int64]evalSample {
+	out := map[int64]evalSample{}
 	if series.Mode == "values" {
 		for _, p := range series.Points {
-			out[p.T] = p.V
+			out[p.T] = evalSampleFromValue(p.V)
 		}
 		return out
 	}
 	if series.Mode == "aggregates" {
 		for _, p := range series.AggPoints {
-			out[p.T] = p.Avg
+			if p.Count == 0 {
+				continue
+			}
+			out[p.T] = evalSample{
+				avg: p.Avg,
+				min: p.Min,
+				max: p.Max,
+			}
 		}
 	}
 	return out

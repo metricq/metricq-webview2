@@ -146,7 +146,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(sourceMetrics)
 
 	sourceSeries := map[string]apiQuerySeries{}
-	sourceValueMaps := map[string]map[int64]float64{}
+	sourceValueMaps := map[string]map[int64]evalSample{}
 	sourceErrs := map[string]string{}
 	var mu sync.Mutex
 	waitGroupRun(sourceMetrics, func(_ int, metric string) {
@@ -163,7 +163,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 		if series.Error != "" {
 			sourceErrs[metric] = series.Error
 		} else {
-			sourceValueMaps[metric] = seriesToValueMap(series)
+			sourceValueMaps[metric] = seriesToEvalInputMap(series)
 		}
 		mu.Unlock()
 	})
@@ -188,7 +188,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		inputs := make(map[string]map[int64]float64, len(target.dependencies))
+		inputs := make(map[string]map[int64]evalSample, len(target.dependencies))
 		depDuration := 0.0
 		missingMetric := ""
 		missingErr := ""
@@ -217,7 +217,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		values, evalErr := evalExpression(target.root, inputs)
+		values, evalErr := evalExpressionWithSamples(target.root, inputs)
 		if evalErr != nil {
 			results[i] = apiQuerySeries{
 				Metric: target.name,
@@ -343,7 +343,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(sourceMetrics)
 
 	sourceSeries := map[string]apiQuerySeries{}
-	sourceValueMaps := map[string]map[int64]float64{}
+	sourceValueMaps := map[string]map[int64]evalSample{}
 	sourceErrs := map[string]string{}
 	var mu sync.Mutex
 	waitGroupRun(sourceMetrics, func(_ int, metric string) {
@@ -361,7 +361,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 		if series.Error != "" {
 			sourceErrs[metric] = series.Error
 		} else {
-			sourceValueMaps[metric] = seriesToValueMap(series)
+			sourceValueMaps[metric] = seriesToEvalInputMap(series)
 		}
 		mu.Unlock()
 	})
@@ -403,7 +403,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 			out[i] = entry
 			continue
 		}
-		inputs := make(map[string]map[int64]float64, len(target.dependencies))
+		inputs := make(map[string]map[int64]evalSample, len(target.dependencies))
 		failed := false
 		for _, metric := range target.dependencies {
 			if errText := strings.TrimSpace(sourceErrs[metric]); errText != "" {
@@ -428,7 +428,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		values, evalErr := evalExpression(target.root, inputs)
+		values, evalErr := evalExpressionWithSamples(target.root, inputs)
 		if evalErr != nil {
 			entry.Error = fmt.Sprintf("failed to evaluate expression: %v", evalErr)
 			out[i] = entry
