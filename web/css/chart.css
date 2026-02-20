@@ -61,6 +61,15 @@
   z-index: 10;
 }
 
+.hover-cursor-line {
+  position: absolute;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: rgba(13, 40, 190, 0.7);
+  pointer-events: none;
+  z-index: 8;
+}
+
 .drag-select-box {
   position: absolute;
   top: 12px;

@@ -11,6 +11,7 @@ let lastHoverClientX = null;
 let lastHoverClientY = null;
 let lastLayout = null;
 let hoverPointEl = null;
+let hoverCursorLineEl = null;
 
 function formatFactor(value) {
   const num = Number(value);
@@ -42,6 +43,26 @@ function positionHoverPoint(x, y, color) {
 
 function hideHoverPoint() {
   if (hoverPointEl) hoverPointEl.classList.add("d-none");
+}
+
+function ensureHoverCursorLineEl() {
+  if (hoverCursorLineEl) return hoverCursorLineEl;
+  hoverCursorLineEl = document.createElement("div");
+  hoverCursorLineEl.className = "hover-cursor-line d-none";
+  dom.chartWrap.appendChild(hoverCursorLineEl);
+  return hoverCursorLineEl;
+}
+
+function positionHoverCursorLine(x, top, height) {
+  const line = ensureHoverCursorLineEl();
+  line.classList.remove("d-none");
+  line.style.left = `${x}px`;
+  line.style.top = `${top}px`;
+  line.style.height = `${Math.max(1, height)}px`;
+}
+
+function hideHoverCursorLine() {
+  if (hoverCursorLineEl) hoverCursorLineEl.classList.add("d-none");
 }
 
 function updateCollapsedLegendFade(clientX, clientY) {
@@ -611,11 +632,13 @@ function renderHoverAt(clientX, clientY) {
     if (rows.length === 0) {
       dom.hoverBox.classList.add("d-none");
       hideHoverPoint();
+      hideHoverCursorLine();
       return;
     }
     dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rows.join("")}`;
     dom.hoverBox.classList.remove("d-none");
     hideHoverPoint();
+    positionHoverCursorLine(lastLayout.sx(t), margin.top, lastLayout.plotH);
 
     const rect = dom.chartWrap.getBoundingClientRect();
     const hoverWidth = dom.hoverBox.offsetWidth || 220;
@@ -629,6 +652,7 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
     return;
   }
+  hideHoverCursorLine();
   const candidates = [];
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
@@ -683,6 +707,7 @@ function renderHoverAt(clientX, clientY) {
   if (!selected || selected.dist2 > hoverSnapDistanceSq) {
     dom.hoverBox.classList.add("d-none");
     hideHoverPoint();
+    hideHoverCursorLine();
     return;
   }
 
@@ -726,6 +751,7 @@ export function hideHover() {
   dom.hoverBox.classList.add("d-none");
   if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
+  hideHoverCursorLine();
 }
 
 export function panByPixels(deltaX) {
