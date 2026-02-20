@@ -66,6 +66,7 @@ function hideHoverCursorLine() {
 }
 
 function updateCollapsedLegendFade(clientX, clientY) {
+  if (state.renderMode === "ti") return;
   const legend = dom.collapsedLegend;
   if (!legend || legend.classList.contains("d-none")) return;
   const rect = legend.getBoundingClientRect();
@@ -253,6 +254,7 @@ export function renderChart() {
     dom.collapsedLegend.style.top = `${margin.top + 4}px`;
     dom.collapsedLegend.style.right = `${margin.right + 4}px`;
     dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * 0.34)))}px`;
+    if (state.renderMode === "ti") dom.collapsedLegend.classList.add("d-none");
   }
 
   const seriesList = getVisibleSeries();
@@ -653,6 +655,7 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
     return;
   }
+  if (dom.collapsedLegend && state.sidebarCollapsed) dom.collapsedLegend.classList.remove("d-none");
   hideHoverCursorLine();
   const candidates = [];
   const canvasRect = dom.canvas.getBoundingClientRect();
