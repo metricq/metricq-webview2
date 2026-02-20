@@ -19,6 +19,11 @@ function formatRelativeRangeLabel() {
   return `Letzte ${amount} ${noun}`;
 }
 
+function formatAbsoluteRangeDate(date) {
+  const pad2 = (x) => String(x).padStart(2, "0");
+  return `${pad2(date.getDate())}.${pad2(date.getMonth() + 1)}.${date.getFullYear()}, ${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+}
+
 export function toLocalInput(date) {
   const pad = (x) => String(x).padStart(2, "0");
   const ms = String(date.getMilliseconds()).padStart(3, "0");
@@ -68,7 +73,7 @@ export function updateRangeButtonLabel() {
     if (dom.timePopupCurrentRange) dom.timePopupCurrentRange.textContent = "-";
     return;
   }
-  const label = `${from.toLocaleString()} - ${to.toLocaleString()}`;
+  const label = `${formatAbsoluteRangeDate(from)} - ${formatAbsoluteRangeDate(to)}`;
   dom.btnTimeRange.innerHTML = `<i class="bi bi-clock-history me-1"></i>${label}`;
   if (dom.timePopupCurrentRange) dom.timePopupCurrentRange.textContent = label;
 }
