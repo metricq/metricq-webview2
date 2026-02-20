@@ -14,35 +14,6 @@ let hoveredMetricName = "";
 let dropMarkerEl = null;
 
 const metricMetadataCache = new Map();
-
-function setMetricSettingsActionButtons(tab) {
-  if (!dom.btnApplyAlias || !dom.btnApplyFactor || !dom.btnSaveExpressionMetric) return;
-  dom.btnApplyAlias.classList.toggle("d-none", tab !== "alias");
-  dom.btnApplyFactor.classList.toggle("d-none", tab !== "factor");
-  dom.btnSaveExpressionMetric.classList.toggle("d-none", tab !== "expression");
-}
-
-function activateSettingsTab(tab) {
-  const map = {
-    alias: dom.metricSettingsTabAlias,
-    factor: dom.metricSettingsTabFactor,
-    expression: dom.metricSettingsTabExpression,
-  };
-  const button = map[tab] || dom.metricSettingsTabExpression;
-  if (globalThis.bootstrap?.Tab && button) {
-    globalThis.bootstrap.Tab.getOrCreateInstance(button).show();
-  }
-  setMetricSettingsActionButtons(tab);
-}
-
-function setExpressionTabVisible(visible) {
-  if (!dom.metricSettingsTabExpression) return;
-  const navItem = dom.metricSettingsTabExpression.closest(".nav-item");
-  if (navItem) navItem.classList.toggle("d-none", !visible);
-  const pane = document.getElementById("metricSettingsPaneExpression");
-  if (pane) pane.classList.toggle("d-none", !visible);
-  if (!visible && dom.metricSettingsTabAlias) activateSettingsTab("alias");
-}
 const CARET_SENTINEL = "\u200b";
 
 function ensureHoverInfoElement() {
@@ -636,8 +607,6 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
-    setExpressionTabVisible(true);
-    activateSettingsTab("expression");
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -653,8 +622,6 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
-    setExpressionTabVisible(true);
-    activateSettingsTab("expression");
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -665,7 +632,7 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionMetricModal.addEventListener("shown.bs.modal", () => {
     renderMetricPalette();
-    if (!dom.btnSaveExpressionMetric.classList.contains("d-none")) dom.expressionInput.focus();
+    dom.expressionInput.focus();
   });
 
   dom.expressionInput.addEventListener("dragover", (event) => {
@@ -703,16 +670,6 @@ export function wireExpressionModal(hooks) {
     renderMetricSearchHints([]);
     hideHoverInfo();
     clearDropMarker();
-    setExpressionTabVisible(true);
-  });
-
-  dom.metricSettingsTabs?.querySelectorAll("button[data-bs-toggle=\"tab\"]").forEach((tabButton) => {
-    tabButton.addEventListener("shown.bs.tab", () => {
-      const id = tabButton.id;
-      if (id === "metricSettingsTabAlias") setMetricSettingsActionButtons("alias");
-      else if (id === "metricSettingsTabFactor") setMetricSettingsActionButtons("factor");
-      else setMetricSettingsActionButtons("expression");
-    });
   });
 
   dom.expressionMetricSearch.addEventListener("input", () => {
@@ -724,27 +681,5 @@ export function wireExpressionModal(hooks) {
     const name = String(event?.detail?.name || "").trim();
     if (!name) return;
     openEditModal(name);
-  });
-
-  document.addEventListener("metricq:prepare-expression-editor", (event) => {
-    const name = String(event?.detail?.name || "").trim();
-    if (!name) {
-      editingMetricName = "";
-      setExpressionTabVisible(false);
-      return;
-    }
-    const metric = state.metrics.find((item) => item.name === name);
-    if (!metric || !metric.expr) {
-      editingMetricName = "";
-      setExpressionTabVisible(false);
-      return;
-    }
-    editingMetricName = metric.name;
-    dom.expressionMetricName.value = metric.name;
-    renderExpressionEditor(metric.expr || "");
-    dom.expressionMetricSearch.value = "";
-    renderMetricSearchHints([]);
-    renderMetricPalette();
-    setExpressionTabVisible(true);
   });
 }

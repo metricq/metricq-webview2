@@ -275,94 +275,105 @@
       </div>
     </div>
 
-    <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal fade" id="factorModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title" id="expressionMetricModalTitle">Metrik-Einstellungen</h5>
+            <h5 class="modal-title">Metrik-Faktor</h5>
             <button class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <ul class="nav nav-tabs mb-3" id="metricSettingsTabs" role="tablist">
-              <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="metricSettingsTabAlias" data-bs-toggle="tab" data-bs-target="#metricSettingsPaneAlias" type="button" role="tab">Alias</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="metricSettingsTabFactor" data-bs-toggle="tab" data-bs-target="#metricSettingsPaneFactor" type="button" role="tab">Faktor</button>
-              </li>
-              <li class="nav-item" role="presentation">
-                <button class="nav-link" id="metricSettingsTabExpression" data-bs-toggle="tab" data-bs-target="#metricSettingsPaneExpression" type="button" role="tab">Ausdruck</button>
-              </li>
-            </ul>
-            <div class="tab-content">
-              <div class="tab-pane fade show active" id="metricSettingsPaneAlias" role="tabpanel" aria-labelledby="metricSettingsTabAlias">
-                <div class="mb-2 text-muted small" id="aliasMetricName">-</div>
-                <div class="mb-3">
-                  <label for="aliasInput" class="form-label">Anzeige-Name</label>
-                  <input id="aliasInput" type="text" class="form-control" maxlength="120" placeholder="Alias (leer = Originalname)" />
-                  <div class="form-text">Nur für die Anzeige im Frontend, der technische Metrikname bleibt unverändert.</div>
-                </div>
-              </div>
-              <div class="tab-pane fade" id="metricSettingsPaneFactor" role="tabpanel" aria-labelledby="metricSettingsTabFactor">
-                <div class="mb-2 text-muted small" id="factorMetricName">-</div>
-                <div class="mb-2 small text-muted d-none" id="factorNormalizationInfo">
-                  Normalisierung: <span id="factorNormalizationFactor">-</span>
-                  <span id="factorNormalizationUnits" class="ms-1">-</span>
-                </div>
-                <div class="mb-2 small text-muted d-none" id="factorExpressionNormalizationInfo">
-                  <div class="fw-semibold">Interne Skalierung im Ausdruck</div>
-                  <div id="factorExpressionNormalizationList" class="mt-1"></div>
-                </div>
-                <div class="mb-3">
-                  <label for="factorInput" class="form-label">Faktor</label>
-                  <input id="factorInput" type="number" class="form-control" step="any" />
-                  <div class="form-text">Werte der Metrik werden mit diesem Faktor skaliert.</div>
-                </div>
-              </div>
-              <div class="tab-pane fade" id="metricSettingsPaneExpression" role="tabpanel" aria-labelledby="metricSettingsTabExpression">
-                <div class="d-grid gap-3">
-                  <div>
-                    <label class="form-label" for="expressionMetricName">Name</label>
-                    <input id="expressionMetricName" class="form-control" placeholder="z.B. rack4.total.power" />
-                  </div>
-                  <div>
-                    <label class="form-label" for="expressionInput">Ausdruck</label>
-                    <div
-                      id="expressionInput"
-                      class="form-control expression-input"
-                      contenteditable="true"
-                      role="textbox"
-                      aria-multiline="true"
-                      data-placeholder="[metric.a] + [metric.b]"
-                      spellcheck="false"
-                      autocorrect="off"
-                      autocomplete="off"
-                      autocapitalize="off"
-                      data-gramm="false"
-                      data-gramm_editor="false"
-                      data-enable-grammarly="false"
-                    ></div>
-                    <div class="form-text">
-                      Erlaubt: +, -, *, /, -a, log a, min(...), max(...), sum(...). Metriken als <code>[name]</code>.
-                    </div>
-                  </div>
-                  <div>
-                    <label class="form-label" for="expressionMetricSearch">Metrik referenzieren</label>
-                    <input id="expressionMetricSearch" class="form-control form-control-sm" placeholder="Metrik suchen (auch nicht hinzugefügte)" />
-                    <div id="expressionMetricHints" class="expression-hints mt-2"></div>
-                  </div>
-                  <div>
-                    <div class="small text-muted mb-1">Verfügbare Metriken (klicken oder ziehen)</div>
-                    <div id="expressionMetricPalette" class="expression-palette"></div>
-                  </div>
-                </div>
-              </div>
+            <div class="mb-2 text-muted small" id="factorMetricName">-</div>
+            <div class="mb-2 small text-muted d-none" id="factorNormalizationInfo">
+              Normalisierung: <span id="factorNormalizationFactor">-</span>
+              <span id="factorNormalizationUnits" class="ms-1">-</span>
+            </div>
+            <div class="mb-2 small text-muted d-none" id="factorExpressionNormalizationInfo">
+              <div class="fw-semibold">Interne Skalierung im Ausdruck</div>
+              <div id="factorExpressionNormalizationList" class="mt-1"></div>
+            </div>
+            <div class="mb-3">
+              <label for="factorInput" class="form-label">Faktor</label>
+              <input id="factorInput" type="number" class="form-control" step="any" />
+              <div class="form-text">Werte der Metrik werden mit diesem Faktor skaliert.</div>
             </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
-            <button class="btn btn-primary d-none" id="btnApplyAlias">Alias übernehmen</button>
-            <button class="btn btn-primary d-none" id="btnApplyFactor">Faktor übernehmen</button>
+            <button class="btn btn-primary" id="btnApplyFactor">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="aliasModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Metrik-Alias</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2 text-muted small" id="aliasMetricName">-</div>
+            <div class="mb-3">
+              <label for="aliasInput" class="form-label">Anzeige-Name</label>
+              <input id="aliasInput" type="text" class="form-control" maxlength="120" placeholder="Alias (leer = Originalname)" />
+              <div class="form-text">Nur für die Anzeige im Frontend, der technische Metrikname bleibt unverändert.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button class="btn btn-primary" id="btnApplyAlias">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="expressionMetricModalTitle">Berechnete Metrik hinzufügen</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body d-grid gap-3">
+            <div>
+              <label class="form-label" for="expressionMetricName">Name</label>
+              <input id="expressionMetricName" class="form-control" placeholder="z.B. rack4.total.power" />
+            </div>
+            <div>
+              <label class="form-label" for="expressionInput">Ausdruck</label>
+              <div
+                id="expressionInput"
+                class="form-control expression-input"
+                contenteditable="true"
+                role="textbox"
+                aria-multiline="true"
+                data-placeholder="[metric.a] + [metric.b]"
+                spellcheck="false"
+                autocorrect="off"
+                autocomplete="off"
+                autocapitalize="off"
+                data-gramm="false"
+                data-gramm_editor="false"
+                data-enable-grammarly="false"
+              ></div>
+              <div class="form-text">
+                Erlaubt: +, -, *, /, -a, log a, min(...), max(...), sum(...). Metriken als <code>[name]</code>.
+              </div>
+            </div>
+            <div>
+              <label class="form-label" for="expressionMetricSearch">Metrik referenzieren</label>
+              <input id="expressionMetricSearch" class="form-control form-control-sm" placeholder="Metrik suchen (auch nicht hinzugefügte)" />
+              <div id="expressionMetricHints" class="expression-hints mt-2"></div>
+            </div>
+            <div>
+              <div class="small text-muted mb-1">Verfügbare Metriken (klicken oder ziehen)</div>
+              <div id="expressionMetricPalette" class="expression-palette"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
             <button class="btn btn-primary" id="btnSaveExpressionMetric">Speichern</button>
           </div>
         </div>

@@ -11,26 +11,6 @@ let factorMetricName = "";
 let aliasMetricName = "";
 const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
-function setMetricSettingsActionButtons(tab) {
-  if (!dom.btnApplyAlias || !dom.btnApplyFactor || !dom.btnSaveExpressionMetric) return;
-  dom.btnApplyAlias.classList.toggle("d-none", tab !== "alias");
-  dom.btnApplyFactor.classList.toggle("d-none", tab !== "factor");
-  dom.btnSaveExpressionMetric.classList.toggle("d-none", tab !== "expression");
-}
-
-function activateMetricSettingsTab(tab) {
-  const tabButtonMap = {
-    alias: dom.metricSettingsTabAlias,
-    factor: dom.metricSettingsTabFactor,
-    expression: dom.metricSettingsTabExpression,
-  };
-  const button = tabButtonMap[tab] || dom.metricSettingsTabAlias;
-  if (globalThis.bootstrap?.Tab && button) {
-    globalThis.bootstrap.Tab.getOrCreateInstance(button).show();
-  }
-  setMetricSettingsActionButtons(tab);
-}
-
 function formatFactor(value) {
   const num = Number(value);
   if (!Number.isFinite(num)) return null;
@@ -318,15 +298,11 @@ export function renderMetricList(hooks) {
 function openAliasModal(metricName) {
   const metric = metricByName(metricName);
   if (!metric) return;
-  if (dom.expressionMetricModalTitle) dom.expressionMetricModalTitle.textContent = "Metrik-Einstellungen";
   aliasMetricName = metricName;
-  factorMetricName = metricName;
   if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
   if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
-  document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
-  activateMetricSettingsTab("alias");
   if (globalThis.bootstrap?.Modal) {
-    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).show();
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.aliasModal).show();
   }
 }
 
@@ -339,21 +315,16 @@ export function applyAliasFromModal(hooks) {
   hooks.renderChart();
   hooks.onStateChanged?.();
   if (globalThis.bootstrap?.Modal) {
-    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).hide();
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.aliasModal).hide();
   }
 }
 
 function openFactorModal(metricName) {
   const metric = metricByName(metricName);
   if (!metric) return;
-  if (dom.expressionMetricModalTitle) dom.expressionMetricModalTitle.textContent = "Metrik-Einstellungen";
   factorMetricName = metricName;
-  aliasMetricName = metricName;
-  if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
-  if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
   dom.factorMetricName.textContent = metricName;
   dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
-  document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
 
   const unit = String(metric.unit || "").trim();
   const displayUnit = String(metric.displayUnit || "").trim();
@@ -415,8 +386,7 @@ function openFactorModal(metricName) {
   }
 
   if (globalThis.bootstrap?.Modal) {
-    activateMetricSettingsTab("factor");
-    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).show();
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).show();
   }
 }
 
@@ -431,6 +401,6 @@ export function applyFactorFromModal(hooks) {
   hooks.renderChart();
   hooks.onStateChanged?.();
   if (globalThis.bootstrap?.Modal) {
-    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).hide();
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).hide();
   }
 }
