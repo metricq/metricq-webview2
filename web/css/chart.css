@@ -1,10 +1,16 @@
 .time-range-group {
   width: clamp(340px, 30vw, 500px);
   flex: 0 0 clamp(340px, 30vw, 500px);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
 }
 
 .chart-body {
