@@ -1,6 +1,7 @@
 .time-range-group {
-  width: clamp(320px, 34vw, 520px);
-  flex: 0 0 clamp(320px, 34vw, 520px);
+  width: clamp(420px, 42vw, 620px);
+  flex: 0 0 clamp(420px, 42vw, 620px);
+  text-align: center;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -162,8 +163,8 @@
 
 @media (max-width: 991px) {
   .time-range-group {
-    width: 320px;
-    flex-basis: 320px;
+    width: 420px;
+    flex-basis: 420px;
   }
 
   .chart-body,
