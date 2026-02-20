@@ -697,8 +697,12 @@ function renderHoverAt(clientX, clientY) {
     const left = overflowRight
       ? Math.max(8, cursorXWrap - hoverWidth - 12)
       : preferredRight;
+    const hoverHeight = dom.hoverBox.offsetHeight || 120;
+    const preferredTop = clientY - rect.top - 16;
+    const maxTop = rect.height - hoverHeight - 8;
+    const top = Math.max(8, Math.min(preferredTop, maxTop));
     dom.hoverBox.style.left = `${left}px`;
-    dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
+    dom.hoverBox.style.top = `${top}px`;
     return;
   }
   if (dom.collapsedLegend && state.sidebarCollapsed) dom.collapsedLegend.classList.remove("d-none");
