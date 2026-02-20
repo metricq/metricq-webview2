@@ -19,6 +19,7 @@ export const dom = {
   rawPointsEl: document.getElementById("rawPoints"),
   analyzeTableBody: document.getElementById("analyzeTableBody"),
   btnYAxis: document.getElementById("btnYAxis"),
+  btnRenderMode: document.getElementById("btnRenderMode"),
   yAxisModal: document.getElementById("yAxisModal"),
   yAxisModeLocal: document.getElementById("yAxisModeLocal"),
   yAxisModeGlobal: document.getElementById("yAxisModeGlobal"),

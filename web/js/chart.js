@@ -161,6 +161,60 @@ function resizeCanvas() {
   dom.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 }
 
+function splitValidRuns(points, isValid) {
+  const runs = [];
+  let run = [];
+  for (const point of points || []) {
+    if (isValid(point)) {
+      run.push(point);
+    } else if (run.length > 0) {
+      runs.push(run);
+      run = [];
+    }
+  }
+  if (run.length > 0) runs.push(run);
+  return runs;
+}
+
+function drawLastSemanticStepLine(ctx, run, valueOf, sx, sy) {
+  if (!Array.isArray(run) || run.length < 2) return;
+  ctx.beginPath();
+  for (let i = 1; i < run.length; i += 1) {
+    const prev = run[i - 1];
+    const curr = run[i];
+    const x0 = sx(prev.t);
+    const x1 = sx(curr.t);
+    const y = sy(valueOf(curr));
+    if (i === 1) ctx.moveTo(x0, y);
+    else ctx.lineTo(x0, y);
+    ctx.lineTo(x1, y);
+    if (i < run.length - 1) {
+      const nextY = sy(valueOf(run[i + 1]));
+      ctx.lineTo(x1, nextY);
+    }
+  }
+  ctx.stroke();
+}
+
+function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
+  if (!Array.isArray(run) || run.length < 2) return;
+  for (let i = 1; i < run.length; i += 1) {
+    const prev = run[i - 1];
+    const curr = run[i];
+    const x0 = sx(prev.t);
+    const x1 = sx(curr.t);
+    const yMin = sy(minOf(curr));
+    const yMax = sy(maxOf(curr));
+    ctx.beginPath();
+    ctx.moveTo(x0, yMin);
+    ctx.lineTo(x1, yMin);
+    ctx.lineTo(x1, yMax);
+    ctx.lineTo(x0, yMax);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
 
 export function renderChart() {
   resizeCanvas();
@@ -227,6 +281,7 @@ export function renderChart() {
   }
 
   const rangeMs = xMax - xMin;
+  const tiMode = state.renderMode === "ti";
   const targetTicks = Math.max(4, Math.floor(plotW / 110));
   const tickStepMs = pickTimeTickStep(rangeMs, targetTicks);
   const xTicks = buildXTicks(xMin, xMax, tickStepMs);
@@ -269,6 +324,26 @@ export function renderChart() {
       if (!metric.drawAvg || points.length === 0) continue;
       const isComputedValues = String(series?.stats?.type || "") === "computed";
 
+      if (tiMode) {
+        if (points.length >= 2) {
+          drawLastSemanticStepLine(
+            ctx,
+            points,
+            (p) => p.v * metric.factor,
+            sx,
+            sy,
+          );
+        } else {
+          const p = points[0];
+          const x = sx(p.t);
+          const y = sy(p.v * metric.factor);
+          ctx.beginPath();
+          ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        continue;
+      }
+
       if (isComputedValues) {
         ctx.beginPath();
         for (let i = 0; i < points.length; i += 1) {
@@ -297,47 +372,58 @@ export function renderChart() {
     const points = series.aggregatePoints || [];
     if (points.length === 0) continue;
 
-    const runs = [];
-    let run = [];
-    for (const p of points) {
-      if (Number(p.count) > 0) {
-        run.push(p);
-      } else if (run.length > 0) {
-        runs.push(run);
-        run = [];
-      }
-    }
-    if (run.length > 0) runs.push(run);
+    const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
 
     ctx.save();
     ctx.globalAlpha = 0.2;
     for (const segment of runs) {
-      if (segment.length < 2) continue;
-      ctx.beginPath();
-      for (let i = 0; i < segment.length; i += 1) {
-        const p = segment[i];
-        if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
-        else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
+      if (tiMode) {
+        drawLastSemanticBand(
+          ctx,
+          segment,
+          (p) => p.min * metric.factor,
+          (p) => p.max * metric.factor,
+          sx,
+          sy,
+        );
+      } else {
+        if (segment.length < 2) continue;
+        ctx.beginPath();
+        for (let i = 0; i < segment.length; i += 1) {
+          const p = segment[i];
+          if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
+          else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
+        }
+        for (let i = segment.length - 1; i >= 0; i -= 1) {
+          const p = segment[i];
+          ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
+        }
+        ctx.closePath();
+        ctx.fill();
       }
-      for (let i = segment.length - 1; i >= 0; i -= 1) {
-        const p = segment[i];
-        ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
-      }
-      ctx.closePath();
-      ctx.fill();
     }
     ctx.restore();
 
     if (metric.drawAvg) {
       for (const segment of runs) {
-        if (segment.length === 0) continue;
-        ctx.beginPath();
-        for (let i = 0; i < segment.length; i += 1) {
-          const p = segment[i];
-          if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg * metric.factor));
-          else ctx.lineTo(sx(p.t), sy(p.avg * metric.factor));
+        if (tiMode) {
+          drawLastSemanticStepLine(
+            ctx,
+            segment,
+            (p) => p.avg * metric.factor,
+            sx,
+            sy,
+          );
+        } else {
+          if (segment.length === 0) continue;
+          ctx.beginPath();
+          for (let i = 0; i < segment.length; i += 1) {
+            const p = segment[i];
+            if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg * metric.factor));
+            else ctx.lineTo(sx(p.t), sy(p.avg * metric.factor));
+          }
+          ctx.stroke();
         }
-        ctx.stroke();
       }
     }
   }

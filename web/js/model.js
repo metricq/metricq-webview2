@@ -15,6 +15,7 @@ export const state = {
   yAxisCurrentMin: null,
   yAxisCurrentMax: null,
   timeMode: "relative",
+  renderMode: "standard",
   resolution: 2,
   maxPoints: 3000,
   sidebarCollapsed: false,

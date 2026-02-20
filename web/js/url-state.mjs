@@ -132,6 +132,7 @@ function buildPayload() {
     v: URL_STATE_VERSION,
     m: state.metrics.map((metric, index) => serializeMetricEntry(metric, index)),
   };
+  if (state.renderMode === "ti") payload.rm = "ti";
 
   if (state.timeMode === "relative") {
     const rel = serializeRelative();
@@ -340,6 +341,9 @@ export function applyStateFromUrl() {
     .map((entry, index) => sanitizeMetricEntry(entry, index))
     .filter(Boolean);
 
+  const renderMode = String(payload?.rm || "").trim().toLowerCase();
+  state.renderMode = renderMode === "ti" ? "ti" : "standard";
+
   applyYAxisConfig(payload?.y);
 
   return true;
@@ -380,6 +384,7 @@ export function applyLegacyWebviewHashFallback() {
     .slice(2)
     .map((item, index) => parseLegacyMetricToken(item, index))
     .filter(Boolean);
+  state.renderMode = "standard";
 
   return state.metrics.length > 0;
 }

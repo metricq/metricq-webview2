@@ -81,6 +81,17 @@ const presetTokenMap = {
 const COMPACT_SIDEBAR_BREAKPOINT_PX = 1400;
 let zoomRangeBadgeTimer = null;
 
+function syncRenderModeButton() {
+  if (!dom.btnRenderMode) return;
+  const tiActive = state.renderMode === "ti";
+  dom.btnRenderMode.classList.toggle("btn-primary", tiActive);
+  dom.btnRenderMode.classList.toggle("btn-outline-primary", !tiActive);
+  dom.btnRenderMode.textContent = tiActive ? "TI" : "STD";
+  dom.btnRenderMode.title = tiActive
+    ? "TI-Modus aktiv (Last-Semantik)"
+    : "Standard-Modus aktiv (Point-to-Point)";
+}
+
 function updateSidebarToggleIcon() {
   const icon = dom.btnSidebarToggle.querySelector("i");
   if (!icon) return;
@@ -99,6 +110,7 @@ function setSidebarCollapsed(collapsed) {
     !state.sidebarCollapsed && !state.compactSidebarMode,
   );
   updateSidebarToggleIcon();
+  syncRenderModeButton();
   renderCollapsedLegend();
   renderChart();
 }
@@ -330,6 +342,11 @@ function wireEvents() {
     hooks.loadData();
   });
   dom.btnTimeRange.addEventListener("click", toggleTimePopup);
+  dom.btnRenderMode.addEventListener("click", () => {
+    state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
+    syncRenderModeButton();
+    hooks.loadData();
+  });
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);
   });
@@ -702,6 +719,7 @@ async function init() {
   }
   if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();
+  syncRenderModeButton();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();
