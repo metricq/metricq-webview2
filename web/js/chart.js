@@ -382,7 +382,7 @@ export function renderChart() {
         ctx.beginPath();
         for (let i = 0; i < points.length; i += 1) {
           const p = points[i];
-          const x = sx(p.t);
+          const x = sx(aggregateDisplayTime(points, i, series));
           const y = sy(p.v * metric.factor);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
@@ -425,13 +425,13 @@ export function renderChart() {
         ctx.beginPath();
         for (let i = 0; i < segment.length; i += 1) {
           const p = segment[i];
-          const tx = aggregateDisplayTime(segment, i);
+          const tx = aggregateDisplayTime(segment, i, series);
           if (i === 0) ctx.moveTo(sx(tx), sy(p.min * metric.factor));
           else ctx.lineTo(sx(tx), sy(p.min * metric.factor));
         }
         for (let i = segment.length - 1; i >= 0; i -= 1) {
           const p = segment[i];
-          const tx = aggregateDisplayTime(segment, i);
+          const tx = aggregateDisplayTime(segment, i, series);
           ctx.lineTo(sx(tx), sy(p.max * metric.factor));
         }
         ctx.closePath();
@@ -455,7 +455,7 @@ export function renderChart() {
           ctx.beginPath();
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
-            const tx = aggregateDisplayTime(segment, i);
+            const tx = aggregateDisplayTime(segment, i, series);
             if (i === 0) ctx.moveTo(sx(tx), sy(p.avg * metric.factor));
             else ctx.lineTo(sx(tx), sy(p.avg * metric.factor));
           }
@@ -501,7 +501,7 @@ function seriesValueAtTime(metric, series, t) {
   for (let i = 0; i < points.length; i += 1) {
     const p = points[i];
     if (series.mode !== "values" && Number(p.count) === 0) continue;
-    const sampleT = series.mode === "values" ? p.t : aggregateDisplayTime(points, i);
+    const sampleT = aggregateDisplayTime(points, i, series);
     const d = Math.abs(sampleT - t);
     if (d < bestDiff) {
       best = p;
@@ -533,7 +533,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     let bestDist2 = Number.POSITIVE_INFINITY;
     for (let i = 0; i < points.length; i += 1) {
       const p = points[i];
-      const x = sx(series.mode === "values" ? p.t : aggregateDisplayTime(points, i));
+      const x = sx(aggregateDisplayTime(points, i, series));
       const value = pointValue(series, p, metric.factor);
       if (!Number.isFinite(value)) continue;
       const y = sy(value);
@@ -566,7 +566,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   const to = Math.min(points.length - 1, lo + radius);
   for (let i = from; i <= to; i += 1) {
     const p = points[i];
-    const x = sx(series.mode === "values" ? p.t : aggregateDisplayTime(points, i));
+    const x = sx(aggregateDisplayTime(points, i, series));
     const value = pointValue(series, p, metric.factor);
     if (!Number.isFinite(value)) continue;
     const y = sy(value);
@@ -623,10 +623,12 @@ function sampleTIAtTime(metric, series, t) {
   };
 }
 
-function aggregateDisplayTime(points, index) {
+function aggregateDisplayTime(points, index, series = null) {
   const p = points?.[index];
   if (!p) return NaN;
-  if (state.renderMode !== "ti" && index > 0) {
+  const isAggregateSeries = series?.mode === "aggregates";
+  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
+  if (state.renderMode !== "ti" && index > 0 && (isAggregateSeries || isComputedValuesSeries)) {
     const prev = points[index - 1];
     return Math.round((prev.t + p.t) / 2);
   }
@@ -728,9 +730,8 @@ function renderHoverAt(clientX, clientY) {
         ? nearestPoint.v * metric.factor
         : nearestPoint.avg * metric.factor;
       const yPx = lastLayout.sy(nearestValue);
-      const sampleT = series.mode === "values"
-        ? nearestPoint.t
-        : aggregateDisplayTime(series.aggregatePoints || [], nearestIndex);
+      const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+      const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
       const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
         const dx = xPx - cursorX;
