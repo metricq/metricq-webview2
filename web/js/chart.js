@@ -547,10 +547,88 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   return best;
 }
 
+function sampleTIAtTime(metric, series, t) {
+  if (series.mode === "values") {
+    const points = series.points || [];
+    if (points.length < 2) return null;
+    let lo = 1;
+    let hi = points.length - 1;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (points[mid].t < t) lo = mid + 1;
+      else hi = mid;
+    }
+    const idx = lo;
+    if (idx <= 0 || idx >= points.length) return null;
+    const prev = points[idx - 1];
+    const curr = points[idx];
+    if (t < prev.t || t > curr.t) return null;
+    const value = curr.v * metric.factor;
+    return { min: value, avg: value, max: value };
+  }
+
+  const points = series.aggregatePoints || [];
+  if (points.length < 2) return null;
+  let lo = 1;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (points[mid].t < t) lo = mid + 1;
+    else hi = mid;
+  }
+  const idx = lo;
+  if (idx <= 0 || idx >= points.length) return null;
+  const prev = points[idx - 1];
+  const curr = points[idx];
+  if (t < prev.t || t > curr.t || Number(curr.count) === 0) return null;
+  return {
+    min: curr.min * metric.factor,
+    avg: curr.avg * metric.factor,
+    max: curr.max * metric.factor,
+  };
+}
+
 function renderHoverAt(clientX, clientY) {
   if (!lastLayout) return;
   updateCollapsedLegendFade(clientX, clientY);
   const t = timestampAtCanvasX(clientX);
+  if (state.renderMode === "ti") {
+    const rows = [];
+    for (const metric of state.metrics) {
+      if (!metric.draw) continue;
+      const series = state.series.get(metric.name);
+      if (!series || series.error) continue;
+      const sampled = sampleTIAtTime(metric, series, t);
+      if (!sampled) continue;
+      const shownUnit = metric.displayUnit || metric.unit;
+      const factor = shownMetricFactor(metric);
+      const factorText = factor ? ` x${factor}` : "";
+      const unitText = shownUnit ? ` ${shownUnit}` : "";
+      rows.push(
+        `<div><span style=\"display:inline-block;width:10px;height:10px;background:${metric.color};margin-right:6px\"></span>${metric.name}${factorText}: min <strong>${sampled.min.toFixed(3)}</strong>${unitText} | avg <strong>${sampled.avg.toFixed(3)}</strong>${unitText} | max <strong>${sampled.max.toFixed(3)}</strong>${unitText}</div>`,
+      );
+    }
+    if (rows.length === 0) {
+      dom.hoverBox.classList.add("d-none");
+      hideHoverPoint();
+      return;
+    }
+    dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rows.join("")}`;
+    dom.hoverBox.classList.remove("d-none");
+    hideHoverPoint();
+
+    const rect = dom.chartWrap.getBoundingClientRect();
+    const hoverWidth = dom.hoverBox.offsetWidth || 220;
+    const cursorXWrap = clientX - rect.left;
+    const preferredRight = cursorXWrap + 12;
+    const overflowRight = preferredRight + hoverWidth > rect.width - 8;
+    const left = overflowRight
+      ? Math.max(8, cursorXWrap - hoverWidth - 12)
+      : preferredRight;
+    dom.hoverBox.style.left = `${left}px`;
+    dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
+    return;
+  }
   const candidates = [];
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
