@@ -225,7 +225,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 			}
 			continue
 		}
-		results[i] = valuesToAggregateSeries(target.name, values, depDuration)
+		results[i] = valuesToPointSeries(target.name, values, depDuration)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"series": results})

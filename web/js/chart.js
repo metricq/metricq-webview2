@@ -270,6 +270,20 @@ export function renderChart() {
     if (series.mode === "values") {
       const points = series.points || [];
       if (!metric.drawAvg || points.length === 0) continue;
+      const isComputedValues = String(series?.stats?.type || "") === "computed";
+
+      if (isComputedValues) {
+        ctx.beginPath();
+        for (let i = 0; i < points.length; i += 1) {
+          const p = points[i];
+          const x = sx(p.t);
+          const y = sy(p.v * metric.factor);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        continue;
+      }
 
       const radius = points.length > 2500 ? 1.2 : 1.8;
       for (let i = 0; i < points.length; i += 1) {
