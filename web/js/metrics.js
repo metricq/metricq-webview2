@@ -87,7 +87,7 @@ export function addExpressionMetric(name, expr, hooks) {
   if (!metricName || !metricExpr || metricByName(metricName)) return false;
   state.metrics.push({
     name: metricName,
-    alias: "",
+    alias: metricName,
     expr: metricExpr,
     color: colors[state.metrics.length % colors.length],
     draw: true,
@@ -117,6 +117,7 @@ export function updateExpressionMetric(originalName, name, expr, hooks) {
 
   state.series.delete(original);
   metric.name = metricName;
+  metric.alias = metricName;
   metric.expr = metricExpr;
   metric.description = metricExpr;
   renderMetricList(hooks);
@@ -300,7 +301,10 @@ export function renderMetricList(hooks) {
 function fillAliasAndFactorFields(metric) {
   if (!metric) return;
   if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
-  if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
+  if (dom.aliasInput) {
+    dom.aliasInput.value = String(metric.expr ? metric.name : (metric.alias || ""));
+    dom.aliasInput.disabled = Boolean(metric.expr);
+  }
   dom.factorMetricName.textContent = metric.name;
   dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
 
@@ -370,7 +374,8 @@ export function openMetricSettingsModal(metricName, initialTab = "alias") {
   settingsMetricName = metricName;
   fillAliasAndFactorFields(metric);
   document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
-  activateMetricSettingsTab(initialTab);
+  const tab = metric.expr ? "expression" : initialTab;
+  activateMetricSettingsTab(tab);
   if (globalThis.bootstrap?.Modal) {
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).show();
   }
@@ -380,7 +385,7 @@ export function applyAliasAndFactorFromModal(hooks) {
   if (!settingsMetricName) return;
   const metric = metricByName(settingsMetricName);
   if (!metric) return;
-  metric.alias = String(dom.aliasInput?.value || "").trim();
+  metric.alias = metric.expr ? metric.name : String(dom.aliasInput?.value || "").trim();
   metric.manualFactor = sanitizeFactor(dom.factorInput.value, metric.manualFactor || 1);
   metric.factorMode = "manual";
   applyAutoScaling(state.metrics, state.series);
