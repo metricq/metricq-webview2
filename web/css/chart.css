@@ -1,7 +1,9 @@
 .time-range-group {
-  min-width: 280px;
-  max-width: 520px;
-  flex: 1 1 auto;
+  width: clamp(320px, 34vw, 520px);
+  flex: 0 0 clamp(320px, 34vw, 520px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .chart-body {
@@ -160,7 +162,8 @@
 
 @media (max-width: 991px) {
   .time-range-group {
-    min-width: 320px;
+    width: 320px;
+    flex-basis: 320px;
   }
 
   .chart-body,
