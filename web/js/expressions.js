@@ -1,13 +1,7 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
 import { state } from "./model.js";
-import {
-  activateMetricSettingsTab,
-  addExpressionMetric,
-  applyAliasAndFactorFromModal,
-  searchMetricHints,
-  updateExpressionMetric,
-} from "./metrics.js";
+import { addExpressionMetric, searchMetricHints, updateExpressionMetric } from "./metrics.js";
 import { expressionTokenForMetric } from "./targets.mjs";
 import { expandExpressionAliases } from "./expression-alias.mjs";
 import { normalizeSIUnit } from "./units.mjs";
@@ -20,24 +14,34 @@ let hoveredMetricName = "";
 let dropMarkerEl = null;
 
 const metricMetadataCache = new Map();
+
+function setMetricSettingsActionButtons(tab) {
+  if (!dom.btnApplyAlias || !dom.btnApplyFactor || !dom.btnSaveExpressionMetric) return;
+  dom.btnApplyAlias.classList.toggle("d-none", tab !== "alias");
+  dom.btnApplyFactor.classList.toggle("d-none", tab !== "factor");
+  dom.btnSaveExpressionMetric.classList.toggle("d-none", tab !== "expression");
+}
+
+function activateSettingsTab(tab) {
+  const map = {
+    alias: dom.metricSettingsTabAlias,
+    factor: dom.metricSettingsTabFactor,
+    expression: dom.metricSettingsTabExpression,
+  };
+  const button = map[tab] || dom.metricSettingsTabExpression;
+  if (globalThis.bootstrap?.Tab && button) {
+    globalThis.bootstrap.Tab.getOrCreateInstance(button).show();
+  }
+  setMetricSettingsActionButtons(tab);
+}
+
 function setExpressionTabVisible(visible) {
   if (!dom.metricSettingsTabExpression) return;
   const navItem = dom.metricSettingsTabExpression.closest(".nav-item");
   if (navItem) navItem.classList.toggle("d-none", !visible);
   const pane = document.getElementById("metricSettingsPaneExpression");
   if (pane) pane.classList.toggle("d-none", !visible);
-  if (!visible && dom.metricSettingsTabAlias) activateMetricSettingsTab("alias");
-}
-
-function setAliasFactorTabsVisible(visible) {
-  const aliasNav = dom.metricSettingsTabAlias?.closest(".nav-item");
-  const factorNav = dom.metricSettingsTabFactor?.closest(".nav-item");
-  const aliasPane = document.getElementById("metricSettingsPaneAlias");
-  const factorPane = document.getElementById("metricSettingsPaneFactor");
-  if (aliasNav) aliasNav.classList.toggle("d-none", !visible);
-  if (factorNav) factorNav.classList.toggle("d-none", !visible);
-  if (aliasPane) aliasPane.classList.toggle("d-none", !visible);
-  if (factorPane) factorPane.classList.toggle("d-none", !visible);
+  if (!visible && dom.metricSettingsTabAlias) activateSettingsTab("alias");
 }
 const CARET_SENTINEL = "\u200b";
 
@@ -537,38 +541,25 @@ function expressionFromEditor() {
   return serializeExpressionEditor().trim();
 }
 
-function saveMetricSettings(hooks) {
+function saveExpressionMetric(hooks) {
   clearValidation();
-
-  const expressionTabVisible = !dom.metricSettingsTabExpression?.closest(".nav-item")?.classList.contains("d-none");
-  if (expressionTabVisible) {
-    const name = dom.expressionMetricName.value.trim();
-    const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
-    const hasUserExpressionInput = Boolean(name || expr || editingMetricName);
-    if (hasUserExpressionInput) {
-      if (!name) {
-        markInvalid(dom.expressionMetricName);
-        return;
-      }
-      if (!expr) {
-        markInvalid(dom.expressionInput);
-        return;
-      }
-      const ok = editingMetricName
-        ? updateExpressionMetric(editingMetricName, name, expr, hooks)
-        : addExpressionMetric(name, expr, hooks);
-      if (!ok) {
-        markInvalid(dom.expressionMetricName);
-        return;
-      }
-      editingMetricName = name;
-    }
+  const name = dom.expressionMetricName.value.trim();
+  const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
+  if (!name) {
+    markInvalid(dom.expressionMetricName);
+    return;
   }
-
-  const aliasTabVisible = !dom.metricSettingsTabAlias?.closest(".nav-item")?.classList.contains("d-none");
-  const factorTabVisible = !dom.metricSettingsTabFactor?.closest(".nav-item")?.classList.contains("d-none");
-  if (aliasTabVisible || factorTabVisible) applyAliasAndFactorFromModal(hooks);
-
+  if (!expr) {
+    markInvalid(dom.expressionInput);
+    return;
+  }
+  const ok = editingMetricName
+    ? updateExpressionMetric(editingMetricName, name, expr, hooks)
+    : addExpressionMetric(name, expr, hooks);
+  if (!ok) {
+    markInvalid(dom.expressionMetricName);
+    return;
+  }
   editingMetricName = "";
   const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
   modal?.hide();
@@ -639,14 +630,14 @@ export function wireExpressionModal(hooks) {
   function openAddModal() {
     editingMetricName = "";
     clearValidation();
+    dom.expressionMetricModalTitle.textContent = "Berechnete Metrik hinzufügen";
     dom.expressionMetricName.value = buildNextExpressionName();
     renderExpressionEditor("");
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
-    setAliasFactorTabsVisible(false);
     setExpressionTabVisible(true);
-    activateMetricSettingsTab("expression");
+    activateSettingsTab("expression");
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -656,14 +647,14 @@ export function wireExpressionModal(hooks) {
     if (!metric) return;
     editingMetricName = metric.name;
     clearValidation();
+    dom.expressionMetricModalTitle.textContent = "Berechnete Metrik bearbeiten";
     dom.expressionMetricName.value = metric.name;
     renderExpressionEditor(metric.expr || "");
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
-    setAliasFactorTabsVisible(true);
     setExpressionTabVisible(true);
-    activateMetricSettingsTab("expression");
+    activateSettingsTab("expression");
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -674,7 +665,7 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionMetricModal.addEventListener("shown.bs.modal", () => {
     renderMetricPalette();
-    dom.expressionInput.focus();
+    if (!dom.btnSaveExpressionMetric.classList.contains("d-none")) dom.expressionInput.focus();
   });
 
   dom.expressionInput.addEventListener("dragover", (event) => {
@@ -704,7 +695,7 @@ export function wireExpressionModal(hooks) {
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
-  dom.btnSaveMetricSettings.addEventListener("click", () => saveMetricSettings(hooks));
+  dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
 
   dom.expressionMetricModal.addEventListener("hidden.bs.modal", () => {
     editingMetricName = "";
@@ -712,8 +703,16 @@ export function wireExpressionModal(hooks) {
     renderMetricSearchHints([]);
     hideHoverInfo();
     clearDropMarker();
-    setAliasFactorTabsVisible(true);
     setExpressionTabVisible(true);
+  });
+
+  dom.metricSettingsTabs?.querySelectorAll("button[data-bs-toggle=\"tab\"]").forEach((tabButton) => {
+    tabButton.addEventListener("shown.bs.tab", () => {
+      const id = tabButton.id;
+      if (id === "metricSettingsTabAlias") setMetricSettingsActionButtons("alias");
+      else if (id === "metricSettingsTabFactor") setMetricSettingsActionButtons("factor");
+      else setMetricSettingsActionButtons("expression");
+    });
   });
 
   dom.expressionMetricSearch.addEventListener("input", () => {
@@ -731,14 +730,12 @@ export function wireExpressionModal(hooks) {
     const name = String(event?.detail?.name || "").trim();
     if (!name) {
       editingMetricName = "";
-      setAliasFactorTabsVisible(false);
       setExpressionTabVisible(false);
       return;
     }
     const metric = state.metrics.find((item) => item.name === name);
     if (!metric || !metric.expr) {
       editingMetricName = "";
-      setAliasFactorTabsVisible(true);
       setExpressionTabVisible(false);
       return;
     }
@@ -748,7 +745,6 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
-    setAliasFactorTabsVisible(true);
     setExpressionTabVisible(true);
   });
 }

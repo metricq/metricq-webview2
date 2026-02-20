@@ -7,10 +7,18 @@ import { colors, metricByName, state } from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
-let settingsMetricName = "";
+let factorMetricName = "";
+let aliasMetricName = "";
 const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
-export function activateMetricSettingsTab(tab) {
+function setMetricSettingsActionButtons(tab) {
+  if (!dom.btnApplyAlias || !dom.btnApplyFactor || !dom.btnSaveExpressionMetric) return;
+  dom.btnApplyAlias.classList.toggle("d-none", tab !== "alias");
+  dom.btnApplyFactor.classList.toggle("d-none", tab !== "factor");
+  dom.btnSaveExpressionMetric.classList.toggle("d-none", tab !== "expression");
+}
+
+function activateMetricSettingsTab(tab) {
   const tabButtonMap = {
     alias: dom.metricSettingsTabAlias,
     factor: dom.metricSettingsTabFactor,
@@ -20,6 +28,7 @@ export function activateMetricSettingsTab(tab) {
   if (globalThis.bootstrap?.Tab && button) {
     globalThis.bootstrap.Tab.getOrCreateInstance(button).show();
   }
+  setMetricSettingsActionButtons(tab);
 }
 
 function formatFactor(value) {
@@ -153,7 +162,7 @@ export function setAllVisible(draw, hooks) {
 export function clearMetrics(hooks) {
   state.metrics = [];
   state.series.clear();
-  settingsMetricName = "";
+  factorMetricName = "";
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
@@ -268,9 +277,14 @@ export function renderMetricList(hooks) {
     controls.className = "btn-group btn-group-sm";
     const toggleButtonClass = metric.draw ? "btn-outline-secondary" : "btn-secondary";
     const toggleIcon = metric.draw ? "bi-eye" : "bi-eye-slash";
+    const editButton = metric.expr
+      ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
+      : "";
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
-      <button class="btn btn-outline-secondary" data-action="settings" title="Einstellungen"><i class="bi bi-sliders"></i></button>
+      ${editButton}
+      <button class="btn btn-outline-secondary" data-action="alias" title="Alias"><i class="bi bi-type"></i></button>
+      <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
       <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>
     `;
 
@@ -283,10 +297,14 @@ export function renderMetricList(hooks) {
         renderMetricList(hooks);
         hooks.renderChart();
         hooks.onStateChanged?.();
+      } else if (action === "edit" && metric.expr) {
+        document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
       } else if (action === "delete") {
         removeMetric(metric.name, hooks);
-      } else if (action === "settings") {
-        openMetricSettingsModal(metric.name, "alias");
+      } else if (action === "alias") {
+        openAliasModal(metric.name);
+      } else if (action === "factor") {
+        openFactorModal(metric.name);
       }
     });
 
@@ -297,12 +315,45 @@ export function renderMetricList(hooks) {
   renderCollapsedLegend();
 }
 
-function fillAliasAndFactorFields(metric) {
+function openAliasModal(metricName) {
+  const metric = metricByName(metricName);
   if (!metric) return;
+  if (dom.expressionMetricModalTitle) dom.expressionMetricModalTitle.textContent = "Metrik-Einstellungen";
+  aliasMetricName = metricName;
+  factorMetricName = metricName;
   if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
   if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
-  dom.factorMetricName.textContent = metric.name;
+  document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
+  activateMetricSettingsTab("alias");
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).show();
+  }
+}
+
+export function applyAliasFromModal(hooks) {
+  if (!aliasMetricName) return;
+  const metric = metricByName(aliasMetricName);
+  if (!metric) return;
+  metric.alias = String(dom.aliasInput?.value || "").trim();
+  renderMetricList(hooks);
+  hooks.renderChart();
+  hooks.onStateChanged?.();
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).hide();
+  }
+}
+
+function openFactorModal(metricName) {
+  const metric = metricByName(metricName);
+  if (!metric) return;
+  if (dom.expressionMetricModalTitle) dom.expressionMetricModalTitle.textContent = "Metrik-Einstellungen";
+  factorMetricName = metricName;
+  aliasMetricName = metricName;
+  if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
+  if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
+  dom.factorMetricName.textContent = metricName;
   dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
+  document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
 
   const unit = String(metric.unit || "").trim();
   const displayUnit = String(metric.displayUnit || "").trim();
@@ -362,29 +413,24 @@ function fillAliasAndFactorFields(metric) {
       exprNormInfo.classList.toggle("d-none", refs.length === 0);
     }
   }
-}
 
-export function openMetricSettingsModal(metricName, initialTab = "alias") {
-  const metric = metricByName(metricName);
-  if (!metric) return;
-  settingsMetricName = metricName;
-  fillAliasAndFactorFields(metric);
-  document.dispatchEvent(new CustomEvent("metricq:prepare-expression-editor", { detail: { name: metricName } }));
-  activateMetricSettingsTab(initialTab);
   if (globalThis.bootstrap?.Modal) {
+    activateMetricSettingsTab("factor");
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).show();
   }
 }
 
-export function applyAliasAndFactorFromModal(hooks) {
-  if (!settingsMetricName) return;
-  const metric = metricByName(settingsMetricName);
+export function applyFactorFromModal(hooks) {
+  if (!factorMetricName) return;
+  const metric = metricByName(factorMetricName);
   if (!metric) return;
-  metric.alias = String(dom.aliasInput?.value || "").trim();
   metric.manualFactor = sanitizeFactor(dom.factorInput.value, metric.manualFactor || 1);
   metric.factorMode = "manual";
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
   hooks.onStateChanged?.();
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.expressionMetricModal).hide();
+  }
 }

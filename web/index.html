@@ -278,8 +278,12 @@
     <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header pb-0 align-items-end">
-            <ul class="nav nav-tabs flex-grow-1 mb-0" id="metricSettingsTabs" role="tablist">
+          <div class="modal-header">
+            <h5 class="modal-title" id="expressionMetricModalTitle">Metrik-Einstellungen</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <ul class="nav nav-tabs mb-3" id="metricSettingsTabs" role="tablist">
               <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="metricSettingsTabAlias" data-bs-toggle="tab" data-bs-target="#metricSettingsPaneAlias" type="button" role="tab">Alias</button>
               </li>
@@ -290,9 +294,6 @@
                 <button class="nav-link" id="metricSettingsTabExpression" data-bs-toggle="tab" data-bs-target="#metricSettingsPaneExpression" type="button" role="tab">Ausdruck</button>
               </li>
             </ul>
-            <button class="btn-close ms-2 mb-2" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
             <div class="tab-content">
               <div class="tab-pane fade show active" id="metricSettingsPaneAlias" role="tabpanel" aria-labelledby="metricSettingsTabAlias">
                 <div class="mb-2 text-muted small" id="aliasMetricName">-</div>
@@ -360,7 +361,9 @@
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
-            <button class="btn btn-primary" id="btnSaveMetricSettings">Speichern</button>
+            <button class="btn btn-primary d-none" id="btnApplyAlias">Alias übernehmen</button>
+            <button class="btn btn-primary d-none" id="btnApplyFactor">Faktor übernehmen</button>
+            <button class="btn btn-primary" id="btnSaveExpressionMetric">Speichern</button>
           </div>
         </div>
       </div>

@@ -14,6 +14,8 @@ import {
   renderMetricList,
   searchMetricHints,
   setAllVisible,
+  applyFactorFromModal,
+  applyAliasFromModal,
 } from "./metrics.js";
 import {
   getPlotXBoundsInCanvas,
@@ -379,6 +381,8 @@ function wireEvents() {
   dom.btnExportPng.addEventListener("click", exportPNG);
   dom.btnExportCsv.addEventListener("click", exportCSV);
   dom.btnExportJson.addEventListener("click", exportJSON);
+  dom.btnApplyFactor.addEventListener("click", () => applyFactorFromModal(hooks));
+  dom.btnApplyAlias.addEventListener("click", () => applyAliasFromModal(hooks));
   dom.btnYAxis.addEventListener("click", syncYAxisModalFromState);
   dom.yAxisModal.addEventListener("shown.bs.modal", syncYAxisModalFromState);
   dom.yAxisModeLocal.addEventListener("change", updateYAxisManualInputsEnabled);
