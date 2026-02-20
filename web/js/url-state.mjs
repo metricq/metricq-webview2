@@ -34,7 +34,7 @@ function sanitizeMetricEntry(raw, index) {
   if (!name) return null;
 
   const expr = String(raw?.e || "").trim();
-  const alias = expr ? name : String(raw?.a || "").trim();
+  const alias = String(raw?.a || "").trim();
   const color = String(raw?.c || "").trim() || defaultColorAt(index);
   const draw = raw?.h ? false : true;
 
@@ -72,7 +72,7 @@ function sanitizeMetricEntry(raw, index) {
 function serializeMetricEntry(metric, index) {
   const entry = { n: metric.name };
   if (metric.expr) entry.e = metric.expr;
-  if (!metric.expr && String(metric.alias || "").trim()) entry.a = String(metric.alias).trim();
+  if (String(metric.alias || "").trim()) entry.a = String(metric.alias).trim();
 
   const color = String(metric.color || "").toLowerCase();
   if (color) entry.c = metric.color;
