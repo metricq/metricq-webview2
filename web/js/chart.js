@@ -425,12 +425,14 @@ export function renderChart() {
         ctx.beginPath();
         for (let i = 0; i < segment.length; i += 1) {
           const p = segment[i];
-          if (i === 0) ctx.moveTo(sx(p.t), sy(p.min * metric.factor));
-          else ctx.lineTo(sx(p.t), sy(p.min * metric.factor));
+          const tx = aggregateDisplayTime(segment, i);
+          if (i === 0) ctx.moveTo(sx(tx), sy(p.min * metric.factor));
+          else ctx.lineTo(sx(tx), sy(p.min * metric.factor));
         }
         for (let i = segment.length - 1; i >= 0; i -= 1) {
           const p = segment[i];
-          ctx.lineTo(sx(p.t), sy(p.max * metric.factor));
+          const tx = aggregateDisplayTime(segment, i);
+          ctx.lineTo(sx(tx), sy(p.max * metric.factor));
         }
         ctx.closePath();
         ctx.fill();
@@ -453,8 +455,9 @@ export function renderChart() {
           ctx.beginPath();
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
-            if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg * metric.factor));
-            else ctx.lineTo(sx(p.t), sy(p.avg * metric.factor));
+            const tx = aggregateDisplayTime(segment, i);
+            if (i === 0) ctx.moveTo(sx(tx), sy(p.avg * metric.factor));
+            else ctx.lineTo(sx(tx), sy(p.avg * metric.factor));
           }
           ctx.stroke();
         }
@@ -492,20 +495,24 @@ function seriesValueAtTime(metric, series, t) {
   const points = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
   if (points.length === 0) return null;
 
-  let best = points[0];
-  let bestDiff = Math.abs(points[0].t - t);
-  for (const p of points) {
+  let best = null;
+  let bestT = 0;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < points.length; i += 1) {
+    const p = points[i];
     if (series.mode !== "values" && Number(p.count) === 0) continue;
-    const d = Math.abs(p.t - t);
+    const sampleT = series.mode === "values" ? p.t : aggregateDisplayTime(points, i);
+    const d = Math.abs(sampleT - t);
     if (d < bestDiff) {
       best = p;
+      bestT = sampleT;
       bestDiff = d;
     }
   }
-  if (series.mode !== "values" && Number(best.count) === 0) return null;
+  if (!best || (series.mode !== "values" && Number(best.count) === 0)) return null;
 
   return {
-    t: best.t,
+    t: bestT,
     value: series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor,
   };
 }
@@ -522,9 +529,11 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   // For small series, exact scan is cheap and gives best spatial match.
   if (points.length <= 1200) {
     let best = null;
+    let bestIndex = -1;
     let bestDist2 = Number.POSITIVE_INFINITY;
-    for (const p of points) {
-      const x = sx(p.t);
+    for (let i = 0; i < points.length; i += 1) {
+      const p = points[i];
+      const x = sx(series.mode === "values" ? p.t : aggregateDisplayTime(points, i));
       const value = pointValue(series, p, metric.factor);
       if (!Number.isFinite(value)) continue;
       const y = sy(value);
@@ -533,10 +542,11 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
       const d2 = dx * dx + dy * dy;
       if (d2 < bestDist2) {
         best = p;
+        bestIndex = i;
         bestDist2 = d2;
       }
     }
-    return best;
+    return best ? { point: best, index: bestIndex } : null;
   }
 
   // For large series, binary-search in time then scan a local window in both directions.
@@ -548,14 +558,15 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     else hi = mid;
   }
 
-  let best = points[lo];
+  let best = null;
+  let bestIndex = -1;
   let bestDist2 = Number.POSITIVE_INFINITY;
   const radius = 28;
   const from = Math.max(0, lo - radius);
   const to = Math.min(points.length - 1, lo + radius);
   for (let i = from; i <= to; i += 1) {
     const p = points[i];
-    const x = sx(p.t);
+    const x = sx(series.mode === "values" ? p.t : aggregateDisplayTime(points, i));
     const value = pointValue(series, p, metric.factor);
     if (!Number.isFinite(value)) continue;
     const y = sy(value);
@@ -564,10 +575,11 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     const d2 = dx * dx + dy * dy;
     if (d2 < bestDist2) {
       best = p;
+      bestIndex = i;
       bestDist2 = d2;
     }
   }
-  return best;
+  return best ? { point: best, index: bestIndex } : null;
 }
 
 function sampleTIAtTime(metric, series, t) {
@@ -609,6 +621,16 @@ function sampleTIAtTime(metric, series, t) {
     avg: curr.avg * metric.factor,
     max: curr.max * metric.factor,
   };
+}
+
+function aggregateDisplayTime(points, index) {
+  const p = points?.[index];
+  if (!p) return NaN;
+  if (state.renderMode !== "ti" && index > 0) {
+    const prev = points[index - 1];
+    return Math.round((prev.t + p.t) / 2);
+  }
+  return p.t;
 }
 
 function renderHoverAt(clientX, clientY) {
@@ -699,18 +721,23 @@ function renderHoverAt(clientX, clientY) {
       lastLayout.sy,
     );
     if (nearestRaw) {
-      if (series.mode !== "values" && Number(nearestRaw.count) === 0) continue;
+      const nearestPoint = nearestRaw.point;
+      const nearestIndex = nearestRaw.index;
+      if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
       const nearestValue = series.mode === "values"
-        ? nearestRaw.v * metric.factor
-        : nearestRaw.avg * metric.factor;
+        ? nearestPoint.v * metric.factor
+        : nearestPoint.avg * metric.factor;
       const yPx = lastLayout.sy(nearestValue);
-      const xPx = lastLayout.sx(nearestRaw.t);
+      const sampleT = series.mode === "values"
+        ? nearestPoint.t
+        : aggregateDisplayTime(series.aggregatePoints || [], nearestIndex);
+      const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
         const dx = xPx - cursorX;
         const dy = yPx - cursorY;
         candidates.push({
           metric,
-          sampled: { t: nearestRaw.t, value: nearestValue },
+          sampled: { t: sampleT, value: nearestValue },
           xPx,
           yPx,
           dist2: dx * dx + dy * dy,
