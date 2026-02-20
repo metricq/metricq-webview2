@@ -616,8 +616,14 @@ function renderHoverAt(clientX, clientY) {
   updateCollapsedLegendFade(clientX, clientY);
   const t = timestampAtCanvasX(clientX);
   const margin = lastLayout.margin;
+  const canvasRect = dom.canvas.getBoundingClientRect();
+  const cursorX = clientX - canvasRect.left;
+  const cursorY = clientY - canvasRect.top;
   if (state.renderMode === "ti") {
     const rows = [];
+    let nearestRowIndex = -1;
+    let nearestDist2 = Number.POSITIVE_INFINITY;
+    const hoverX = lastLayout.sx(t);
     for (const metric of state.metrics) {
       if (!metric.draw) continue;
       const series = state.series.get(metric.name);
@@ -628,9 +634,21 @@ function renderHoverAt(clientX, clientY) {
       const factor = shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
       const unitText = shownUnit ? ` ${shownUnit}` : "";
-      rows.push(
-        `<div><span style=\"display:inline-block;width:10px;height:10px;background:${metric.color};margin-right:6px\"></span>${metric.name}${factorText}: min <strong>${sampled.min.toFixed(3)}</strong>${unitText} | avg <strong>${sampled.avg.toFixed(3)}</strong>${unitText} | max <strong>${sampled.max.toFixed(3)}</strong>${unitText}</div>`,
-      );
+      const yPx = lastLayout.sy(sampled.avg);
+      const dx = hoverX - cursorX;
+      const dy = yPx - cursorY;
+      const dist2 = dx * dx + dy * dy;
+      const rowIndex = rows.length;
+      rows.push({
+        metric,
+        sampled,
+        factorText,
+        unitText,
+      });
+      if (dist2 < nearestDist2) {
+        nearestDist2 = dist2;
+        nearestRowIndex = rowIndex;
+      }
     }
     if (rows.length === 0) {
       dom.hoverBox.classList.add("d-none");
@@ -638,7 +656,11 @@ function renderHoverAt(clientX, clientY) {
       hideHoverCursorLine();
       return;
     }
-    dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rows.join("")}`;
+    const rowsHtml = rows.map((row, idx) => {
+      const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
+      return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${row.metric.name}${row.factorText}: min <strong>${row.sampled.min.toFixed(3)}</strong>${row.unitText} | avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText} | max <strong>${row.sampled.max.toFixed(3)}</strong>${row.unitText}</div>`;
+    }).join("");
+    dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`;
     dom.hoverBox.classList.remove("d-none");
     hideHoverPoint();
     positionHoverCursorLine(lastLayout.sx(t), margin.top, lastLayout.plotH);
@@ -658,9 +680,6 @@ function renderHoverAt(clientX, clientY) {
   if (dom.collapsedLegend && state.sidebarCollapsed) dom.collapsedLegend.classList.remove("d-none");
   hideHoverCursorLine();
   const candidates = [];
-  const canvasRect = dom.canvas.getBoundingClientRect();
-  const cursorX = clientX - canvasRect.left;
-  const cursorY = clientY - canvasRect.top;
   const plotRight = margin.left + lastLayout.plotW;
   const plotBottom = margin.top + lastLayout.plotH;
 
