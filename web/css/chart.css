@@ -45,8 +45,12 @@
 }
 
 .hover-row-active {
-  background: rgba(13, 110, 253, 0.08);
-  border-radius: 0.25rem;
+  background: rgba(13, 110, 253, 0.22);
+  border-left: 3px solid rgba(13, 110, 253, 0.95);
+  border-radius: 0.3rem;
+  padding: 0.12rem 0.3rem 0.12rem 0.45rem;
+  margin: 0.08rem 0;
+  font-weight: 600;
 }
 
 .hover-point {
