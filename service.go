@@ -343,20 +343,17 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 		series.Stats["type"] = "raw"
 		return series
 	}
-	if len(hr.TimeDelta) == len(hr.Agg) && len(hr.Agg) > 0 {
-		series.Mode = "aggregates"
+		if len(hr.TimeDelta) == len(hr.Agg) && len(hr.Agg) > 0 {
+			series.Mode = "aggregates"
 		series.AggPoints = make([]apiAggPoint, 0, len(hr.Agg))
 		ts := int64(0)
 		rawCount := 0.0
-		for i, agg := range hr.Agg {
-			ts += hr.TimeDelta[i]
-			avg := 0.0
-			if agg.Count > 0 {
-				avg = agg.Sum / float64(agg.Count)
-			}
-			series.AggPoints = append(series.AggPoints, apiAggPoint{
-				T:     ts / int64(time.Millisecond),
-				Min:   agg.Minimum,
+			for i, agg := range hr.Agg {
+				ts += hr.TimeDelta[i]
+				avg := aggregateMean(agg)
+				series.AggPoints = append(series.AggPoints, apiAggPoint{
+					T:     ts / int64(time.Millisecond),
+					Min:   agg.Minimum,
 				Max:   agg.Maximum,
 				Avg:   avg,
 				Count: agg.Count,
@@ -381,11 +378,19 @@ func scaleValueByFunction(agg historyAggregate, fn string, scale float64) float6
 	case "count":
 		return float64(agg.Count)
 	default:
-		if agg.Count == 0 {
-			return 0
-		}
-		return (agg.Sum / float64(agg.Count)) * scale
+		return aggregateMean(agg) * scale
 	}
+}
+
+func aggregateMean(agg historyAggregate) float64 {
+	// Prefer time-weighted mean for last-semantics aggregates.
+	if agg.ActiveTime > 0 {
+		return agg.Integral / float64(agg.ActiveTime)
+	}
+	if agg.Count > 0 {
+		return agg.Sum / float64(agg.Count)
+	}
+	return 0
 }
 
 func buildCompatTimelineValue(ts int64, value float64) map[string]any {
