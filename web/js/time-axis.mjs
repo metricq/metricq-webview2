@@ -20,7 +20,7 @@ export function formatAxisTime(ms, rangeMs, tickStepMs = rangeMs) {
   if (tickStepMs < 3_600_000) {
     return `${hh2}:${mm2}`;
   }
-  if (rangeMs <= 86_400_000 * 2) {
+  if (tickStepMs < 86_400_000) {
     return `${day}.${mon}. ${hh2}:${mm2}`;
   }
   return `${day}.${mon}.${d.getFullYear()}`;

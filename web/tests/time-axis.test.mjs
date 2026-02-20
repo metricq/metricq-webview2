@@ -23,6 +23,17 @@ test("pickTimeTickStep picks increasing steps with larger ranges", () => {
   assert.ok(stepLarge >= stepSmall);
 });
 
+test("formatAxisTime keeps sub-day ticks distinguishable on long ranges", () => {
+  const a = new Date(2026, 1, 14, 0, 0, 0, 0).getTime();
+  const b = new Date(2026, 1, 14, 6, 0, 0, 0).getTime();
+  assert.equal(formatAxisTime(a, 7 * 86_400_000, 6 * 3_600_000), "14.2. 00:00");
+  assert.equal(formatAxisTime(b, 7 * 86_400_000, 6 * 3_600_000), "14.2. 06:00");
+  assert.notEqual(
+    formatAxisTime(a, 7 * 86_400_000, 6 * 3_600_000),
+    formatAxisTime(b, 7 * 86_400_000, 6 * 3_600_000),
+  );
+});
+
 test("buildXTicks aligns to step and stays inside range", () => {
   const ticks = buildXTicks(1050, 3200, 500);
   assert.deepEqual(ticks, [1500, 2000, 2500, 3000]);

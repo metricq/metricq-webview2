@@ -128,6 +128,16 @@ function buildYTicks(minY, maxY, plotH) {
   return ticks;
 }
 
+function formatYTickLabels(ticks) {
+  if (!Array.isArray(ticks) || ticks.length === 0) return [];
+  const maxDecimals = 8;
+  for (let decimals = 0; decimals <= maxDecimals; decimals += 1) {
+    const labels = ticks.map((value) => value.toFixed(decimals));
+    if (new Set(labels).size === labels.length) return labels;
+  }
+  return ticks.map((value) => value.toPrecision(10));
+}
+
 function formatReferenceLabel(ts, rangeMs, tickStepMs) {
   const d = new Date(ts);
   const day = d.getDate();
@@ -224,9 +234,11 @@ export function renderChart() {
   ctx.font = "11px sans-serif";
   ctx.fillStyle = "#000000";
   ctx.textAlign = "right";
-  for (const value of yTicks) {
+  const yTickLabels = formatYTickLabels(yTicks);
+  for (let i = 0; i < yTicks.length; i += 1) {
+    const value = yTicks[i];
     const y = sy(value);
-    ctx.fillText(value.toFixed(2), margin.left - 6, y + 4);
+    ctx.fillText(yTickLabels[i], margin.left - 6, y + 4);
   }
 
   const rangeMs = xMax - xMin;
