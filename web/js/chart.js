@@ -613,6 +613,7 @@ function renderHoverAt(clientX, clientY) {
   if (!lastLayout) return;
   updateCollapsedLegendFade(clientX, clientY);
   const t = timestampAtCanvasX(clientX);
+  const margin = lastLayout.margin;
   if (state.renderMode === "ti") {
     const rows = [];
     for (const metric of state.metrics) {
@@ -657,7 +658,6 @@ function renderHoverAt(clientX, clientY) {
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
-  const margin = lastLayout.margin;
   const plotRight = margin.left + lastLayout.plotW;
   const plotBottom = margin.top + lastLayout.plotH;
 
