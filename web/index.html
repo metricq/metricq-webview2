@@ -306,6 +306,29 @@
       </div>
     </div>
 
+    <div class="modal fade" id="aliasModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Metrik-Alias</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2 text-muted small" id="aliasMetricName">-</div>
+            <div class="mb-3">
+              <label for="aliasInput" class="form-label">Anzeige-Name</label>
+              <input id="aliasInput" type="text" class="form-control" maxlength="120" placeholder="Alias (leer = Originalname)" />
+              <div class="form-text">Nur für die Anzeige im Frontend, der technische Metrikname bleibt unverändert.</div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button class="btn btn-primary" id="btnApplyAlias">Übernehmen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">

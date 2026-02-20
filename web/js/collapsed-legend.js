@@ -1,4 +1,5 @@
 import { dom } from "./dom.js";
+import { metricDisplayName } from "./display-name.mjs";
 import { state } from "./model.js";
 
 function formatFactor(value) {
@@ -51,7 +52,7 @@ export function renderCollapsedLegend() {
     const unit = metric.displayUnit || metric.unit || "";
     const factor = shownMetricFactor(metric);
     const formulaPrefix = metric.expr ? "ƒ " : "";
-    label.textContent = formulaPrefix + metric.name + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
+    label.textContent = formulaPrefix + metricDisplayName(metric) + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
     labelWrap.appendChild(label);
 
     const description = String(metric.description || "").trim();

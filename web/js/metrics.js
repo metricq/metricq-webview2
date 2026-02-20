@@ -1,5 +1,6 @@
 import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
+import { metricDisplayName } from "./display-name.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { colors, metricByName, state } from "./model.js";
@@ -7,6 +8,7 @@ import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let factorMetricName = "";
+let aliasMetricName = "";
 const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
 function formatFactor(value) {
@@ -50,6 +52,7 @@ export function addMetric(name, hooks) {
   if (!name || metricByName(name)) return;
   state.metrics.push({
     name,
+    alias: "",
     expr: "",
     color: colors[state.metrics.length % colors.length],
     draw: true,
@@ -73,6 +76,7 @@ export function addExpressionMetric(name, expr, hooks) {
   if (!metricName || !metricExpr || metricByName(metricName)) return false;
   state.metrics.push({
     name: metricName,
+    alias: "",
     expr: metricExpr,
     color: colors[state.metrics.length % colors.length],
     draw: true,
@@ -237,7 +241,8 @@ export function renderMetricList(hooks) {
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";
     const formulaPrefix = metric.expr ? "ƒ " : "";
-    mainText.textContent = formulaPrefix + metric.name + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
+    const displayName = metricDisplayName(metric);
+    mainText.textContent = formulaPrefix + displayName + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
@@ -246,7 +251,7 @@ export function renderMetricList(hooks) {
       desc.textContent = description;
       center.appendChild(desc);
     }
-    center.title = metric.description || metric.name;
+    center.title = `${metric.name}${metric.description ? `\n${metric.description}` : ""}`;
 
     const controls = document.createElement("div");
     controls.className = "btn-group btn-group-sm";
@@ -258,6 +263,7 @@ export function renderMetricList(hooks) {
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
       ${editButton}
+      <button class="btn btn-outline-secondary" data-action="alias" title="Alias"><i class="bi bi-type"></i></button>
       <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
       <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>
     `;
@@ -275,6 +281,8 @@ export function renderMetricList(hooks) {
         document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
       } else if (action === "delete") {
         removeMetric(metric.name, hooks);
+      } else if (action === "alias") {
+        openAliasModal(metric.name);
       } else if (action === "factor") {
         openFactorModal(metric.name);
       }
@@ -285,6 +293,30 @@ export function renderMetricList(hooks) {
     dom.metricList.appendChild(li);
   }
   renderCollapsedLegend();
+}
+
+function openAliasModal(metricName) {
+  const metric = metricByName(metricName);
+  if (!metric) return;
+  aliasMetricName = metricName;
+  if (dom.aliasMetricName) dom.aliasMetricName.textContent = metric.name;
+  if (dom.aliasInput) dom.aliasInput.value = String(metric.alias || "");
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.aliasModal).show();
+  }
+}
+
+export function applyAliasFromModal(hooks) {
+  if (!aliasMetricName) return;
+  const metric = metricByName(aliasMetricName);
+  if (!metric) return;
+  metric.alias = String(dom.aliasInput?.value || "").trim();
+  renderMetricList(hooks);
+  hooks.renderChart();
+  hooks.onStateChanged?.();
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.aliasModal).hide();
+  }
 }
 
 function openFactorModal(metricName) {

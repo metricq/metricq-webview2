@@ -1,4 +1,5 @@
 import { dom } from "./dom.js";
+import { metricDisplayName } from "./display-name.mjs";
 import { state } from "./model.js";
 import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
 import { buildXTicks, formatAbsoluteTime, formatAxisTime, pickTimeTickStep } from "./time-axis.mjs";
@@ -503,7 +504,7 @@ function renderHoverAt(clientX, clientY) {
   const shownUnit = selected.metric.displayUnit || selected.metric.unit;
   const factor = shownMetricFactor(selected.metric);
   const factorText = factor ? ` x${factor}` : "";
-  const rowHtml = `<div><span style=\"display:inline-block;width:10px;height:10px;background:${selected.metric.color};margin-right:6px\"></span>${selected.metric.name}${factorText}: <strong>${selected.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+  const rowHtml = `<div><span style=\"display:inline-block;width:10px;height:10px;background:${selected.metric.color};margin-right:6px\"></span>${metricDisplayName(selected.metric)}${factorText}: <strong>${selected.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
   dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
   dom.hoverBox.classList.remove("d-none");
 

@@ -1,4 +1,5 @@
 import { apiFetch } from "./api.js";
+import { metricDisplayName } from "./display-name.mjs";
 import { dom } from "./dom.js";
 import { state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
@@ -89,7 +90,7 @@ export async function runAnalyze() {
     const metric = metricByName(entry.metric);
     const tr = document.createElement("tr");
     tr.appendChild(createColorCell(metric?.color));
-    tr.appendChild(createCell(entry.metric));
+    tr.appendChild(createCell(metricDisplayName(metric) || entry.metric));
     tr.appendChild(createCell(metric?.description || ""));
     tr.appendChild(createCell(metric?.displayUnit || metric?.unit || ""));
 
