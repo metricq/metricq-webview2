@@ -851,7 +851,6 @@ func valuesToPointSeries(name string, values map[int64]float64, duration float64
 		Mode:       "values",
 		Duration:   duration,
 		Points:     points,
-		PointCount: len(points),
 		RawCount:   float64(len(points)),
 		Stats: map[string]any{
 			"type": "computed",

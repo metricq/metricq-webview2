@@ -339,7 +339,6 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 			ts += hr.TimeDelta[i]
 			series.Points = append(series.Points, apiPoint{T: ts / int64(time.Millisecond), V: value})
 		}
-		series.PointCount = len(series.Points)
 		series.RawCount = float64(len(series.Points))
 		series.Stats["type"] = "raw"
 		return series
@@ -364,7 +363,6 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 			})
 			rawCount += float64(agg.Count)
 		}
-		series.PointCount = len(series.AggPoints)
 		series.RawCount = rawCount
 		series.Stats["type"] = "aggregate"
 		return series

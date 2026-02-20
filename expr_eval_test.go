@@ -211,7 +211,7 @@ func TestSeriesToEvalInputMapAndAggregateConversion(t *testing.T) {
 	}
 
 	converted := valuesToPointSeries("expr.total", map[int64]float64{2000: 2, 1000: 1}, 0.42)
-	if converted.Mode != "values" || converted.PointCount != 2 {
+	if converted.Mode != "values" || len(converted.Points) != 2 {
 		t.Fatalf("unexpected converted metadata: %#v", converted)
 	}
 	if converted.Points[0].T != 1000 || converted.Points[1].T != 2000 {

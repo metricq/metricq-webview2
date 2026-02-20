@@ -106,7 +106,6 @@ type apiQuerySeries struct {
 	Points     []apiPoint     `json:"points,omitempty"`
 	AggPoints  []apiAggPoint  `json:"aggregatePoints,omitempty"`
 	Error      string         `json:"error,omitempty"`
-	PointCount int            `json:"pointCount"`
 	RawCount   float64        `json:"rawCount"`
 	Stats      map[string]any `json:"stats,omitempty"`
 	Meta       map[string]any `json:"meta,omitempty"`

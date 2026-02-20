@@ -56,7 +56,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   state.series.clear();
   for (const series of body.series || []) {
     state.series.set(series.metric, series);
-    if (series.mode === "aggregates") aggPoints += series.pointCount || 0;
+    if (series.mode === "aggregates") aggPoints += (series.aggregatePoints || []).length;
     rawPoints += Math.round(series.rawCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
   }

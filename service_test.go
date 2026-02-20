@@ -41,9 +41,6 @@ func TestHistoryToSeriesValues(t *testing.T) {
 	if got.Mode != "values" {
 		t.Fatalf("unexpected mode: %s", got.Mode)
 	}
-	if got.PointCount != 2 {
-		t.Fatalf("unexpected point count: %d", got.PointCount)
-	}
 	if got.Points[0].T != 1 || got.Points[1].T != 3 {
 		t.Fatalf("unexpected timestamps: %+v", got.Points)
 	}
@@ -61,9 +58,6 @@ func TestHistoryToSeriesAggregates(t *testing.T) {
 
 	if got.Mode != "aggregates" {
 		t.Fatalf("unexpected mode: %s", got.Mode)
-	}
-	if got.PointCount != 2 {
-		t.Fatalf("unexpected point count: %d", got.PointCount)
 	}
 	if got.RawCount != 5 {
 		t.Fatalf("unexpected raw count: %v", got.RawCount)
