@@ -147,13 +147,13 @@ function formatReferenceLabel(ts, rangeMs, tickStepMs) {
   const minute = String(d.getMinutes()).padStart(2, "0");
   const second = String(d.getSeconds()).padStart(2, "0");
   const millis = String(d.getMilliseconds()).padStart(3, "0");
-  if (rangeMs < 2 * 24 * 60 * 60 * 1000) {
-    if (tickStepMs < 1000) {
-      return `${day}.${month}.${year} ${hour}:${minute}:${second}.${millis}`;
-    }
-    if (tickStepMs < 60_000) {
-      return `${day}.${month}.${year} ${hour}:${minute}:${second}`;
-    }
+  if (tickStepMs < 1000) {
+    return `${day}.${month}.${year} ${hour}:${minute}:${second}.${millis}`;
+  }
+  if (tickStepMs < 60_000) {
+    return `${day}.${month}.${year} ${hour}:${minute}:${second}`;
+  }
+  if (tickStepMs < 24 * 60 * 60 * 1000) {
     return `${day}.${month}.${year} ${hour}:${minute}`;
   }
   if (rangeMs >= 365 * 24 * 60 * 60 * 1000) {
@@ -162,10 +162,7 @@ function formatReferenceLabel(ts, rangeMs, tickStepMs) {
   if (rangeMs >= 30 * 24 * 60 * 60 * 1000) {
     return `${day}.${month}.${year}`;
   }
-  if (rangeMs >= 2 * 24 * 60 * 60 * 1000) {
-    return `${day}.${month}.${year}`;
-  }
-  return `${day}.${month} ${hour}:${minute}`;
+  return `${day}.${month}.${year}`;
 }
 
 function resizeCanvas() {
