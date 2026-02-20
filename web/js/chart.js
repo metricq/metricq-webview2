@@ -323,9 +323,20 @@ export function renderChart() {
       const points = series.points || [];
       if (!metric.drawAvg || points.length === 0) continue;
       const isComputedValues = String(series?.stats?.type || "") === "computed";
+      const isRawValues = String(series?.stats?.type || "") === "raw";
 
       if (tiMode) {
-        if (points.length >= 2) {
+        if (isRawValues) {
+          const radius = points.length > 2500 ? 1.2 : 1.8;
+          for (let i = 0; i < points.length; i += 1) {
+            const p = points[i];
+            const x = sx(p.t);
+            const y = sy(p.v * metric.factor);
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else if (points.length >= 2) {
           drawLastSemanticStepLine(
             ctx,
             points,
