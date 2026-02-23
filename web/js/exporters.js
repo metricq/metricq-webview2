@@ -1,5 +1,5 @@
 import { dom } from "./dom.js";
-import { state } from "./model.js";
+import { metricDisplayName, state } from "./model.js";
 import { downloadBlob } from "./utils.js";
 
 export function exportJSON() {
@@ -62,7 +62,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     const unit = metric.displayUnit || metric.unit || "";
     const factor = shownMetricFactor(metric);
     const formulaPrefix = metric.expr ? "ƒ " : "";
-    const main = `${formulaPrefix}${metric.name}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
+    const main = `${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
     const desc = String(metric.description || "").trim();
     return { metric, main, desc };
   });

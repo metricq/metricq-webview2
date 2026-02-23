@@ -60,6 +60,7 @@ export const dom = {
   factorNormalizationUnits: document.getElementById("factorNormalizationUnits"),
   factorExpressionNormalizationInfo: document.getElementById("factorExpressionNormalizationInfo"),
   factorExpressionNormalizationList: document.getElementById("factorExpressionNormalizationList"),
+  factorAliasInput: document.getElementById("factorAliasInput"),
   factorInput: document.getElementById("factorInput"),
   btnApplyFactor: document.getElementById("btnApplyFactor"),
   expressionMetricModal: document.getElementById("expressionMetricModal"),

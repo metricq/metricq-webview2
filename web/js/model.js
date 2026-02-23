@@ -37,3 +37,10 @@ export const colors = [
 export function metricByName(name) {
   return state.metrics.find((m) => m.name === name);
 }
+
+export function metricDisplayName(metric) {
+  const alias = String(metric?.alias || "").trim();
+  const expr = String(metric?.expr || "").trim();
+  if (!expr && alias) return alias;
+  return String(metric?.name || "");
+}

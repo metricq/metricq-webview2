@@ -40,6 +40,7 @@ function sanitizeMetricEntry(raw, index) {
   const metric = {
     name,
     expr,
+    alias: "",
     color,
     draw,
     drawAvg: true,
@@ -50,6 +51,9 @@ function sanitizeMetricEntry(raw, index) {
     displayUnit: "",
     description: expr || "",
   };
+  if (!expr) {
+    metric.alias = String(raw?.a || "").trim();
+  }
 
   const factor = Number(raw?.f);
   if (String(raw?.fm || "") === "manual" && Number.isFinite(factor)) {
@@ -70,6 +74,10 @@ function sanitizeMetricEntry(raw, index) {
 function serializeMetricEntry(metric, index) {
   const entry = { n: metric.name };
   if (metric.expr) entry.e = metric.expr;
+  if (!metric.expr) {
+    const alias = String(metric.alias || "").trim();
+    if (alias) entry.a = alias;
+  }
 
   const color = String(metric.color || "").toLowerCase();
   if (color) entry.c = metric.color;
@@ -237,6 +245,7 @@ function parseLegacyMetricToken(token, index) {
   const metric = {
     name,
     expr: "",
+    alias: "",
     color: defaultColorAt(index),
     draw: true,
     drawAvg: true,

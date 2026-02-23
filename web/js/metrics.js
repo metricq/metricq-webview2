@@ -2,7 +2,7 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
-import { colors, metricByName, state } from "./model.js";
+import { colors, metricByName, metricDisplayName, state } from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
@@ -59,6 +59,7 @@ export function addMetric(name, hooks) {
     factorMode: "auto",
     unit: "",
     displayUnit: "",
+    alias: "",
     description: "",
   });
   renderMetricList(hooks);
@@ -82,6 +83,7 @@ export function addExpressionMetric(name, expr, hooks) {
     factorMode: "auto",
     unit: "",
     displayUnit: "",
+    alias: "",
     description: metricExpr,
   });
   renderMetricList(hooks);
@@ -237,7 +239,7 @@ export function renderMetricList(hooks) {
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";
     const formulaPrefix = metric.expr ? "ƒ " : "";
-    mainText.textContent = formulaPrefix + metric.name + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
+    mainText.textContent = formulaPrefix + metricDisplayName(metric) + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
@@ -293,6 +295,10 @@ function openFactorModal(metricName) {
   factorMetricName = metricName;
   dom.factorMetricName.textContent = metricName;
   dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
+  if (dom.factorAliasInput) {
+    dom.factorAliasInput.value = String(metric.alias || "");
+    dom.factorAliasInput.disabled = Boolean(metric.expr);
+  }
 
   const unit = String(metric.unit || "").trim();
   const displayUnit = String(metric.displayUnit || "").trim();
@@ -364,6 +370,9 @@ export function applyFactorFromModal(hooks) {
   if (!metric) return;
   metric.manualFactor = sanitizeFactor(dom.factorInput.value, metric.manualFactor || 1);
   metric.factorMode = "manual";
+  if (!metric.expr && dom.factorAliasInput) {
+    metric.alias = String(dom.factorAliasInput.value || "").trim();
+  }
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
