@@ -153,27 +153,3 @@ type apiYRangeGlobalResponse struct {
 	Maximum float64  `json:"maximum"`
 	Metrics []string `json:"metrics"`
 }
-
-type compatQueryRequest struct {
-	Range struct {
-		From string `json:"from"`
-		To   string `json:"to"`
-	} `json:"range"`
-	MaxDataPoints int `json:"maxDataPoints"`
-	Targets       []struct {
-		Metric        string   `json:"metric"`
-		Name          string   `json:"name"`
-		Functions     []string `json:"functions"`
-		ScalingFactor string   `json:"scalingFactor"`
-	} `json:"targets"`
-}
-
-type compatAnalyzeRequest struct {
-	Range struct {
-		From string `json:"from"`
-		To   string `json:"to"`
-	} `json:"range"`
-	Targets []struct {
-		Metric string `json:"metric"`
-	} `json:"targets"`
-}

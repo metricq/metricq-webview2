@@ -393,25 +393,6 @@ func aggregateMean(agg historyAggregate) float64 {
 	return 0
 }
 
-func buildCompatTimelineValue(ts int64, value float64) map[string]any {
-	return map[string]any{
-		"timestamp": ts * int64(time.Microsecond),
-		"value":     value,
-	}
-}
-
-func buildCompatTimelineAggregate(ts int64, agg historyAggregate) map[string]any {
-	return map[string]any{
-		"timestamp":   ts * int64(time.Microsecond),
-		"minimum":     agg.Minimum,
-		"maximum":     agg.Maximum,
-		"sum":         agg.Sum,
-		"count":       agg.Count,
-		"integral_ns": agg.Integral,
-		"active_time": agg.ActiveTime,
-	}
-}
-
 func safeMean(sum float64, count uint64) float64 {
 	if count == 0 {
 		return 0
