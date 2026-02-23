@@ -36,14 +36,6 @@ func main() {
 	mux.HandleFunc("/api/analyze", svc.handleAPIAnalyze)
 	mux.HandleFunc("/api/y-range/global", svc.handleAPIYRangeGlobal)
 
-	mux.HandleFunc("/search", svc.handleCompatSearch)
-	mux.HandleFunc("/metadata", svc.handleCompatMetadata)
-	mux.HandleFunc("/query", svc.handleCompatQuery)
-	mux.HandleFunc("/analyze", svc.handleCompatAnalyze)
-	mux.HandleFunc("/timeline", svc.handleCompatTimeline)
-	mux.HandleFunc("/legacy/cntr_status.php", svc.handleLegacyCounterStatus)
-	mux.HandleFunc("/legacy/counter_data.php", svc.handleLegacyCounterData)
-
 	if cfg.WebDir != "" {
 		info, err := os.Stat(cfg.WebDir)
 		if err != nil {
