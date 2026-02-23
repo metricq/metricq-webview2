@@ -160,6 +160,19 @@ function formatYTickLabels(ticks) {
   return ticks.map((value) => value.toPrecision(10));
 }
 
+function yAxisUnitsLabel(seriesList) {
+  const units = [];
+  const seen = new Set();
+  for (const item of seriesList || []) {
+    const unit = String(item?.metric?.displayUnit || item?.metric?.unit || "").trim();
+    if (!unit || seen.has(unit)) continue;
+    seen.add(unit);
+    units.push(unit);
+  }
+  if (units.length === 0) return "";
+  return units.join(" | ");
+}
+
 function formatReferenceLabel(ts, rangeMs, tickStepMs) {
   const d = new Date(ts);
   const day = d.getDate();
@@ -292,6 +305,21 @@ export function renderChart() {
   ctx.lineTo(margin.left, height - margin.bottom);
   ctx.lineTo(width - margin.right, height - margin.bottom);
   ctx.stroke();
+
+  const yUnits = yAxisUnitsLabel(seriesList);
+  if (yUnits) {
+    ctx.save();
+    ctx.fillStyle = "#000000";
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const x = Math.max(8, margin.left - 36);
+    const y = margin.top + plotH / 2;
+    ctx.translate(x, y);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yUnits, 0, 0);
+    ctx.restore();
+  }
 
   ctx.font = "11px sans-serif";
   ctx.fillStyle = "#000000";
