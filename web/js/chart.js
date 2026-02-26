@@ -1108,24 +1108,9 @@ function renderHoverAt(clientX, clientY) {
     if (!series || series.error) continue;
     const sampled = seriesValueAtTime(metric, series, t);
     if (!sampled) continue;
-    const nearestRaw = nearestPointByProximity(
-      metric,
-      series,
-      t,
-      cursorX,
-      cursorY,
-      lastLayout.sx,
-      lastLayout.sy,
-    );
-    if (nearestRaw) {
-      const nearestPoint = nearestRaw.point;
-      const nearestIndex = nearestRaw.index;
-      if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
-      const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
-      const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
-      const rawValue = series.mode === "values"
-        ? nearestPoint.v * metric.factor
-        : nearestPoint.avg * metric.factor;
+    if (state.yAxisStacked) {
+      const sampleT = sampled.t;
+      const rawValue = sampled.value;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
       const yPx = lastLayout.sy(plotValue);
@@ -1142,10 +1127,47 @@ function renderHoverAt(clientX, clientY) {
           dist2: dx * dx + dy * dy,
         });
       }
+      continue;
+    }
+
+    const nearestRaw = nearestPointByProximity(
+      metric,
+      series,
+      t,
+      cursorX,
+      cursorY,
+      lastLayout.sx,
+      lastLayout.sy,
+    );
+    if (!nearestRaw) continue;
+    const nearestPoint = nearestRaw.point;
+    const nearestIndex = nearestRaw.index;
+    if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
+    const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+    const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
+    const rawValue = series.mode === "values"
+      ? nearestPoint.v * metric.factor
+      : nearestPoint.avg * metric.factor;
+    const stacked = stackedValueAt(metric.name, "avg", sampleT);
+    const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
+    const yPx = lastLayout.sy(plotValue);
+    const xPx = lastLayout.sx(sampleT);
+    if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
+      const dx = xPx - cursorX;
+      const dy = yPx - cursorY;
+      candidates.push({
+        metric,
+        sampled: { t: sampleT, value: rawValue },
+        xPx,
+        yPx,
+        snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
+        dist2: dx * dx + dy * dy,
+      });
     }
   }
 
   let selected = null;
+  let selectedStackScore = null;
   if (!state.yAxisStacked || !Number.isFinite(cursorValue)) {
     for (const candidate of candidates) {
       if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
@@ -1197,11 +1219,13 @@ function renderHoverAt(clientX, clientY) {
       return aNorm - bNorm;
     });
     selected = scored[0]?.candidate || null;
+    selectedStackScore = scored[0] || null;
   }
   const hoverSnapDistancePx = Number.isFinite(selected?.snapPx) ? selected.snapPx : 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
+  const insideStackArea = state.yAxisStacked && selectedStackScore?.bucket === 0;
 
-  if (!selected || selected.dist2 > hoverSnapDistanceSq) {
+  if (!selected || (!insideStackArea && selected.dist2 > hoverSnapDistanceSq)) {
     dom.hoverBox.classList.add("d-none");
     hideHoverPoint();
     hideHoverCursorLine();
