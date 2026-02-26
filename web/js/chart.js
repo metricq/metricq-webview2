@@ -13,9 +13,6 @@ let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
-let lastHoverRenderY = null;
-let lastStackedHoverMetric = null;
-let lastStackedHoverTime = null;
 
 function formatFactor(value) {
   const num = Number(value);
@@ -1109,18 +1106,6 @@ function renderHoverAt(clientX, clientY) {
   const candidates = [];
   const plotRight = margin.left + lastLayout.plotW;
   const plotBottom = margin.top + lastLayout.plotH;
-  const stackedOrder = new Map();
-  if (state.yAxisStacked) {
-    let rank = 0;
-    const stackedMetrics = state.metrics
-      .filter((m) => m.draw && m.stackMode !== "normal")
-      .slice()
-      .reverse();
-    for (const metric of stackedMetrics) {
-      stackedOrder.set(metric.name, rank);
-      rank += 1;
-    }
-  }
 
   for (const metric of state.metrics) {
     if (!metric.draw) continue;
@@ -1159,7 +1144,6 @@ function renderHoverAt(clientX, clientY) {
           plotValue,
           rawValue,
           baseValue: Number.isFinite(stacked) ? (stackedValueAt(metric.name, "base", sampleT) ?? null) : null,
-          stackRank: stackedOrder.get(metric.name) ?? Number.POSITIVE_INFINITY,
           xPx,
           yPx,
           dist2: dx * dx + dy * dy,
@@ -1169,14 +1153,12 @@ function renderHoverAt(clientX, clientY) {
   }
 
   let selected = null;
-  const hoverMoveY = lastHoverRenderY == null ? 0 : (clientY - lastHoverRenderY);
   const valueTolerance = (() => {
     if (!lastLayout || !Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return 0;
     const range = lastLayout.maxY - lastLayout.minY;
     return (range * 6) / Math.max(1, lastLayout.plotH);
   })();
-  const zeroLayerTolerance = valueTolerance * 0.28;
-  const rawNearZeroTolerance = valueTolerance * 0.5;
+  const zeroLayerTolerance = valueTolerance * 0.35;
   const scoreStackCandidate = (candidate) => {
     if (!state.yAxisStacked || !Number.isFinite(cursorValue)) return { bucket: 2, delta: Number.POSITIVE_INFINITY };
     if (!Number.isFinite(candidate?.baseValue) || !Number.isFinite(candidate?.plotValue)) {
@@ -1186,7 +1168,7 @@ function renderHoverAt(clientX, clientY) {
     const base = Number(candidate.baseValue);
     const top = Number(candidate.plotValue);
 
-    if (Math.abs(raw) <= rawNearZeroTolerance) {
+    if (Math.abs(raw) <= 1e-12) {
       const d = Math.abs(cursorValue - top);
       if (d <= zeroLayerTolerance) return { bucket: 0, delta: d };
       return { bucket: 3, delta: d };
@@ -1206,43 +1188,28 @@ function renderHoverAt(clientX, clientY) {
     return { bucket: 3, delta: d };
   };
 
-  if (!state.yAxisStacked) {
-    for (const candidate of candidates) {
-      if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
+  for (const candidate of candidates) {
+    if (!selected) {
+      selected = candidate;
+      continue;
     }
-  } else {
-    const scored = candidates.map((candidate) => ({ candidate, score: scoreStackCandidate(candidate) }));
-    scored.sort((a, b) => {
-      if (a.score.bucket !== b.score.bucket) return a.score.bucket - b.score.bucket;
-      if (Math.abs(a.score.delta - b.score.delta) > 1e-12) return a.score.delta - b.score.delta;
-      if (Math.abs(a.candidate.dist2 - b.candidate.dist2) > 1e-9) return a.candidate.dist2 - b.candidate.dist2;
-      return a.candidate.stackRank - b.candidate.stackRank;
-    });
-    selected = scored[0]?.candidate || null;
-
-    if (selected && scored.length > 1) {
-      const top = scored[0];
-      const cluster = scored.filter((entry) => (
-        entry.score.bucket <= 2 &&
-        entry.score.bucket === top.score.bucket &&
-        Math.abs(entry.score.delta - top.score.delta) <= zeroLayerTolerance
-      ));
-      if (cluster.length > 1) {
-        cluster.sort((a, b) => a.candidate.stackRank - b.candidate.stackRank);
-        const currentIndex = cluster.findIndex((entry) => (
-          entry.candidate.metric.name === lastStackedHoverMetric &&
-          Math.abs(entry.candidate.sampled.t - Number(lastStackedHoverTime)) <= 1
-        ));
-        if (hoverMoveY < -0.25) {
-          const idx = currentIndex >= 0 ? Math.min(cluster.length - 1, currentIndex + 1) : 0;
-          selected = cluster[idx].candidate;
-        } else if (hoverMoveY > 0.25) {
-          const idx = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : (cluster.length - 1);
-          selected = cluster[idx].candidate;
-        } else {
-          selected = cluster[0].candidate;
-        }
-      }
+    if (!state.yAxisStacked) {
+      if (candidate.dist2 < selected.dist2) selected = candidate;
+      continue;
+    }
+    const candScore = scoreStackCandidate(candidate);
+    const selScore = scoreStackCandidate(selected);
+    if (candScore.bucket < selScore.bucket) {
+      selected = candidate;
+      continue;
+    }
+    if (candScore.bucket > selScore.bucket) continue;
+    if (candScore.delta + 1e-12 < selScore.delta) {
+      selected = candidate;
+      continue;
+    }
+    if (Math.abs(candScore.delta - selScore.delta) <= 1e-12 && candidate.dist2 < selected.dist2) {
+      selected = candidate;
     }
   }
   const hoverSnapDistancePx = 22;
@@ -1259,9 +1226,6 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.classList.add("d-none");
     hideHoverPoint();
     hideHoverCursorLine();
-    lastHoverRenderY = clientY;
-    lastStackedHoverMetric = null;
-    lastStackedHoverTime = null;
     return;
   }
 
@@ -1284,14 +1248,6 @@ function renderHoverAt(clientX, clientY) {
     : preferredRight;
   dom.hoverBox.style.left = `${left}px`;
   dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
-  lastHoverRenderY = clientY;
-  if (state.yAxisStacked) {
-    lastStackedHoverMetric = selected.metric.name;
-    lastStackedHoverTime = selected.sampled.t;
-  } else {
-    lastStackedHoverMetric = null;
-    lastStackedHoverTime = null;
-  }
 }
 
 export function showHover(event) {
@@ -1310,9 +1266,6 @@ export function refreshHover() {
 export function hideHover() {
   lastHoverClientX = null;
   lastHoverClientY = null;
-  lastHoverRenderY = null;
-  lastStackedHoverMetric = null;
-  lastStackedHoverTime = null;
   dom.hoverBox.classList.add("d-none");
   if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
