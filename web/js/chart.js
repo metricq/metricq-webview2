@@ -13,6 +13,9 @@ let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
+let lastHoverRenderY = null;
+let lastStackedHoverMetric = null;
+let lastStackedHoverTime = null;
 
 function formatFactor(value) {
   const num = Number(value);
@@ -1125,51 +1128,49 @@ function renderHoverAt(clientX, clientY) {
     if (!series || series.error) continue;
     const sampled = seriesValueAtTime(metric, series, t);
     if (!sampled) continue;
-    let sampleT = sampled.t;
-    let rawValue = sampled.value;
-    if (!state.yAxisStacked) {
-      const nearestRaw = nearestPointByProximity(
-        metric,
-        series,
-        t,
-        cursorX,
-        cursorY,
-        lastLayout.sx,
-        lastLayout.sy,
-      );
-      if (!nearestRaw) continue;
+    const nearestRaw = nearestPointByProximity(
+      metric,
+      series,
+      t,
+      cursorX,
+      cursorY,
+      lastLayout.sx,
+      lastLayout.sy,
+    );
+    if (nearestRaw) {
       const nearestPoint = nearestRaw.point;
       const nearestIndex = nearestRaw.index;
       if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
       const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
-      sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
-      rawValue = series.mode === "values"
+      const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
+      const rawValue = series.mode === "values"
         ? nearestPoint.v * metric.factor
         : nearestPoint.avg * metric.factor;
-    }
-    const stacked = stackedValueAt(metric.name, "avg", sampleT);
-    const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
-    const yPx = lastLayout.sy(plotValue);
-    const xPx = lastLayout.sx(sampleT);
-    if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
-      const dx = xPx - cursorX;
-      const dy = yPx - cursorY;
-      candidates.push({
-        metric,
-        sampled: { t: sampleT, value: rawValue },
-        plotValue,
-        rawValue,
-        baseValue: Number.isFinite(stacked) ? (stackedValueAt(metric.name, "base", sampleT) ?? null) : null,
-        isStackedLayer: metric.stackMode !== "normal" && Number.isFinite(stacked),
-        stackRank: stackedOrder.get(metric.name) ?? Number.POSITIVE_INFINITY,
-        xPx,
-        yPx,
-        dist2: dx * dx + dy * dy,
-      });
+      const stacked = stackedValueAt(metric.name, "avg", sampleT);
+      const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
+      const yPx = lastLayout.sy(plotValue);
+      const xPx = lastLayout.sx(sampleT);
+      if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
+        const dx = xPx - cursorX;
+        const dy = yPx - cursorY;
+        candidates.push({
+          metric,
+          sampled: { t: sampleT, value: rawValue },
+          plotValue,
+          rawValue,
+          baseValue: Number.isFinite(stacked) ? (stackedValueAt(metric.name, "base", sampleT) ?? null) : null,
+          isStackedLayer: metric.stackMode !== "normal" && Number.isFinite(stacked),
+          stackRank: stackedOrder.get(metric.name) ?? Number.POSITIVE_INFINITY,
+          xPx,
+          yPx,
+          dist2: dx * dx + dy * dy,
+        });
+      }
     }
   }
 
   let selected = null;
+  const hoverMoveY = lastHoverRenderY == null ? 0 : (clientY - lastHoverRenderY);
   const valueTolerance = (() => {
     if (!lastLayout || !Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return 0;
     const range = lastLayout.maxY - lastLayout.minY;
@@ -1198,9 +1199,7 @@ function renderHoverAt(clientX, clientY) {
 
     const lo = Math.min(base, top);
     const hi = Math.max(base, top);
-    const inside = raw >= 0
-      ? (cursorValue >= base && cursorValue < top)
-      : (cursorValue <= base && cursorValue > top);
+    const inside = cursorValue > lo + zeroLayerTolerance && cursorValue < hi - zeroLayerTolerance;
     if (inside) return { bucket: 1, delta: 0 };
 
     const nearBoundary = Math.min(Math.abs(cursorValue - lo), Math.abs(cursorValue - hi));
@@ -1221,9 +1220,35 @@ function renderHoverAt(clientX, clientY) {
     scored.sort((a, b) => {
       if (a.score.bucket !== b.score.bucket) return a.score.bucket - b.score.bucket;
       if (Math.abs(a.score.delta - b.score.delta) > 1e-12) return a.score.delta - b.score.delta;
+      if (Math.abs(a.candidate.dist2 - b.candidate.dist2) > 1e-9) return a.candidate.dist2 - b.candidate.dist2;
       return a.candidate.stackRank - b.candidate.stackRank;
     });
     selected = scored[0]?.candidate || null;
+
+    if (selected && scored.length > 1) {
+      const top = scored[0];
+      const cluster = scored.filter((entry) => (
+        entry.score.bucket <= 2 &&
+        entry.score.bucket === top.score.bucket &&
+        Math.abs(entry.score.delta - top.score.delta) <= zeroLayerTolerance
+      ));
+      if (cluster.length > 1) {
+        cluster.sort((a, b) => a.candidate.stackRank - b.candidate.stackRank);
+        const currentIndex = cluster.findIndex((entry) => (
+          entry.candidate.metric.name === lastStackedHoverMetric &&
+          Math.abs(entry.candidate.sampled.t - Number(lastStackedHoverTime)) <= 1
+        ));
+        if (hoverMoveY < -0.25) {
+          const idx = currentIndex >= 0 ? Math.min(cluster.length - 1, currentIndex + 1) : 0;
+          selected = cluster[idx].candidate;
+        } else if (hoverMoveY > 0.25) {
+          const idx = currentIndex >= 0 ? Math.max(0, currentIndex - 1) : (cluster.length - 1);
+          selected = cluster[idx].candidate;
+        } else {
+          selected = cluster[0].candidate;
+        }
+      }
+    }
   }
   const hoverSnapDistancePx = 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
@@ -1239,6 +1264,9 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.classList.add("d-none");
     hideHoverPoint();
     hideHoverCursorLine();
+    lastHoverRenderY = clientY;
+    lastStackedHoverMetric = null;
+    lastStackedHoverTime = null;
     return;
   }
 
@@ -1261,6 +1289,14 @@ function renderHoverAt(clientX, clientY) {
     : preferredRight;
   dom.hoverBox.style.left = `${left}px`;
   dom.hoverBox.style.top = `${Math.max(10, clientY - rect.top - 16)}px`;
+  lastHoverRenderY = clientY;
+  if (state.yAxisStacked) {
+    lastStackedHoverMetric = selected.metric.name;
+    lastStackedHoverTime = selected.sampled.t;
+  } else {
+    lastStackedHoverMetric = null;
+    lastStackedHoverTime = null;
+  }
 }
 
 export function showHover(event) {
@@ -1279,6 +1315,9 @@ export function refreshHover() {
 export function hideHover() {
   lastHoverClientX = null;
   lastHoverClientY = null;
+  lastHoverRenderY = null;
+  lastStackedHoverMetric = null;
+  lastStackedHoverTime = null;
   dom.hoverBox.classList.add("d-none");
   if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
