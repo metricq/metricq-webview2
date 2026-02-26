@@ -219,7 +219,8 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       for (const cfg of stackedConfigs) {
         const raw = Number(cfg.row[i]);
         if (!Number.isFinite(raw)) continue;
-        const upper = base + raw;
+        const scaled = raw * cfg.metric.factor;
+        const upper = base + scaled;
         cfg.avgByTime.set(t, upper);
         cfg.avgBaseByTime.set(t, base);
         cfg.minByTime.set(t, upper);
