@@ -27,6 +27,26 @@
     gap: 0.5rem;
 }
 
+.metric-draggable-row {
+    cursor: grab;
+}
+
+.metric-draggable-row:active {
+    cursor: grabbing;
+}
+
+.metric-draggable-row.metric-dragging {
+    opacity: 0.45;
+}
+
+.metric-draggable-row.metric-drop-target[data-drop-position="before"] {
+    box-shadow: inset 0 2px 0 #0d6efd;
+}
+
+.metric-draggable-row.metric-drop-target[data-drop-position="after"] {
+    box-shadow: inset 0 -2px 0 #0d6efd;
+}
+
 .metric-color {
     width: 12px;
     height: 12px;

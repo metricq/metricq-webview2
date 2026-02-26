@@ -7,6 +7,7 @@ import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let factorMetricName = "";
+let draggingMetricName = "";
 const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
 function formatFactor(value) {
@@ -195,14 +196,67 @@ export function renderHints(hints, hooks) {
 }
 
 export function renderMetricList(hooks) {
+  const clearDropMarkers = () => {
+    for (const child of dom.metricList.children) {
+      child.classList.remove("metric-drop-target");
+      child.removeAttribute("data-drop-position");
+      child.classList.remove("metric-dragging");
+    }
+  };
+  const reorderMetrics = (sourceName, targetName, placeAfter) => {
+    if (!sourceName || !targetName || sourceName === targetName) return false;
+    const from = state.metrics.findIndex((m) => m.name === sourceName);
+    const to = state.metrics.findIndex((m) => m.name === targetName);
+    if (from < 0 || to < 0) return false;
+    const [moved] = state.metrics.splice(from, 1);
+    let insertAt = placeAfter ? (to + 1) : to;
+    if (from < insertAt) insertAt -= 1;
+    state.metrics.splice(insertAt, 0, moved);
+    return true;
+  };
+
   dom.metricList.innerHTML = "";
   for (const metric of state.metrics) {
     const li = document.createElement("li");
-    li.className = "list-group-item py-1 px-1";
+    li.className = "list-group-item py-1 px-1 metric-draggable-row";
+    li.draggable = true;
+    li.dataset.metricName = metric.name;
 
     const row = document.createElement("div");
     row.className = "metric-list-item" + (metric.draw ? "" : " metric-muted");
     row.dataset.metricName = metric.name;
+
+    li.addEventListener("dragstart", (event) => {
+      draggingMetricName = metric.name;
+      li.classList.add("metric-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", metric.name);
+    });
+    li.addEventListener("dragover", (event) => {
+      if (!draggingMetricName || draggingMetricName === metric.name) return;
+      event.preventDefault();
+      clearDropMarkers();
+      const rect = li.getBoundingClientRect();
+      const placeAfter = event.clientY >= rect.top + rect.height / 2;
+      li.classList.add("metric-drop-target");
+      li.dataset.dropPosition = placeAfter ? "after" : "before";
+      event.dataTransfer.dropEffect = "move";
+    });
+    li.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const sourceName = event.dataTransfer.getData("text/plain") || draggingMetricName;
+      const placeAfter = li.dataset.dropPosition === "after";
+      const changed = reorderMetrics(sourceName, metric.name, placeAfter);
+      clearDropMarkers();
+      if (!changed) return;
+      renderMetricList(hooks);
+      hooks.renderChart();
+      hooks.onStateChanged?.();
+    });
+    li.addEventListener("dragend", () => {
+      draggingMetricName = "";
+      clearDropMarkers();
+    });
 
     const swatchButton = document.createElement("button");
     swatchButton.type = "button";
