@@ -84,6 +84,35 @@ async function resolveExternalReferenceScale(metricName) {
   externalScaleCache.set(key, out);
   return out;
 }
+
+async function resolveReferenceNormalizationInfo(metricName) {
+  const refName = String(metricName || "").trim();
+  if (!refName) return null;
+  const local = metricByName(refName);
+  if (local) {
+    const refUnit = String(local.unit || "").trim();
+    const refDisplayUnit = String(local.displayUnit || "").trim();
+    const refManual = local.factorMode === "manual"
+      ? sanitizeFactor(local.manualFactor, 1)
+      : 1;
+    const refEffective = sanitizeFactor(local.factor, 1);
+    const refNormalization = sanitizeFactor(refEffective / refManual, 1);
+    return {
+      name: refName,
+      unit: refUnit,
+      displayUnit: refDisplayUnit,
+      normalization: refNormalization,
+    };
+  }
+  const external = await resolveExternalReferenceScale(refName);
+  if (!external) return null;
+  return {
+    name: refName,
+    unit: String(external.unit || ""),
+    displayUnit: String(external.displayUnit || ""),
+    normalization: sanitizeFactor(external.normalization, 1),
+  };
+}
 function createSeededRng(seed) {
   let x = seed >>> 0;
   return () => {
@@ -562,41 +591,21 @@ async function openFactorModal(metricName) {
     } else {
       const refs = collectExpressionReferences(expr);
       for (const refName of refs) {
-        const refMetric = metricByName(refName);
         const row = document.createElement("div");
         row.className = "mb-1";
-        if (!refMetric) {
-          const external = await resolveExternalReferenceScale(refName);
-          if (!external) {
-            row.textContent = `[${refName}]: keine Skalierung verfügbar`;
-            exprNormList.appendChild(row);
-            continue;
-          }
-          const shownNormExternal = formatFactor(external.normalization) || "1";
-          const unitPartExternal = external.unit && external.displayUnit && external.unit !== external.displayUnit
-            ? ` [${external.unit}] -> [${external.displayUnit}]`
-            : external.unit
-              ? ` [${external.unit}]`
-              : "";
-          row.textContent = `[${refName}]: intern x${shownNormExternal}, Norm x${shownNormExternal}${unitPartExternal}`;
+        const refInfo = await resolveReferenceNormalizationInfo(refName);
+        if (!refInfo) {
+          row.textContent = `[${refName}]: keine Skalierung verfügbar`;
           exprNormList.appendChild(row);
           continue;
         }
-        const refUnit = String(refMetric.unit || "").trim();
-        const refDisplayUnit = String(refMetric.displayUnit || "").trim();
-        const refManual = refMetric.factorMode === "manual"
-          ? sanitizeFactor(refMetric.manualFactor, 1)
-          : 1;
-        const refEffective = sanitizeFactor(refMetric.factor, 1);
-        const refNormalization = sanitizeFactor(refEffective / refManual, 1);
-        const shownRefNorm = formatFactor(refNormalization) || "1";
-        const shownRefEffective = formatFactor(refEffective) || "1";
-        const unitPart = refUnit && refDisplayUnit && refUnit !== refDisplayUnit
-          ? ` [${refUnit}] -> [${refDisplayUnit}]`
-          : refUnit
-            ? ` [${refUnit}]`
+        const shownNorm = formatFactor(refInfo.normalization) || "1";
+        const unitPart = refInfo.unit && refInfo.displayUnit && refInfo.unit !== refInfo.displayUnit
+          ? ` [${refInfo.unit}] -> [${refInfo.displayUnit}]`
+          : refInfo.unit
+            ? ` [${refInfo.unit}]`
             : "";
-        row.textContent = `[${refName}]: intern x${shownRefEffective}, Norm x${shownRefNorm}${unitPart}`;
+        row.textContent = `[${refName}]: Norm x${shownNorm}${unitPart}`;
         exprNormList.appendChild(row);
       }
       exprNormInfo.classList.toggle("d-none", refs.length === 0);
