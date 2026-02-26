@@ -1148,7 +1148,14 @@ function renderHoverAt(clientX, clientY) {
   for (const candidate of candidates) {
     if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
   }
-  const hoverSnapDistancePx = 22;
+  const maxAbsDomain = Math.max(
+    1e-9,
+    Math.abs(Number(lastLayout?.minY) || 0),
+    Math.abs(Number(lastLayout?.maxY) || 0),
+  );
+  const selectedAbsValue = Math.abs(Number(selected?.sampled?.value) || 0);
+  const valueScale = Math.max(0, Math.min(1, selectedAbsValue / maxAbsDomain));
+  const hoverSnapDistancePx = 12 + (valueScale * 18);
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
 
   if (!selected || selected.dist2 > hoverSnapDistanceSq) {
