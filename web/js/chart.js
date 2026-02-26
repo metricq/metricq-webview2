@@ -1266,6 +1266,42 @@ function renderHoverAt(clientX, clientY) {
     const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
     const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
     const zeroToleranceBase = valueTolerance * 0.5;
+
+    const insideBands = candidates
+      .filter((candidate) => candidate.isStackedLayer)
+      .map((candidate) => {
+        const top = Number(candidate.plotValue);
+        const base = Number(candidate.baseValue);
+        const raw = Number(candidate.sampled.value);
+        if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) return null;
+        const lo = Math.min(base, top);
+        const hi = Math.max(base, top);
+        const inside = cursorValue >= lo && cursorValue <= hi;
+        if (!inside) return null;
+        const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
+        const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
+        const nearBoundary = Math.min(Math.abs(cursorValue - lo), Math.abs(cursorValue - hi));
+        const isNearZero = Math.abs(raw) <= zeroTolerance;
+        return {
+          candidate,
+          priority: isNearZero ? 1 : 0,
+          delta: isNearZero ? nearBoundary : 0,
+          norm: candidate.dist2 / Math.max(1e-9, candidate.snapPx * candidate.snapPx),
+        };
+      })
+      .filter(Boolean);
+    if (insideBands.length > 0) {
+      insideBands.sort((a, b) => {
+        if (a.priority !== b.priority) return a.priority - b.priority;
+        if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
+        return a.norm - b.norm;
+      });
+      selected = insideBands[0].candidate;
+      selectedStackScore = { bucket: 0 };
+    }
+    if (selected) {
+      // explicit filled-area hit already selected
+    } else {
     const scored = [];
     for (const candidate of candidates) {
       if (!candidate.isStackedLayer) {
@@ -1315,6 +1351,7 @@ function renderHoverAt(clientX, clientY) {
     });
     selected = scored[0]?.candidate || null;
     selectedStackScore = scored[0] || null;
+    }
   }
   const hoverSnapDistancePx = Number.isFinite(selected?.snapPx) ? selected.snapPx : 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
