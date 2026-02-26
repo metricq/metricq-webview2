@@ -281,6 +281,7 @@ function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
+  dom.yAxisStacked.checked = !!state.yAxisStacked;
   const fillMin = Number.isFinite(state.yAxisManualMin) ? state.yAxisManualMin : state.yAxisCurrentMin;
   const fillMax = Number.isFinite(state.yAxisManualMax) ? state.yAxisManualMax : state.yAxisCurrentMax;
   dom.yAxisManualMin.value = Number.isFinite(fillMin) ? String(fillMin) : "";
@@ -405,6 +406,7 @@ function wireEvents() {
   dom.yAxisModeManual.addEventListener("change", updateYAxisManualInputsEnabled);
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
+    state.yAxisStacked = !!dom.yAxisStacked.checked;
     const manualMin = Number.parseFloat(dom.yAxisManualMin.value);
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;

@@ -25,6 +25,29 @@ function collectSeriesExtents(seriesList) {
   return { minY, maxY };
 }
 
+function collectStackedExtents(stackedByMetric) {
+  if (!stackedByMetric || stackedByMetric.size === 0) return null;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const entry of stackedByMetric.values()) {
+    const minValues = entry?.minByTime ? Array.from(entry.minByTime.values()) : [];
+    const maxValues = entry?.maxByTime ? Array.from(entry.maxByTime.values()) : [];
+    if (minValues.length > 0 && maxValues.length > 0) {
+      for (const y of minValues) minY = Math.min(minY, y);
+      for (const y of maxValues) maxY = Math.max(maxY, y);
+      continue;
+    }
+    for (const y of entry?.avgByTime?.values?.() || []) {
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return null;
+  return { minY, maxY };
+}
+
 function applyZeroMinimumHeuristic(minY, maxY) {
   if (!(minY > 0) || !(maxY > 0)) return { minY, maxY };
   if (maxY <= minY) return { minY, maxY };
@@ -48,8 +71,10 @@ function withPadding(minY, maxY) {
   return { minY: minY - pad, maxY: maxY + pad };
 }
 
-export function resolveYAxisDomain(seriesList) {
-  const localRaw = collectSeriesExtents(seriesList);
+export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
+  const localRaw = state.yAxisStacked
+    ? (collectStackedExtents(stackedByMetric) || collectSeriesExtents(seriesList))
+    : collectSeriesExtents(seriesList);
   if (!localRaw) return { minY: 0, maxY: 1 };
 
   if (state.yAxisMode === "manual") {
@@ -76,6 +101,7 @@ export function visibleMetricsKey() {
 
 export async function ensureGlobalYAxisRange() {
   if (state.yAxisMode !== "global") return;
+  const stacked = !!state.yAxisStacked;
   const metrics = state.metrics
     .filter((m) => m.draw)
     .map((m) => ({
@@ -86,7 +112,7 @@ export async function ensureGlobalYAxisRange() {
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((m) => `${m.name}:${m.factor.toPrecision(12)}`)
-    .join("\n");
+    .join("\n") + `\nstacked:${stacked ? "1" : "0"}`;
   if (!key) return;
   if (
     key === state.yAxisGlobalMetricsKey &&
@@ -127,10 +153,20 @@ export async function ensureGlobalYAxisRange() {
 
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
-  for (const r of results) {
-    if (!r) continue;
-    if (r.min < minY) minY = r.min;
-    if (r.max > maxY) maxY = r.max;
+  if (stacked) {
+    minY = 0;
+    maxY = 0;
+    for (const r of results) {
+      if (!r) continue;
+      minY += r.min;
+      maxY += r.max;
+    }
+  } else {
+    for (const r of results) {
+      if (!r) continue;
+      if (r.min < minY) minY = r.min;
+      if (r.max > maxY) maxY = r.max;
+    }
   }
   if (!Number.isFinite(minY) || !Number.isFinite(maxY) || minY >= maxY) {
     throw new Error("no global y-range available for visible metrics");

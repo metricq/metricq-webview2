@@ -10,6 +10,7 @@ export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
 let lastHoverClientX = null;
 let lastHoverClientY = null;
 let lastLayout = null;
+let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
 
@@ -88,6 +89,73 @@ function getVisibleSeries() {
     arr.push({ metric, series });
   }
   return arr;
+}
+
+function seriesSampleTime(points, index, series, tiMode) {
+  if (tiMode) return points?.[index]?.t;
+  const isAggregateSeries = series?.mode === "aggregates";
+  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
+  if (isAggregateSeries || isComputedValuesSeries) return aggregateDisplayTime(points, index, series);
+  return points?.[index]?.t;
+}
+
+function buildStackedSeries(seriesList, tiMode) {
+  const byMetric = new Map();
+  const avgTotals = new Map();
+  const minTotals = new Map();
+  const maxTotals = new Map();
+
+  for (const item of seriesList) {
+    const { metric, series } = item;
+    const avgByTime = new Map();
+    const minByTime = new Map();
+    const maxByTime = new Map();
+    if (series.mode === "values") {
+      const points = series.points || [];
+      for (let i = 0; i < points.length; i += 1) {
+        const point = points[i];
+        const t = seriesSampleTime(points, i, series, tiMode);
+        if (!Number.isFinite(t)) continue;
+        const raw = point.v * metric.factor;
+        const stacked = (avgTotals.get(t) || 0) + raw;
+        avgTotals.set(t, stacked);
+        avgByTime.set(t, stacked);
+      }
+      byMetric.set(metric.name, { avgByTime, minByTime, maxByTime });
+      continue;
+    }
+
+    const points = series.aggregatePoints || [];
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      if (Number(point.count) === 0) continue;
+      const t = seriesSampleTime(points, i, series, tiMode);
+      if (!Number.isFinite(t)) continue;
+      const rawAvg = point.avg * metric.factor;
+      const rawMin = point.min * metric.factor;
+      const rawMax = point.max * metric.factor;
+      const stackedAvg = (avgTotals.get(t) || 0) + rawAvg;
+      const stackedMin = (minTotals.get(t) || 0) + rawMin;
+      const stackedMax = (maxTotals.get(t) || 0) + rawMax;
+      avgTotals.set(t, stackedAvg);
+      minTotals.set(t, stackedMin);
+      maxTotals.set(t, stackedMax);
+      avgByTime.set(t, stackedAvg);
+      minByTime.set(t, stackedMin);
+      maxByTime.set(t, stackedMax);
+    }
+    byMetric.set(metric.name, { avgByTime, minByTime, maxByTime });
+  }
+  return byMetric;
+}
+
+function stackedValueAt(metricName, type, t) {
+  if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t)) return null;
+  const entry = lastStackedByMetric.get(metricName);
+  if (!entry) return null;
+  const map = type === "min" ? entry.minByTime : (type === "max" ? entry.maxByTime : entry.avgByTime);
+  const value = map?.get?.(t);
+  return Number.isFinite(value) ? value : null;
 }
 
 function getDomain(seriesList) {
@@ -272,13 +340,16 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   if (seriesList.length === 0) {
+    lastStackedByMetric = null;
     ctx.fillStyle = "#000000";
     ctx.font = "14px sans-serif";
     ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
     return;
   }
 
-  const domain = resolveYAxisDomain(seriesList);
+  const tiMode = state.renderMode === "ti";
+  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode) : null;
+  const domain = resolveYAxisDomain(seriesList, lastStackedByMetric);
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
   const xMin = state.from;
@@ -332,7 +403,6 @@ export function renderChart() {
   }
 
   const rangeMs = xMax - xMin;
-  const tiMode = state.renderMode === "ti";
   const targetTicks = Math.max(4, Math.floor(plotW / 110));
   const tickStepMs = pickTimeTickStep(rangeMs, targetTicks);
   const xTicks = buildXTicks(xMin, xMax, tickStepMs);
@@ -366,6 +436,7 @@ export function renderChart() {
 
   for (const item of seriesList) {
     const { metric, series } = item;
+    const stackedSeries = lastStackedByMetric?.get(metric.name);
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
@@ -381,8 +452,10 @@ export function renderChart() {
           const radius = points.length > 2500 ? 1.2 : 1.8;
           for (let i = 0; i < points.length; i += 1) {
             const p = points[i];
-            const x = sx(p.t);
-            const y = sy(p.v * metric.factor);
+            const tx = p.t;
+            const stacked = stackedSeries?.avgByTime?.get(tx);
+            const x = sx(tx);
+            const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
@@ -391,14 +464,19 @@ export function renderChart() {
           drawLastSemanticStepLine(
             ctx,
             points,
-            (p) => p.v * metric.factor,
+            (p) => {
+              const tx = p.t;
+              const stacked = stackedSeries?.avgByTime?.get(tx);
+              return Number.isFinite(stacked) ? stacked : p.v * metric.factor;
+            },
             sx,
             sy,
           );
         } else {
           const p = points[0];
           const x = sx(p.t);
-          const y = sy(p.v * metric.factor);
+          const stacked = stackedSeries?.avgByTime?.get(p.t);
+          const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
           ctx.beginPath();
           ctx.arc(x, y, 1.8, 0, Math.PI * 2);
           ctx.fill();
@@ -410,8 +488,10 @@ export function renderChart() {
         ctx.beginPath();
         for (let i = 0; i < points.length; i += 1) {
           const p = points[i];
-          const x = sx(aggregateDisplayTime(points, i, series));
-          const y = sy(p.v * metric.factor);
+          const tx = aggregateDisplayTime(points, i, series);
+          const stacked = stackedSeries?.avgByTime?.get(tx);
+          const x = sx(tx);
+          const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -422,8 +502,10 @@ export function renderChart() {
       const radius = points.length > 2500 ? 1.2 : 1.8;
       for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
-        const x = sx(p.t);
-        const y = sy(p.v * metric.factor);
+        const tx = p.t;
+        const stacked = stackedSeries?.avgByTime?.get(tx);
+        const x = sx(tx);
+        const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -436,37 +518,39 @@ export function renderChart() {
 
     const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
 
-    ctx.save();
-    ctx.globalAlpha = 0.2;
-    for (const segment of runs) {
-      if (tiMode) {
-        drawLastSemanticBand(
-          ctx,
-          segment,
-          (p) => p.min * metric.factor,
-          (p) => p.max * metric.factor,
-          sx,
-          sy,
-        );
-      } else {
-        if (segment.length < 2) continue;
-        ctx.beginPath();
-        for (let i = 0; i < segment.length; i += 1) {
-          const p = segment[i];
-          const tx = aggregateDisplayTime(segment, i, series);
-          if (i === 0) ctx.moveTo(sx(tx), sy(p.min * metric.factor));
-          else ctx.lineTo(sx(tx), sy(p.min * metric.factor));
+    if (!state.yAxisStacked) {
+      ctx.save();
+      ctx.globalAlpha = 0.2;
+      for (const segment of runs) {
+        if (tiMode) {
+          drawLastSemanticBand(
+            ctx,
+            segment,
+            (p) => p.min * metric.factor,
+            (p) => p.max * metric.factor,
+            sx,
+            sy,
+          );
+        } else {
+          if (segment.length < 2) continue;
+          ctx.beginPath();
+          for (let i = 0; i < segment.length; i += 1) {
+            const p = segment[i];
+            const tx = aggregateDisplayTime(segment, i, series);
+            if (i === 0) ctx.moveTo(sx(tx), sy(p.min * metric.factor));
+            else ctx.lineTo(sx(tx), sy(p.min * metric.factor));
+          }
+          for (let i = segment.length - 1; i >= 0; i -= 1) {
+            const p = segment[i];
+            const tx = aggregateDisplayTime(segment, i, series);
+            ctx.lineTo(sx(tx), sy(p.max * metric.factor));
+          }
+          ctx.closePath();
+          ctx.fill();
         }
-        for (let i = segment.length - 1; i >= 0; i -= 1) {
-          const p = segment[i];
-          const tx = aggregateDisplayTime(segment, i, series);
-          ctx.lineTo(sx(tx), sy(p.max * metric.factor));
-        }
-        ctx.closePath();
-        ctx.fill();
       }
+      ctx.restore();
     }
-    ctx.restore();
 
     if (metric.drawAvg) {
       for (const segment of runs) {
@@ -474,7 +558,11 @@ export function renderChart() {
           drawLastSemanticStepLine(
             ctx,
             segment,
-            (p) => p.avg * metric.factor,
+            (p) => {
+              const tx = p.t;
+              const stacked = stackedSeries?.avgByTime?.get(tx);
+              return Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
+            },
             sx,
             sy,
           );
@@ -484,8 +572,10 @@ export function renderChart() {
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            if (i === 0) ctx.moveTo(sx(tx), sy(p.avg * metric.factor));
-            else ctx.lineTo(sx(tx), sy(p.avg * metric.factor));
+            const stacked = stackedSeries?.avgByTime?.get(tx);
+            const avg = Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
+            if (i === 0) ctx.moveTo(sx(tx), sy(avg));
+            else ctx.lineTo(sx(tx), sy(avg));
           }
           ctx.stroke();
         }
@@ -524,6 +614,7 @@ function seriesValueAtTime(metric, series, t) {
   if (points.length === 0) return null;
 
   let best = null;
+  let bestIndex = -1;
   let bestT = 0;
   let bestDiff = Number.POSITIVE_INFINITY;
   for (let i = 0; i < points.length; i += 1) {
@@ -533,15 +624,19 @@ function seriesValueAtTime(metric, series, t) {
     const d = Math.abs(sampleT - t);
     if (d < bestDiff) {
       best = p;
+      bestIndex = i;
       bestT = sampleT;
       bestDiff = d;
     }
   }
   if (!best || (series.mode !== "values" && Number(best.count) === 0)) return null;
+  const stacked = stackedValueAt(metric.name, "avg", bestT);
+  const fallback = series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor;
 
   return {
     t: bestT,
-    value: series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor,
+    value: Number.isFinite(stacked) ? stacked : fallback,
+    index: bestIndex,
   };
 }
 
@@ -561,8 +656,10 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     let bestDist2 = Number.POSITIVE_INFINITY;
     for (let i = 0; i < points.length; i += 1) {
       const p = points[i];
-      const x = sx(aggregateDisplayTime(points, i, series));
-      const value = pointValue(series, p, metric.factor);
+      const sampleT = aggregateDisplayTime(points, i, series);
+      const x = sx(sampleT);
+      const stacked = stackedValueAt(metric.name, "avg", sampleT);
+      const value = Number.isFinite(stacked) ? stacked : pointValue(series, p, metric.factor);
       if (!Number.isFinite(value)) continue;
       const y = sy(value);
       const dx = x - cursorX;
@@ -594,8 +691,10 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   const to = Math.min(points.length - 1, lo + radius);
   for (let i = from; i <= to; i += 1) {
     const p = points[i];
-    const x = sx(aggregateDisplayTime(points, i, series));
-    const value = pointValue(series, p, metric.factor);
+    const sampleT = aggregateDisplayTime(points, i, series);
+    const x = sx(sampleT);
+    const stacked = stackedValueAt(metric.name, "avg", sampleT);
+    const value = Number.isFinite(stacked) ? stacked : pointValue(series, p, metric.factor);
     if (!Number.isFinite(value)) continue;
     const y = sy(value);
     const dx = x - cursorX;
@@ -626,7 +725,8 @@ function sampleTIAtTime(metric, series, t) {
     const prev = points[idx - 1];
     const curr = points[idx];
     if (t < prev.t || t > curr.t) return null;
-    const value = curr.v * metric.factor;
+    const stacked = stackedValueAt(metric.name, "avg", curr.t);
+    const value = Number.isFinite(stacked) ? stacked : curr.v * metric.factor;
     return { min: value, avg: value, max: value };
   }
 
@@ -644,10 +744,13 @@ function sampleTIAtTime(metric, series, t) {
   const prev = points[idx - 1];
   const curr = points[idx];
   if (t < prev.t || t > curr.t || Number(curr.count) === 0) return null;
+  const stackedAvg = stackedValueAt(metric.name, "avg", curr.t);
+  const stackedMin = stackedValueAt(metric.name, "min", curr.t);
+  const stackedMax = stackedValueAt(metric.name, "max", curr.t);
   return {
-    min: curr.min * metric.factor,
-    avg: curr.avg * metric.factor,
-    max: curr.max * metric.factor,
+    min: Number.isFinite(stackedMin) ? stackedMin : curr.min * metric.factor,
+    avg: Number.isFinite(stackedAvg) ? stackedAvg : curr.avg * metric.factor,
+    max: Number.isFinite(stackedMax) ? stackedMax : curr.max * metric.factor,
   };
 }
 
@@ -710,7 +813,10 @@ function renderHoverAt(clientX, clientY) {
     }
     const rowsHtml = rows.map((row, idx) => {
       const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
-      return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: min <strong>${row.sampled.min.toFixed(3)}</strong>${row.unitText} | avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText} | max <strong>${row.sampled.max.toFixed(3)}</strong>${row.unitText}</div>`;
+      const valuesHtml = state.yAxisStacked
+        ? `avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText}`
+        : `min <strong>${row.sampled.min.toFixed(3)}</strong>${row.unitText} | avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText} | max <strong>${row.sampled.max.toFixed(3)}</strong>${row.unitText}`;
+      return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
     }).join("");
     dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`;
     dom.hoverBox.classList.remove("d-none");
@@ -758,12 +864,13 @@ function renderHoverAt(clientX, clientY) {
       const nearestPoint = nearestRaw.point;
       const nearestIndex = nearestRaw.index;
       if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
-      const nearestValue = series.mode === "values"
-        ? nearestPoint.v * metric.factor
-        : nearestPoint.avg * metric.factor;
-      const yPx = lastLayout.sy(nearestValue);
       const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
       const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
+      const stacked = stackedValueAt(metric.name, "avg", sampleT);
+      const nearestValue = Number.isFinite(stacked)
+        ? stacked
+        : (series.mode === "values" ? nearestPoint.v * metric.factor : nearestPoint.avg * metric.factor);
+      const yPx = lastLayout.sy(nearestValue);
       const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
         const dx = xPx - cursorX;

@@ -96,22 +96,24 @@ function serializeMetricEntry(metric, index) {
 }
 
 function serializeYAxis() {
-  if (state.yAxisMode === "local") return null;
+  const stacked = state.yAxisStacked ? 1 : undefined;
+  if (state.yAxisMode === "local") return stacked ? { m: "local", s: stacked } : null;
   if (state.yAxisMode === "manual") {
     const min = Number(state.yAxisManualMin);
     const max = Number(state.yAxisManualMax);
     if (Number.isFinite(min) && Number.isFinite(max) && min < max) {
-      return { m: "manual", min, max };
+      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}) };
     }
-    return { m: "manual" };
+    return { m: "manual", ...(stacked ? { s: stacked } : {}) };
   }
   if (state.yAxisMode === "global") {
-    return { m: "global" };
+    return { m: "global", ...(stacked ? { s: stacked } : {}) };
   }
   return null;
 }
 
 function applyYAxisConfig(y) {
+  state.yAxisStacked = Number(y?.s) === 1;
   if (!y || y.m === "local") {
     state.yAxisMode = "local";
     state.yAxisManualMin = null;
