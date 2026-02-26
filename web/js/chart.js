@@ -91,6 +91,36 @@ function getVisibleSeries() {
   return arr;
 }
 
+function filterSeriesForVisibleRange(seriesList, tiMode) {
+  const from = state.from;
+  const to = state.to;
+  const filtered = [];
+  for (const item of seriesList) {
+    const { metric, series } = item;
+    if (series.mode === "values") {
+      const points = series.points || [];
+      const kept = [];
+      for (let i = 0; i < points.length; i += 1) {
+        const t = seriesSampleTime(points, i, series, tiMode);
+        if (t < from || t > to) continue;
+        kept.push(points[i]);
+      }
+      filtered.push({ metric, series: { ...series, points: kept } });
+      continue;
+    }
+
+    const aggregatePoints = series.aggregatePoints || [];
+    const kept = [];
+    for (let i = 0; i < aggregatePoints.length; i += 1) {
+      const t = seriesSampleTime(aggregatePoints, i, series, tiMode);
+      if (t < from || t > to) continue;
+      kept.push(aggregatePoints[i]);
+    }
+    filtered.push({ metric, series: { ...series, aggregatePoints: kept } });
+  }
+  return filtered;
+}
+
 function seriesSampleTime(points, index, series, tiMode) {
   if (tiMode) return points?.[index]?.t;
   const isAggregateSeries = series?.mode === "aggregates";
@@ -483,7 +513,9 @@ export function renderChart() {
 
   const tiMode = state.renderMode === "ti";
   lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode) : null;
-  const domain = resolveYAxisDomain(seriesList, lastStackedByMetric);
+  const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
+  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode) : null;
+  const domain = resolveYAxisDomain(domainSeries, domainStacked);
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
   const xMin = state.from;

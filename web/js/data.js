@@ -9,6 +9,8 @@ import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 
+let latestLoadRequestSeq = 0;
+
 function computeMaxDataPoints() {
   const width = Math.max(320, dom.chartWrap.clientWidth || window.innerWidth || 320);
   const resolution = Math.max(1, state.resolution || 1);
@@ -17,9 +19,72 @@ function computeMaxDataPoints() {
   return Math.min(widthBased, hardCap);
 }
 
+function seriesDisplayTime(points, index, series) {
+  const point = points?.[index];
+  if (!point) return NaN;
+  const isAggregateSeries = series?.mode === "aggregates";
+  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
+  if (state.renderMode !== "ti" && index > 0 && (isAggregateSeries || isComputedValuesSeries)) {
+    const prev = points[index - 1];
+    return Math.round((prev.t + point.t) / 2);
+  }
+  return point.t;
+}
+
+function clipSeriesToVisibleRange(series) {
+  const from = state.from;
+  const to = state.to;
+  if (series?.mode === "values") {
+    const points = series.points || [];
+    const clipped = [];
+    for (let i = 0; i < points.length; i += 1) {
+      const t = seriesDisplayTime(points, i, series);
+      if (t < from || t > to) continue;
+      clipped.push(points[i]);
+    }
+    return { ...series, points: clipped };
+  }
+
+  const aggregatePoints = series?.aggregatePoints || [];
+  const clipped = [];
+  for (let i = 0; i < aggregatePoints.length; i += 1) {
+    const t = seriesDisplayTime(aggregatePoints, i, series);
+    if (t < from || t > to) continue;
+    clipped.push(aggregatePoints[i]);
+  }
+  return { ...series, aggregatePoints: clipped };
+}
+
+function updateVisibleState(renderChart, onStateChanged, startedAt = null, aggPoints = null, rawPoints = null, totalDbMs = null) {
+  deriveExpressionUnits(state.metrics);
+  const visibleSeries = new Map();
+  for (const [name, series] of state.series.entries()) {
+    visibleSeries.set(name, clipSeriesToVisibleRange(series));
+  }
+  applyAutoScaling(state.metrics, visibleSeries);
+  renderMetricList({
+    renderChart,
+    loadData: () => loadData(renderChart, onStateChanged),
+    renderCollapsedLegend,
+    onStateChanged,
+  });
+
+  if (Number.isFinite(aggPoints)) dom.aggPointsEl.textContent = String(aggPoints);
+  if (Number.isFinite(rawPoints)) dom.rawPointsEl.textContent = String(rawPoints);
+  if (startedAt != null && Number.isFinite(totalDbMs)) {
+    const totalHttpMs = Math.round(performance.now() - startedAt);
+    const totalDbRoundedMs = Math.round(totalDbMs);
+    dom.perfBadge.textContent = `HTTP: ${totalHttpMs} ms | DB: ${totalDbRoundedMs} ms`;
+  }
+
+}
+
 export async function loadData(renderChart, onStateChanged = () => {}) {
   if (state.metrics.length === 0) {
     state.series.clear();
+    state.loadedFrom = null;
+    state.loadedTo = null;
+    state.loadedMetricsKey = "";
     renderChart();
     onStateChanged();
     return;
@@ -32,13 +97,37 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     return;
   }
 
+  const visibleRange = Math.max(1, state.to - state.from);
+  const extendedFrom = state.from - visibleRange;
+  const extendedTo = state.to + visibleRange;
+  const targets = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
+    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    return body?.metadata?.unit || "";
+  });
+  const metricsKey = JSON.stringify(targets);
+  const coveredByLoadedWindow =
+    state.loadedMetricsKey === metricsKey &&
+    Number.isFinite(state.loadedFrom) &&
+    Number.isFinite(state.loadedTo) &&
+    extendedFrom >= state.loadedFrom &&
+    extendedTo <= state.loadedTo;
+  if (coveredByLoadedWindow) {
+    updateVisibleState(renderChart, onStateChanged);
+    if (state.yAxisMode === "global") {
+      try {
+        await ensureGlobalYAxisRange();
+      } catch (_) {}
+    }
+    renderChart();
+    onStateChanged();
+    return;
+  }
+
+  const requestSeq = ++latestLoadRequestSeq;
   const req = {
-    targets: await buildQueryTargetsResolved(state.metrics, async (metricName) => {
-      const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
-      return body?.metadata?.unit || "";
-    }),
-    from: state.from,
-    to: state.to,
+    targets,
+    from: extendedFrom,
+    to: extendedTo,
     maxDataPoints: computeMaxDataPoints(),
   };
 
@@ -52,6 +141,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   let aggPoints = 0;
   let rawPoints = 0;
   let totalDbMs = 0;
+  if (requestSeq !== latestLoadRequestSeq) return;
 
   state.series.clear();
   for (const series of body.series || []) {
@@ -60,28 +150,16 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     rawPoints += Math.round(series.rawCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
   }
+  state.loadedFrom = extendedFrom;
+  state.loadedTo = extendedTo;
+  state.loadedMetricsKey = metricsKey;
 
-  deriveExpressionUnits(state.metrics);
-  applyAutoScaling(state.metrics, state.series);
-  renderMetricList({
-    renderChart,
-    loadData: () => loadData(renderChart, onStateChanged),
-    renderCollapsedLegend,
-    onStateChanged,
-  });
+  updateVisibleState(renderChart, onStateChanged, started, aggPoints, rawPoints, totalDbMs);
   if (state.yAxisMode === "global") {
     try {
       await ensureGlobalYAxisRange();
     } catch (_) {}
   }
-
-  dom.aggPointsEl.textContent = String(aggPoints);
-  dom.rawPointsEl.textContent = String(rawPoints);
-
-  const totalHttpMs = Math.round(performance.now() - started);
-  const totalDbRoundedMs = Math.round(totalDbMs);
-  dom.perfBadge.textContent = `HTTP: ${totalHttpMs} ms | DB: ${totalDbRoundedMs} ms`;
-
   renderChart();
   onStateChanged();
 }
