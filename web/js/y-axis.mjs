@@ -61,14 +61,17 @@ function applyZeroMinimumHeuristic(minY, maxY) {
   return { minY, maxY };
 }
 
-function withPadding(minY, maxY) {
+function withPadding(minY, maxY, lockMin = false) {
   if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return { minY: 0, maxY: 1 };
   if (minY === maxY) {
-    minY -= 1;
+    minY = lockMin ? minY : (minY - 1);
     maxY += 1;
   }
   const pad = (maxY - minY) * 0.05;
-  return { minY: minY - pad, maxY: maxY + pad };
+  return {
+    minY: lockMin ? minY : (minY - pad),
+    maxY: maxY + pad,
+  };
 }
 
 export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
@@ -85,9 +88,20 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
 
   if (state.yAxisMode === "global") {
     if (Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax) && state.yAxisGlobalMin < state.yAxisGlobalMax) {
+      if (state.yAxisStacked) {
+        const minY = 0;
+        const maxY = Math.max(state.yAxisGlobalMax, 0);
+        return withPadding(minY, maxY, true);
+      }
       const h = applyZeroMinimumHeuristic(state.yAxisGlobalMin, state.yAxisGlobalMax);
       return withPadding(h.minY, h.maxY);
     }
+  }
+
+  if (state.yAxisStacked) {
+    const minY = 0;
+    const maxY = Math.max(localRaw.maxY, 0);
+    return withPadding(minY, maxY, true);
   }
 
   const h = applyZeroMinimumHeuristic(localRaw.minY, localRaw.maxY);
