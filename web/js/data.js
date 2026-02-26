@@ -82,6 +82,7 @@ function updateVisibleState(renderChart, onStateChanged, startedAt = null, aggPo
 export async function loadData(renderChart, onStateChanged = () => {}) {
   if (state.metrics.length === 0) {
     state.series.clear();
+    state.stackedAligned = null;
     state.loadedFrom = null;
     state.loadedTo = null;
     state.loadedMetricsKey = "";
@@ -125,13 +126,33 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     to: extendedTo,
     maxDataPoints: computeMaxDataPoints(),
   };
+  const stackedNames = new Set(
+    state.metrics
+      .filter((metric) => metric.draw && metric.stackMode !== "normal")
+      .map((metric) => metric.name),
+  );
+  const stackedTargets = targets.filter((target) => stackedNames.has(target.name));
 
   const started = performance.now();
-  const body = await apiFetch("/api/query", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(req),
-  });
+  const [body, stackedBody] = await Promise.all([
+    apiFetch("/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(req),
+    }),
+    (state.yAxisStacked && stackedTargets.length > 0)
+      ? apiFetch("/api/query/stacked", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targets: stackedTargets,
+          from: extendedFrom,
+          to: extendedTo,
+          maxDataPoints: computeMaxDataPoints(),
+        }),
+      })
+      : Promise.resolve(null),
+  ]);
 
   let aggPoints = 0;
   let rawPoints = 0;
@@ -145,6 +166,13 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     rawPoints += Math.round(series.rawCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
   }
+  state.stackedAligned = stackedBody
+    ? {
+      times: Array.isArray(stackedBody.times) ? stackedBody.times : [],
+      metrics: Array.isArray(stackedBody.metrics) ? stackedBody.metrics : [],
+      values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
+    }
+    : null;
   state.loadedFrom = extendedFrom;
   state.loadedTo = extendedTo;
   state.loadedMetricsKey = metricsKey;

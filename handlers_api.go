@@ -104,6 +104,52 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
 	defer cancel()
+	results, err := s.executeAPIQuery(ctx, req, targets)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"series": results})
+}
+
+func (s *service) handleAPIQueryStacked(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req apiQueryRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	targets, err := resolveQueryTargets(req)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if len(targets) == 0 || req.ToUnixMS <= req.FromUnixMS {
+		writeError(w, http.StatusBadRequest, "invalid request")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
+	defer cancel()
+
+	results, err := s.executeAPIQuery(ctx, req, targets)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	resp, err := alignStackedSeries(results)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targets []apiQueryTarget) ([]apiQuerySeries, error) {
 
 	type evalTarget struct {
 		name         string
@@ -227,8 +273,87 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 		}
 		results[i] = valuesToPointSeries(target.name, values, depDuration)
 	}
+	return results, nil
+}
 
-	writeJSON(w, http.StatusOK, map[string]any{"series": results})
+type stackedValuePoint struct {
+	t int64
+	v float64
+}
+
+func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
+	switch series.Mode {
+	case "values":
+		out := make([]stackedValuePoint, 0, len(series.Points))
+		for _, point := range series.Points {
+			if math.IsNaN(point.V) || math.IsInf(point.V, 0) {
+				continue
+			}
+			out = append(out, stackedValuePoint{t: point.T, v: point.V})
+		}
+		return out
+	case "aggregates":
+		out := make([]stackedValuePoint, 0, len(series.AggPoints))
+		for _, point := range series.AggPoints {
+			if point.Count == 0 || math.IsNaN(point.Avg) || math.IsInf(point.Avg, 0) {
+				continue
+			}
+			out = append(out, stackedValuePoint{t: point.T, v: point.Avg})
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, error) {
+	timelineSet := map[int64]struct{}{}
+	pointsByMetric := make([][]stackedValuePoint, len(series))
+	metricNames := make([]string, len(series))
+	for i, item := range series {
+		if errText := strings.TrimSpace(item.Error); errText != "" {
+			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q failed: %s", item.Metric, errText)
+		}
+		points := seriesToStackedPoints(item)
+		if len(points) == 0 {
+			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q has no data points", item.Metric)
+		}
+		pointsByMetric[i] = points
+		metricNames[i] = item.Metric
+		for _, point := range points {
+			timelineSet[point.t] = struct{}{}
+		}
+	}
+
+	timeline := make([]int64, 0, len(timelineSet))
+	for t := range timelineSet {
+		timeline = append(timeline, t)
+	}
+	sort.Slice(timeline, func(i, j int) bool { return timeline[i] < timeline[j] })
+	if len(timeline) == 0 {
+		return apiStackedSeriesResponse{}, fmt.Errorf("no aligned timeline points")
+	}
+
+	values := make([][]float64, len(metricNames))
+	for i, points := range pointsByMetric {
+		row := make([]float64, len(timeline))
+		cursor := 0
+		last := points[0].v
+		for idx, t := range timeline {
+			for cursor+1 < len(points) && points[cursor+1].t <= t {
+				cursor++
+				last = points[cursor].v
+			}
+			row[idx] = last
+		}
+		values[i] = row
+	}
+
+	return apiStackedSeriesResponse{
+		Times:   timeline,
+		Metrics: metricNames,
+		Values:  values,
+	}, nil
 }
 
 func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {

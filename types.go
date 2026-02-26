@@ -100,15 +100,15 @@ type apiQueryTarget struct {
 }
 
 type apiQuerySeries struct {
-	Metric     string         `json:"metric"`
-	Mode       string         `json:"mode"`
-	Duration   float64        `json:"duration"`
-	Points     []apiPoint     `json:"points,omitempty"`
-	AggPoints  []apiAggPoint  `json:"aggregatePoints,omitempty"`
-	Error      string         `json:"error,omitempty"`
-	RawCount   float64        `json:"rawCount"`
-	Stats      map[string]any `json:"stats,omitempty"`
-	Meta       map[string]any `json:"meta,omitempty"`
+	Metric    string         `json:"metric"`
+	Mode      string         `json:"mode"`
+	Duration  float64        `json:"duration"`
+	Points    []apiPoint     `json:"points,omitempty"`
+	AggPoints []apiAggPoint  `json:"aggregatePoints,omitempty"`
+	Error     string         `json:"error,omitempty"`
+	RawCount  float64        `json:"rawCount"`
+	Stats     map[string]any `json:"stats,omitempty"`
+	Meta      map[string]any `json:"meta,omitempty"`
 }
 
 type apiPoint struct {
@@ -152,4 +152,10 @@ type apiYRangeGlobalResponse struct {
 	Minimum float64  `json:"minimum"`
 	Maximum float64  `json:"maximum"`
 	Metrics []string `json:"metrics"`
+}
+
+type apiStackedSeriesResponse struct {
+	Times   []int64     `json:"times"`
+	Metrics []string    `json:"metrics"`
+	Values  [][]float64 `json:"values"`
 }

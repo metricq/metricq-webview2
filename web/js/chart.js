@@ -190,7 +190,7 @@ function collectTimelineTimes(sampleSets) {
   return Array.from(uniq).sort((a, b) => a - b);
 }
 
-function buildStackedSeries(seriesList, tiMode) {
+function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const byMetric = new Map();
   const sampleByMetric = new Map();
   for (const item of seriesList) {
@@ -199,6 +199,58 @@ function buildStackedSeries(seriesList, tiMode) {
 
   const stackedItems = seriesList.filter((item) => item.metric.stackMode !== "normal").slice().reverse();
   const nonStackedItems = seriesList.filter((item) => item.metric.stackMode === "normal");
+  const aligned = state.stackedAligned;
+  const alignedTimes = Array.isArray(aligned?.times) ? aligned.times : [];
+  const alignedMetrics = Array.isArray(aligned?.metrics) ? aligned.metrics : [];
+  const alignedValues = Array.isArray(aligned?.values) ? aligned.values : [];
+  const alignedByMetric = new Map();
+  for (let i = 0; i < alignedMetrics.length; i += 1) {
+    const name = String(alignedMetrics[i] || "");
+    const row = alignedValues[i];
+    if (!name || !Array.isArray(row)) continue;
+    alignedByMetric.set(name, row);
+  }
+  const canUseAligned = stackedItems.length > 0 && stackedItems.every((item) => alignedByMetric.has(item.metric.name));
+  if (canUseAligned) {
+    const from = state.from;
+    const to = state.to;
+    const stackedConfigs = stackedItems.map((item) => ({
+      metric: item.metric,
+      row: alignedByMetric.get(item.metric.name) || [],
+      avgByTime: new Map(),
+      avgBaseByTime: new Map(),
+      minByTime: new Map(),
+      maxByTime: new Map(),
+      timeline: [],
+    }));
+    for (let i = 0; i < alignedTimes.length; i += 1) {
+      const t = alignedTimes[i];
+      if (clipToVisible && (t < from || t > to)) continue;
+      let base = 0;
+      for (const cfg of stackedConfigs) {
+        const raw = Number(cfg.row[i]);
+        if (!Number.isFinite(raw)) continue;
+        const upper = base + raw;
+        cfg.avgByTime.set(t, upper);
+        cfg.avgBaseByTime.set(t, base);
+        cfg.minByTime.set(t, upper);
+        cfg.maxByTime.set(t, upper);
+        cfg.timeline.push({ t, avg: upper, base });
+        base = upper;
+      }
+    }
+    for (const cfg of stackedConfigs) {
+      byMetric.set(cfg.metric.name, {
+        avgByTime: cfg.avgByTime,
+        avgBaseByTime: cfg.avgBaseByTime,
+        minByTime: cfg.minByTime,
+        maxByTime: cfg.maxByTime,
+        stacksInYAxis: true,
+        timeline: cfg.timeline,
+        samples: [],
+      });
+    }
+  } else {
   const stackedConfigs = stackedItems.map((item) => ({
     metric: item.metric,
     samples: sampleByMetric.get(item.metric.name) || [],
@@ -233,6 +285,7 @@ function buildStackedSeries(seriesList, tiMode) {
       timeline: cfg.timeline,
       samples: cfg.samples,
     });
+  }
   }
 
   for (const item of nonStackedItems) {
@@ -512,9 +565,9 @@ export function renderChart() {
   }
 
   const tiMode = state.renderMode === "ti";
-  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode) : null;
+  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode, false) : null;
   const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
-  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode) : null;
+  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode, true) : null;
   const domain = resolveYAxisDomain(domainSeries, domainStacked);
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
