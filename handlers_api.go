@@ -308,21 +308,28 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 
 func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, error) {
 	timelineSet := map[int64]struct{}{}
-	pointsByMetric := make([][]stackedValuePoint, len(series))
-	metricNames := make([]string, len(series))
-	for i, item := range series {
+	pointsByMetric := make([][]stackedValuePoint, 0, len(series))
+	metricNames := make([]string, 0, len(series))
+	for _, item := range series {
 		if errText := strings.TrimSpace(item.Error); errText != "" {
 			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q failed: %s", item.Metric, errText)
 		}
 		points := seriesToStackedPoints(item)
 		if len(points) == 0 {
-			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q has no data points", item.Metric)
+			continue
 		}
-		pointsByMetric[i] = points
-		metricNames[i] = item.Metric
+		pointsByMetric = append(pointsByMetric, points)
+		metricNames = append(metricNames, item.Metric)
 		for _, point := range points {
 			timelineSet[point.t] = struct{}{}
 		}
+	}
+	if len(metricNames) == 0 {
+		return apiStackedSeriesResponse{
+			Times:   []int64{},
+			Metrics: []string{},
+			Values:  [][]float64{},
+		}, nil
 	}
 
 	timeline := make([]int64, 0, len(timelineSet))
