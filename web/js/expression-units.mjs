@@ -32,6 +32,32 @@ function expressionSupportsUnitPropagation(expr) {
   return !text.includes("*") && !text.includes("/") && !/\blog\b/.test(text);
 }
 
+function chooseBestExp(parsed) {
+  const avgExp = Math.round(parsed.reduce((sum, p) => sum + p.exp, 0) / parsed.length);
+  let bestExp = SI_PREFIXES[0].exp;
+  let bestDistance = Number.POSITIVE_INFINITY;
+  for (const item of SI_PREFIXES) {
+    const distance = Math.abs(item.exp - avgExp);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestExp = item.exp;
+    }
+  }
+  return bestExp;
+}
+
+function applyDerivedUnit(metric, parsed) {
+  const family = parsed[0].family;
+  if (parsed.some((p) => p.family !== family)) {
+    metric.unit = "";
+    metric.displayUnit = "";
+    return;
+  }
+  const bestExp = chooseBestExp(parsed);
+  metric.unit = formatSIUnit(family, bestExp);
+  metric.displayUnit = metric.unit;
+}
+
 export function deriveExpressionUnits(metrics) {
   const byName = new Map((metrics || []).map((metric) => [metric.name, metric]));
 
@@ -44,9 +70,10 @@ export function deriveExpressionUnits(metrics) {
       continue;
     }
 
-    const deps = collectDependencies(metric.expr)
-      .map((name) => byName.get(name))
-      .filter(Boolean);
+    const depNames = collectDependencies(metric.expr);
+    const hasExternalDeps = depNames.some((name) => !byName.has(name));
+    if (hasExternalDeps) continue;
+    const deps = depNames.map((name) => byName.get(name)).filter(Boolean);
 
     if (deps.length === 0) {
       metric.unit = "";
@@ -64,25 +91,61 @@ export function deriveExpressionUnits(metrics) {
       continue;
     }
 
-    const family = parsed[0].family;
-    if (parsed.some((p) => p.family !== family)) {
+    applyDerivedUnit(metric, parsed);
+  }
+}
+
+export async function deriveExpressionUnitsResolved(metrics, fetchMetricUnit) {
+  if (typeof fetchMetricUnit !== "function") return;
+  const byName = new Map((metrics || []).map((metric) => [metric.name, metric]));
+  const unitCache = new Map();
+  const resolveUnit = async (name) => {
+    const key = String(name || "").trim();
+    if (!key) return "";
+    if (unitCache.has(key)) return unitCache.get(key);
+    let unit = "";
+    try {
+      unit = String((await fetchMetricUnit(key)) || "").trim();
+    } catch (_) {
+      unit = "";
+    }
+    unitCache.set(key, unit);
+    return unit;
+  };
+
+  for (const metric of metrics || []) {
+    if (!metric.expr || metric.factorMode === "manual") continue;
+    if (!expressionSupportsUnitPropagation(metric.expr)) {
+      metric.unit = "";
+      metric.displayUnit = "";
+      continue;
+    }
+    const depNames = collectDependencies(metric.expr);
+    if (depNames.length === 0) {
       metric.unit = "";
       metric.displayUnit = "";
       continue;
     }
 
-    const avgExp = Math.round(parsed.reduce((sum, p) => sum + p.exp, 0) / parsed.length);
-    let bestExp = SI_PREFIXES[0].exp;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (const item of SI_PREFIXES) {
-      const distance = Math.abs(item.exp - avgExp);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestExp = item.exp;
+    const parsed = [];
+    let failed = false;
+    for (const depName of depNames) {
+      const local = byName.get(depName);
+      const unit = local
+        ? String(local.unit || local.displayUnit || "").trim()
+        : String(await resolveUnit(depName)).trim();
+      const parsedUnit = parseSIUnit(unit);
+      if (!parsedUnit) {
+        failed = true;
+        break;
       }
+      parsed.push(parsedUnit);
     }
-
-    metric.unit = formatSIUnit(family, bestExp);
-    metric.displayUnit = metric.unit;
+    if (failed || parsed.length !== depNames.length) {
+      metric.unit = "";
+      metric.displayUnit = "";
+      continue;
+    }
+    applyDerivedUnit(metric, parsed);
   }
 }

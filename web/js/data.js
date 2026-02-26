@@ -2,7 +2,7 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
-import { deriveExpressionUnits } from "./expression-units.mjs";
+import { deriveExpressionUnits, deriveExpressionUnitsResolved } from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
@@ -102,6 +102,11 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   const extendedFrom = state.from - visibleRange;
   const extendedTo = state.to + visibleRange;
   const requestSeq = ++latestLoadRequestSeq;
+  await deriveExpressionUnitsResolved(state.metrics, async (metricName) => {
+    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    return body?.metadata?.unit || "";
+  });
+  if (requestSeq !== latestLoadRequestSeq) return;
   const now = Date.now();
   const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
   const targets = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
