@@ -36,8 +36,6 @@ func main() {
 	mux.HandleFunc("/api/query/stacked", svc.handleAPIQueryStacked)
 	mux.HandleFunc("/api/query/range", svc.handleAPIYRangeGlobal)
 	mux.HandleFunc("/api/analyze", svc.handleAPIAnalyze)
-	// Backward-compatible alias; can be removed after frontend migration.
-	mux.HandleFunc("/api/y-range/global", svc.handleAPIYRangeGlobal)
 
 	if cfg.WebDir != "" {
 		info, err := os.Stat(cfg.WebDir)
