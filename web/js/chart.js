@@ -1031,6 +1031,11 @@ function renderHoverAt(clientX, clientY) {
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
+  const cursorValue = (() => {
+    if (!Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return null;
+    const rel = (cursorY - margin.top) / Math.max(1, lastLayout.plotH);
+    return lastLayout.maxY - rel * (lastLayout.maxY - lastLayout.minY);
+  })();
   if (state.renderMode === "ti") {
     const rows = [];
     let nearestRowIndex = -1;
