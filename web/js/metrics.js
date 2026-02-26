@@ -6,10 +6,84 @@ import { collectExpressionReferences } from "./expression-refs.mjs";
 import { formatFactor, shownMetricFactor } from "./factor-format.mjs";
 import { colors, metricByName, metricDisplayName, state } from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
+import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let factorMetricName = "";
 let draggingMetricName = "";
+const externalScaleCache = new Map();
+
+function chooseDisplayExpFromRepresentative(repBase) {
+  if (!Number.isFinite(repBase) || repBase <= 0) return null;
+  const baseLog = Math.log10(repBase);
+  let bestExp = SI_PREFIXES[0].exp;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const entry of SI_PREFIXES) {
+    const transformedLog = baseLog - entry.exp;
+    let score = 0;
+    if (transformedLog < -0.2) score += (-0.2 - transformedLog) * 3.0;
+    else if (transformedLog < 0) score += -transformedLog;
+    if (transformedLog > 3) score += (transformedLog - 3) * 1.8;
+    score += Math.abs(transformedLog - 1.2) * 0.1;
+    if (score < bestScore || (score === bestScore && entry.exp > bestExp)) {
+      bestScore = score;
+      bestExp = entry.exp;
+    }
+  }
+  return bestExp;
+}
+
+async function resolveExternalReferenceScale(metricName) {
+  const key = String(metricName || "").trim();
+  if (!key) return null;
+  if (externalScaleCache.has(key)) return externalScaleCache.get(key);
+
+  let unit = "";
+  try {
+    const metadata = await apiFetch(`/api/metadata?metric=${encodeURIComponent(key)}`);
+    unit = normalizeSIUnit(metadata?.metadata?.unit || "");
+  } catch (_) {
+    unit = "";
+  }
+  const parsedUnit = parseSIUnit(unit);
+  if (!parsedUnit) {
+    externalScaleCache.set(key, null);
+    return null;
+  }
+
+  let displayUnit = unit;
+  let normalization = 1;
+  try {
+    const now = Date.now();
+    const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
+    const body = await apiFetch("/api/query/range", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        metrics: [key],
+        from: now - tenYearsMs,
+        to: now,
+      }),
+    });
+    const minimum = Number(body?.minimum);
+    const maximum = Number(body?.maximum);
+    if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
+      const rep = Math.max(Math.abs(minimum), Math.abs(maximum));
+      if (rep > 0) {
+        const repBase = rep * (10 ** parsedUnit.exp);
+        const displayExp = chooseDisplayExpFromRepresentative(repBase);
+        if (Number.isFinite(displayExp)) {
+          normalization = 10 ** (parsedUnit.exp - displayExp);
+          displayUnit = formatSIUnit(parsedUnit.family, displayExp);
+        }
+      }
+    }
+  } catch (_) {}
+
+  const out = { unit, displayUnit, normalization };
+  externalScaleCache.set(key, out);
+  return out;
+}
 function createSeededRng(seed) {
   let x = seed >>> 0;
   return () => {
@@ -380,7 +454,7 @@ export function renderMetricList(hooks) {
       } else if (action === "delete") {
         removeMetric(metric.name, hooks);
       } else if (action === "factor") {
-        openFactorModal(metric.name);
+        void openFactorModal(metric.name);
       }
     });
 
@@ -447,7 +521,7 @@ export function renderMetricList(hooks) {
   renderCollapsedLegend();
 }
 
-function openFactorModal(metricName) {
+async function openFactorModal(metricName) {
   const metric = metricByName(metricName);
   if (!metric) return;
   factorMetricName = metricName;
@@ -492,7 +566,19 @@ function openFactorModal(metricName) {
         const row = document.createElement("div");
         row.className = "mb-1";
         if (!refMetric) {
-          row.textContent = `[${refName}]: keine lokale Skalierung verfügbar`;
+          const external = await resolveExternalReferenceScale(refName);
+          if (!external) {
+            row.textContent = `[${refName}]: keine Skalierung verfügbar`;
+            exprNormList.appendChild(row);
+            continue;
+          }
+          const shownNormExternal = formatFactor(external.normalization) || "1";
+          const unitPartExternal = external.unit && external.displayUnit && external.unit !== external.displayUnit
+            ? ` [${external.unit}] -> [${external.displayUnit}]`
+            : external.unit
+              ? ` [${external.unit}]`
+              : "";
+          row.textContent = `[${refName}]: intern x${shownNormExternal}, Norm x${shownNormExternal}${unitPartExternal}`;
           exprNormList.appendChild(row);
           continue;
         }
