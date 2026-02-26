@@ -1,12 +1,8 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
-import { metricDisplayName, state } from "./model.js";
+import { metricByName, metricDisplayName, state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
-
-function metricByName(name) {
-  return state.metrics.find((m) => m.name === name) || null;
-}
 
 function createCell(text, className = "") {
   const td = document.createElement("td");
