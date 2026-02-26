@@ -162,35 +162,29 @@ function collectTimelineTimes(sampleSets) {
 
 function buildStackedSeries(seriesList, tiMode) {
   const byMetric = new Map();
+  const sampleByMetric = new Map();
+  for (const item of seriesList) {
+    sampleByMetric.set(item.metric.name, buildSemanticSamples(item.metric, item.series, tiMode));
+  }
+
+  const stackedItems = seriesList.filter((item) => item.metric.stackMode !== "normal").slice().reverse();
+  const nonStackedItems = seriesList.filter((item) => item.metric.stackMode === "normal");
   const stackedContributors = [];
 
-  for (const item of seriesList) {
-    const { metric, series } = item;
-    const stacksInYAxis = metric.stackMode !== "normal";
-    const samples = buildSemanticSamples(metric, series, tiMode);
+  for (const item of stackedItems) {
+    const { metric } = item;
+    const samples = sampleByMetric.get(metric.name) || [];
     const avgByTime = new Map();
     const avgBaseByTime = new Map();
     const minByTime = new Map();
     const maxByTime = new Map();
     const timeline = [];
-
-    const timeSources = stacksInYAxis
-      ? [...stackedContributors.map((c) => c.samples), samples]
-      : [samples];
+    const timeSources = [...stackedContributors.map((c) => c.samples), samples];
     const times = collectTimelineTimes(timeSources);
+
     for (const t of times) {
       const current = sampleLastValue(samples, t);
       if (!current) continue;
-
-      if (!stacksInYAxis) {
-        avgByTime.set(t, current.avg);
-        avgBaseByTime.set(t, 0);
-        minByTime.set(t, current.min);
-        maxByTime.set(t, current.max);
-        timeline.push({ t, avg: current.avg, base: 0 });
-        continue;
-      }
-
       let base = 0;
       for (const contributor of stackedContributors) {
         const sampled = sampleLastValue(contributor.samples, t);
@@ -209,12 +203,40 @@ function buildStackedSeries(seriesList, tiMode) {
       avgBaseByTime,
       minByTime,
       maxByTime,
-      stacksInYAxis,
+      stacksInYAxis: true,
       timeline,
       samples,
     });
+    stackedContributors.push({ samples });
+  }
 
-    if (stacksInYAxis) stackedContributors.push({ samples });
+  for (const item of nonStackedItems) {
+    const { metric } = item;
+    const samples = sampleByMetric.get(metric.name) || [];
+    const avgByTime = new Map();
+    const avgBaseByTime = new Map();
+    const minByTime = new Map();
+    const maxByTime = new Map();
+    const timeline = [];
+    const times = collectTimelineTimes([samples]);
+    for (const t of times) {
+      const current = sampleLastValue(samples, t);
+      if (!current) continue;
+      avgByTime.set(t, current.avg);
+      avgBaseByTime.set(t, 0);
+      minByTime.set(t, current.min);
+      maxByTime.set(t, current.max);
+      timeline.push({ t, avg: current.avg, base: 0 });
+    }
+    byMetric.set(metric.name, {
+      avgByTime,
+      avgBaseByTime,
+      minByTime,
+      maxByTime,
+      stacksInYAxis: false,
+      timeline,
+      samples,
+    });
   }
 
   return byMetric;
