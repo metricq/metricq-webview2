@@ -26,9 +26,22 @@ function createColorCell(color) {
 
 async function buildAnalyzeTargets() {
   const visibleMetrics = state.metrics.filter((metric) => metric.draw);
+  const now = Date.now();
+  const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
   const resolved = await buildQueryTargetsResolved(visibleMetrics, async (metricName) => {
     const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
     return body?.metadata?.unit || "";
+  }, async (metricName) => {
+    const body = await apiFetch("/api/query/range", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        metrics: [metricName],
+        from: now - tenYearsMs,
+        to: now,
+      }),
+    });
+    return { minimum: body?.minimum, maximum: body?.maximum };
   });
 
   return resolved.map((target) => {

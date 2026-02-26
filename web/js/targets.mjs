@@ -9,6 +9,7 @@ export function expressionTokenForMetric(name) {
 const RESERVED_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
 const metadataUnitCache = new Map();
+const metadataRangeCache = new Map();
 
 function wrapScaledMetric(metricName, factorText) {
   return `([${metricName}]*${factorText})`;
@@ -26,6 +27,61 @@ async function resolveMetricUnit(metricName, fetchMetricUnit) {
   }
   metadataUnitCache.set(key, unit);
   return unit;
+}
+
+async function resolveMetricRange(metricName, fetchMetricRange) {
+  const key = String(metricName || "").trim();
+  if (!key) return null;
+  if (metadataRangeCache.has(key)) return metadataRangeCache.get(key);
+  let out = null;
+  try {
+    const value = await fetchMetricRange(key);
+    const minimum = Number(value?.minimum);
+    const maximum = Number(value?.maximum);
+    if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
+      out = { minimum, maximum };
+    }
+  } catch (_) {
+    out = null;
+  }
+  metadataRangeCache.set(key, out);
+  return out;
+}
+
+function chooseDisplayExpFromRepresentative(repBase) {
+  if (!Number.isFinite(repBase) || repBase <= 0) return null;
+  const baseLog = Math.log10(repBase);
+  let bestExp = SI_PREFIXES[0].exp;
+  let bestScore = Number.POSITIVE_INFINITY;
+  for (const entry of SI_PREFIXES) {
+    const transformedLog = baseLog - entry.exp;
+    let score = 0;
+    if (transformedLog < -0.2) score += (-0.2 - transformedLog) * 3.0;
+    else if (transformedLog < 0) score += -transformedLog;
+    if (transformedLog > 3) score += (transformedLog - 3) * 1.8;
+    score += Math.abs(transformedLog - 1.2) * 0.1;
+    if (score < bestScore || (score === bestScore && entry.exp > bestExp)) {
+      bestScore = score;
+      bestExp = entry.exp;
+    }
+  }
+  return bestExp;
+}
+
+async function inferDisplayParsed(refName, parsedUnit, fetchMetricRange) {
+  if (!parsedUnit?.family || !Number.isFinite(parsedUnit?.exp) || typeof fetchMetricRange !== "function") {
+    return null;
+  }
+  const range = await resolveMetricRange(refName, fetchMetricRange);
+  const min = Number(range?.minimum);
+  const max = Number(range?.maximum);
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null;
+  const rep = Math.max(Math.abs(min), Math.abs(max));
+  if (!(rep > 0)) return null;
+  const repBase = rep * (10 ** parsedUnit.exp);
+  const displayExp = chooseDisplayExpFromRepresentative(repBase);
+  if (!Number.isFinite(displayExp)) return null;
+  return { family: parsedUnit.family, exp: displayExp };
 }
 
 function computeFactorByUnit(ref, targetExp) {
@@ -57,7 +113,7 @@ function pickTargetExp(refsInFamily) {
   return best;
 }
 
-async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
+async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit, fetchMetricRange) {
   const refs = collectExpressionReferences(expression);
   if (refs.length === 0) return new Map();
 
@@ -70,20 +126,24 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
       const localUnit = String(localMetric.unit || "").trim();
       const unit = localUnit || (await resolveMetricUnit(refName, fetchMetricUnit));
       const displayUnit = String(localMetric.displayUnit || "").trim();
+      const parsedUnit = parseSIUnit(unit);
+      const displayParsed = parseSIUnit(displayUnit) || (await inferDisplayParsed(refName, parsedUnit, fetchMetricRange));
       const manual = localMetric.factorMode === "manual"
         ? Number(localMetric.manualFactor)
         : 1;
       refEntries.push({
         name: refName,
-        parsedUnit: parseSIUnit(unit),
-        displayParsed: parseSIUnit(displayUnit),
+        parsedUnit,
+        displayParsed,
         manualFactor: Number.isFinite(manual) ? manual : 1,
       });
       continue;
     }
 
     const unit = await resolveMetricUnit(refName, fetchMetricUnit);
-    refEntries.push({ name: refName, parsedUnit: parseSIUnit(unit), displayParsed: null, manualFactor: 1 });
+    const parsedUnit = parseSIUnit(unit);
+    const displayParsed = await inferDisplayParsed(refName, parsedUnit, fetchMetricRange);
+    refEntries.push({ name: refName, parsedUnit, displayParsed, manualFactor: 1 });
   }
 
   const factorMap = new Map();
@@ -179,7 +239,7 @@ export function buildQueryTargets(metrics) {
     .filter(Boolean);
 }
 
-export async function buildQueryTargetsResolved(metrics, fetchMetricUnit) {
+export async function buildQueryTargetsResolved(metrics, fetchMetricUnit, fetchMetricRange = null) {
   const out = [];
   for (const metric of metrics || []) {
     const name = String(metric?.name || "").trim();
@@ -192,7 +252,7 @@ export async function buildQueryTargetsResolved(metrics, fetchMetricUnit) {
 
     let factorMap = null;
     if (typeof fetchMetricUnit === "function") {
-      factorMap = await buildExpressionFactorMap(expr, metrics, fetchMetricUnit);
+      factorMap = await buildExpressionFactorMap(expr, metrics, fetchMetricUnit, fetchMetricRange);
     }
     out.push({
       name,
