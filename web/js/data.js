@@ -189,6 +189,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
       const points = [];
       const limit = Math.min(times.length, row.length);
       for (let j = 0; j < limit; j += 1) {
+        if (row[j] == null) continue;
         const t = Number(times[j]);
         const v = Number(row[j]);
         if (!Number.isFinite(t) || !Number.isFinite(v)) continue;

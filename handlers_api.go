@@ -277,9 +277,12 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 }
 
 type stackedValuePoint struct {
-	t int64
-	v float64
+	t           int64
+	v           float64
+	validFromMS int64
 }
+
+const stackedNoLowerBound int64 = -1 << 63
 
 func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 	switch series.Mode {
@@ -289,7 +292,7 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 			if math.IsNaN(point.V) || math.IsInf(point.V, 0) {
 				continue
 			}
-			out = append(out, stackedValuePoint{t: point.T, v: point.V})
+			out = append(out, stackedValuePoint{t: point.T, v: point.V, validFromMS: stackedNoLowerBound})
 		}
 		return out
 	case "aggregates":
@@ -298,12 +301,31 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 			if point.Count == 0 || math.IsNaN(point.Avg) || math.IsInf(point.Avg, 0) {
 				continue
 			}
-			out = append(out, stackedValuePoint{t: point.T, v: point.Avg})
+			validFrom := stackedNoLowerBound
+			if point.ActiveTimeMS > 0 {
+				validFrom = point.T - point.ActiveTimeMS
+			}
+			out = append(out, stackedValuePoint{t: point.T, v: point.Avg, validFromMS: validFrom})
 		}
 		return out
 	default:
 		return nil
 	}
+}
+
+func stackedValueAtLastSemantics(points []stackedValuePoint, t int64) (float64, bool) {
+	if len(points) == 0 {
+		return 0, false
+	}
+	idx := sort.Search(len(points), func(i int) bool { return points[i].t >= t })
+	for ; idx < len(points); idx++ {
+		point := points[idx]
+		if point.validFromMS > t {
+			continue
+		}
+		return point.v, true
+	}
+	return 0, false
 }
 
 func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, error) {
@@ -328,7 +350,7 @@ func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, erro
 		return apiStackedSeriesResponse{
 			Times:   []int64{},
 			Metrics: []string{},
-			Values:  [][]float64{},
+			Values:  [][]*float64{},
 		}, nil
 	}
 
@@ -341,17 +363,17 @@ func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, erro
 		return apiStackedSeriesResponse{}, fmt.Errorf("no aligned timeline points")
 	}
 
-	values := make([][]float64, len(metricNames))
+	values := make([][]*float64, len(metricNames))
 	for i, points := range pointsByMetric {
-		row := make([]float64, len(timeline))
-		cursor := 0
-		last := points[0].v
+		row := make([]*float64, len(timeline))
 		for idx, t := range timeline {
-			for cursor+1 < len(points) && points[cursor+1].t <= t {
-				cursor++
-				last = points[cursor].v
+			value, ok := stackedValueAtLastSemantics(points, t)
+			if !ok {
+				row[idx] = nil
+				continue
 			}
-			row[idx] = last
+			val := value
+			row[idx] = &val
 		}
 		values[i] = row
 	}

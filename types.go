@@ -122,6 +122,8 @@ type apiAggPoint struct {
 	Max   float64 `json:"max"`
 	Avg   float64 `json:"avg"`
 	Count uint64  `json:"count"`
+	// ActiveTimeMS limits how far this aggregate avg is valid backwards under last semantics.
+	ActiveTimeMS int64 `json:"activeTimeMs,omitempty"`
 }
 
 type apiAnalyzeRequest struct {
@@ -155,7 +157,7 @@ type apiYRangeGlobalResponse struct {
 }
 
 type apiStackedSeriesResponse struct {
-	Times   []int64     `json:"times"`
-	Metrics []string    `json:"metrics"`
-	Values  [][]float64 `json:"values"`
+	Times   []int64      `json:"times"`
+	Metrics []string     `json:"metrics"`
+	Values  [][]*float64 `json:"values"`
 }

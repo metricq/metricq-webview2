@@ -343,20 +343,25 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 		series.Stats["type"] = "raw"
 		return series
 	}
-		if len(hr.TimeDelta) == len(hr.Agg) && len(hr.Agg) > 0 {
-			series.Mode = "aggregates"
+	if len(hr.TimeDelta) == len(hr.Agg) && len(hr.Agg) > 0 {
+		series.Mode = "aggregates"
 		series.AggPoints = make([]apiAggPoint, 0, len(hr.Agg))
 		ts := int64(0)
 		rawCount := 0.0
-			for i, agg := range hr.Agg {
-				ts += hr.TimeDelta[i]
-				avg := aggregateMean(agg)
-				series.AggPoints = append(series.AggPoints, apiAggPoint{
-					T:     ts / int64(time.Millisecond),
-					Min:   agg.Minimum,
-				Max:   agg.Maximum,
-				Avg:   avg,
-				Count: agg.Count,
+		for i, agg := range hr.Agg {
+			ts += hr.TimeDelta[i]
+			avg := aggregateMean(agg)
+			activeTimeMS := agg.ActiveTime / int64(time.Millisecond)
+			if agg.ActiveTime > 0 && activeTimeMS == 0 {
+				activeTimeMS = 1
+			}
+			series.AggPoints = append(series.AggPoints, apiAggPoint{
+				T:            ts / int64(time.Millisecond),
+				Min:          agg.Minimum,
+				Max:          agg.Maximum,
+				Avg:          avg,
+				Count:        agg.Count,
+				ActiveTimeMS: activeTimeMS,
 			})
 			rawCount += float64(agg.Count)
 		}
