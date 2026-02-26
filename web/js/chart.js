@@ -217,6 +217,7 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       if (clipToVisible && (t < from || t > to)) continue;
       let base = 0;
       for (const cfg of stackedConfigs) {
+        if (cfg.row[i] == null) continue;
         const raw = Number(cfg.row[i]);
         if (!Number.isFinite(raw)) continue;
         const scaled = raw * cfg.metric.factor;
@@ -321,6 +322,50 @@ function stackedValueAt(metricName, type, t) {
       : (type === "base" ? entry.avgBaseByTime : entry.avgByTime));
   const value = map?.get?.(t);
   return Number.isFinite(value) ? value : null;
+}
+
+function stackedInterpolatedAt(metricName, t) {
+  if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t)) return null;
+  const entry = lastStackedByMetric.get(metricName);
+  if (!entry?.stacksInYAxis) return null;
+  const timeline = Array.isArray(entry.timeline) ? entry.timeline : [];
+  if (timeline.length === 0) return null;
+  if (timeline.length === 1) {
+    const p = timeline[0];
+    if (Math.abs(t - p.t) > 1e-9) return null;
+    const base = Number(p.base);
+    const top = Number(p.avg);
+    if (!Number.isFinite(base) || !Number.isFinite(top)) return null;
+    return { t: p.t, base, top, raw: top - base };
+  }
+
+  let lo = 1;
+  let hi = timeline.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (timeline[mid].t < t) lo = mid + 1;
+    else hi = mid;
+  }
+  const idx = lo;
+  if (idx <= 0 || idx >= timeline.length) return null;
+  const prev = timeline[idx - 1];
+  const curr = timeline[idx];
+  if (t < prev.t || t > curr.t) return null;
+
+  const prevBase = Number(prev.base);
+  const prevTop = Number(prev.avg);
+  const currBase = Number(curr.base);
+  const currTop = Number(curr.avg);
+  if (![prevBase, prevTop, currBase, currTop].every(Number.isFinite)) return null;
+
+  const dt = curr.t - prev.t;
+  if (Math.abs(dt) < 1e-12) {
+    return { t, base: currBase, top: currTop, raw: currTop - currBase };
+  }
+  const ratio = (t - prev.t) / dt;
+  const base = prevBase + ((currBase - prevBase) * ratio);
+  const top = prevTop + ((currTop - prevTop) * ratio);
+  return { t, base, top, raw: top - base };
 }
 
 function getDomain(seriesList) {
@@ -1109,10 +1154,11 @@ function renderHoverAt(clientX, clientY) {
     const sampled = seriesValueAtTime(metric, series, t);
     if (!sampled) continue;
     if (state.yAxisStacked) {
-      const sampleT = sampled.t;
-      const rawValue = sampled.value;
-      const stacked = stackedValueAt(metric.name, "avg", sampleT);
-      const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
+      const stackedAtCursor = stackedInterpolatedAt(metric.name, t);
+      if (!stackedAtCursor) continue;
+      const sampleT = t;
+      const rawValue = stackedAtCursor.raw;
+      const plotValue = stackedAtCursor.top;
       const yPx = lastLayout.sy(plotValue);
       const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
@@ -1121,6 +1167,8 @@ function renderHoverAt(clientX, clientY) {
         candidates.push({
           metric,
           sampled: { t: sampleT, value: rawValue },
+          plotValue,
+          baseValue: stackedAtCursor.base,
           xPx,
           yPx,
           snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
@@ -1178,8 +1226,8 @@ function renderHoverAt(clientX, clientY) {
     const zeroToleranceBase = valueTolerance * 0.5;
     const scored = [];
     for (const candidate of candidates) {
-      const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
-      const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
+      const top = Number(candidate.plotValue);
+      const base = Number(candidate.baseValue);
       const raw = Number(candidate.sampled.value);
       const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
       const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
