@@ -1145,8 +1145,53 @@ function renderHoverAt(clientX, clientY) {
   }
 
   let selected = null;
-  for (const candidate of candidates) {
-    if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
+  if (!state.yAxisStacked || !Number.isFinite(cursorValue)) {
+    for (const candidate of candidates) {
+      if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
+    }
+  } else {
+    const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
+    const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
+    const zeroTolerance = valueTolerance * 0.5;
+    const scored = [];
+    for (const candidate of candidates) {
+      const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
+      const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
+      const raw = Number(candidate.sampled.value);
+      if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) {
+        scored.push({ candidate, bucket: 3, delta: Number.POSITIVE_INFINITY });
+        continue;
+      }
+
+      const lo = Math.min(base, top);
+      const hi = Math.max(base, top);
+      const nearBoundary = Math.min(
+        Math.abs(cursorValue - lo),
+        Math.abs(cursorValue - hi),
+      );
+      const isNearZero = Math.abs(raw) <= zeroTolerance;
+      if (isNearZero) {
+        if (nearBoundary <= zeroTolerance) scored.push({ candidate, bucket: 1, delta: nearBoundary });
+        else scored.push({ candidate, bucket: 3, delta: nearBoundary });
+        continue;
+      }
+
+      const inside = raw >= 0
+        ? (cursorValue >= base && cursorValue < top)
+        : (cursorValue <= base && cursorValue > top);
+      if (inside) {
+        scored.push({ candidate, bucket: 0, delta: 0 });
+        continue;
+      }
+      const outsideDelta = cursorValue < lo ? (lo - cursorValue) : (cursorValue > hi ? (cursorValue - hi) : 0);
+      scored.push({ candidate, bucket: 2, delta: outsideDelta });
+    }
+    scored.sort((a, b) => {
+      if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+      if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
+      return a.candidate.dist2 - b.candidate.dist2;
+    });
+    selected = scored[0]?.candidate || null;
   }
   const maxAbsDomain = Math.max(
     1e-9,
