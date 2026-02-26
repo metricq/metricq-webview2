@@ -94,6 +94,16 @@ function syncRenderModeButton() {
     : "Standard-Modus aktiv (Point-to-Point)";
 }
 
+function syncStackedModeButton() {
+  if (!dom.btnStackedMode) return;
+  const stackedActive = !!state.yAxisStacked;
+  dom.btnStackedMode.classList.toggle("btn-primary", stackedActive);
+  dom.btnStackedMode.classList.toggle("btn-outline-primary", !stackedActive);
+  dom.btnStackedMode.title = stackedActive
+    ? "Stacked-Mode aktiv"
+    : "Stacked-Mode inaktiv";
+}
+
 function updateSidebarToggleIcon() {
   const icon = dom.btnSidebarToggle.querySelector("i");
   if (!icon) return;
@@ -113,6 +123,7 @@ function setSidebarCollapsed(collapsed) {
   );
   updateSidebarToggleIcon();
   syncRenderModeButton();
+  syncStackedModeButton();
   renderCollapsedLegend();
   renderChart();
 }
@@ -284,6 +295,7 @@ function syncYAxisModalFromState() {
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
   dom.yAxisStacked.checked = !!state.yAxisStacked;
+  syncStackedModeButton();
   const fillMin = Number.isFinite(state.yAxisManualMin) ? state.yAxisManualMin : state.yAxisCurrentMin;
   const fillMax = Number.isFinite(state.yAxisManualMax) ? state.yAxisManualMax : state.yAxisCurrentMax;
   dom.yAxisManualMin.value = Number.isFinite(fillMin) ? String(fillMin) : "";
@@ -350,6 +362,17 @@ function wireEvents() {
     syncRenderModeButton();
     hooks.loadData();
   });
+  dom.btnStackedMode.addEventListener("click", async () => {
+    state.yAxisStacked = !state.yAxisStacked;
+    dom.yAxisStacked.checked = !!state.yAxisStacked;
+    syncStackedModeButton();
+    if (state.yAxisMode === "global") {
+      try {
+        await ensureGlobalYAxisRange();
+      } catch (_) {}
+    }
+    hooks.loadData();
+  });
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);
   });
@@ -410,6 +433,7 @@ function wireEvents() {
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
     state.yAxisStacked = !!dom.yAxisStacked.checked;
+    syncStackedModeButton();
     const manualMin = Number.parseFloat(dom.yAxisManualMin.value);
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
@@ -692,6 +716,7 @@ async function init() {
   if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();
   syncRenderModeButton();
+  syncStackedModeButton();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();

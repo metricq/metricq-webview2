@@ -20,6 +20,7 @@ export const dom = {
   analyzeTableBody: document.getElementById("analyzeTableBody"),
   btnYAxis: document.getElementById("btnYAxis"),
   btnRenderMode: document.getElementById("btnRenderMode"),
+  btnStackedMode: document.getElementById("btnStackedMode"),
   yAxisModal: document.getElementById("yAxisModal"),
   yAxisModeLocal: document.getElementById("yAxisModeLocal"),
   yAxisModeGlobal: document.getElementById("yAxisModeGlobal"),
