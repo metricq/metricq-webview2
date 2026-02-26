@@ -1146,19 +1146,7 @@ function renderHoverAt(clientX, clientY) {
 
   let selected = null;
   for (const candidate of candidates) {
-    if (!selected) {
-      selected = candidate;
-      continue;
-    }
-    if (candidate.dist2 < selected.dist2) {
-      selected = candidate;
-      continue;
-    }
-    if (Math.abs(candidate.dist2 - selected.dist2) <= 1e-6 && state.yAxisStacked) {
-      const candMag = Math.abs(Number(candidate?.sampled?.value) || 0);
-      const selMag = Math.abs(Number(selected?.sampled?.value) || 0);
-      if (candMag > selMag) selected = candidate;
-    }
+    if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
   }
   const hoverSnapDistancePx = 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
