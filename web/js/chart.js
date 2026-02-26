@@ -169,45 +169,40 @@ function buildStackedSeries(seriesList, tiMode) {
 
   const stackedItems = seriesList.filter((item) => item.metric.stackMode !== "normal").slice().reverse();
   const nonStackedItems = seriesList.filter((item) => item.metric.stackMode === "normal");
-  const stackedContributors = [];
-
-  for (const item of stackedItems) {
-    const { metric } = item;
-    const samples = sampleByMetric.get(metric.name) || [];
-    const avgByTime = new Map();
-    const avgBaseByTime = new Map();
-    const minByTime = new Map();
-    const maxByTime = new Map();
-    const timeline = [];
-    const timeSources = [...stackedContributors.map((c) => c.samples), samples];
-    const times = collectTimelineTimes(timeSources);
-
-    for (const t of times) {
-      const current = sampleLastValue(samples, t);
+  const stackedConfigs = stackedItems.map((item) => ({
+    metric: item.metric,
+    samples: sampleByMetric.get(item.metric.name) || [],
+    avgByTime: new Map(),
+    avgBaseByTime: new Map(),
+    minByTime: new Map(),
+    maxByTime: new Map(),
+    timeline: [],
+  }));
+  const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
+  for (const t of stackedTimes) {
+    let base = 0;
+    for (const cfg of stackedConfigs) {
+      const current = sampleLastValue(cfg.samples, t);
       if (!current) continue;
-      let base = 0;
-      for (const contributor of stackedContributors) {
-        const sampled = sampleLastValue(contributor.samples, t);
-        if (sampled) base += sampled.avg;
-      }
       const upper = base + current.avg;
-      avgByTime.set(t, upper);
-      avgBaseByTime.set(t, base);
-      minByTime.set(t, upper);
-      maxByTime.set(t, upper);
-      timeline.push({ t, avg: upper, base });
+      cfg.avgByTime.set(t, upper);
+      cfg.avgBaseByTime.set(t, base);
+      cfg.minByTime.set(t, upper);
+      cfg.maxByTime.set(t, upper);
+      cfg.timeline.push({ t, avg: upper, base });
+      base = upper;
     }
-
-    byMetric.set(metric.name, {
-      avgByTime,
-      avgBaseByTime,
-      minByTime,
-      maxByTime,
+  }
+  for (const cfg of stackedConfigs) {
+    byMetric.set(cfg.metric.name, {
+      avgByTime: cfg.avgByTime,
+      avgBaseByTime: cfg.avgBaseByTime,
+      minByTime: cfg.minByTime,
+      maxByTime: cfg.maxByTime,
       stacksInYAxis: true,
-      timeline,
-      samples,
+      timeline: cfg.timeline,
+      samples: cfg.samples,
     });
-    stackedContributors.push({ samples });
   }
 
   for (const item of nonStackedItems) {
