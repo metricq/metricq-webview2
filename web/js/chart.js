@@ -1159,6 +1159,7 @@ function renderHoverAt(clientX, clientY) {
           plotValue,
           rawValue,
           baseValue: Number.isFinite(stacked) ? (stackedValueAt(metric.name, "base", sampleT) ?? null) : null,
+          isStackedLayer: metric.stackMode !== "normal" && Number.isFinite(stacked),
           stackRank: stackedOrder.get(metric.name) ?? Number.POSITIVE_INFINITY,
           xPx,
           yPx,
@@ -1179,6 +1180,10 @@ function renderHoverAt(clientX, clientY) {
   const rawNearZeroTolerance = valueTolerance * 0.5;
   const scoreStackCandidate = (candidate) => {
     if (!state.yAxisStacked || !Number.isFinite(cursorValue)) return { bucket: 2, delta: Number.POSITIVE_INFINITY };
+    if (!candidate?.isStackedLayer) {
+      // In stacked mode prefer stacked layers clearly over normal overlays.
+      return { bucket: 9, delta: Number.POSITIVE_INFINITY };
+    }
     if (!Number.isFinite(candidate?.baseValue) || !Number.isFinite(candidate?.plotValue)) {
       return { bucket: 2, delta: Number.POSITIVE_INFINITY };
     }
