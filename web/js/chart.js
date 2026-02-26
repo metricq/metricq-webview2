@@ -99,71 +99,124 @@ function seriesSampleTime(points, index, series, tiMode) {
   return points?.[index]?.t;
 }
 
+function buildSemanticSamples(metric, series, tiMode) {
+  const samples = [];
+  if (series.mode === "values") {
+    const points = series.points || [];
+    for (let i = 0; i < points.length; i += 1) {
+      const point = points[i];
+      const t = seriesSampleTime(points, i, series, tiMode);
+      if (!Number.isFinite(t)) continue;
+      const value = point.v * metric.factor;
+      samples.push({ t, avg: value, min: value, max: value });
+    }
+    return samples;
+  }
+
+  const points = series.aggregatePoints || [];
+  for (let i = 0; i < points.length; i += 1) {
+    const point = points[i];
+    if (Number(point.count) === 0) continue;
+    const t = seriesSampleTime(points, i, series, tiMode);
+    if (!Number.isFinite(t)) continue;
+    samples.push({
+      t,
+      avg: point.avg * metric.factor,
+      min: point.min * metric.factor,
+      max: point.max * metric.factor,
+    });
+  }
+  return samples;
+}
+
+function sampleLastValue(samples, t) {
+  if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t)) return null;
+  if (samples.length === 1) {
+    return t === samples[0].t ? samples[0] : null;
+  }
+
+  let lo = 1;
+  let hi = samples.length - 1;
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (samples[mid].t < t) lo = mid + 1;
+    else hi = mid;
+  }
+  const idx = lo;
+  if (idx <= 0 || idx >= samples.length) return null;
+  const prev = samples[idx - 1];
+  const curr = samples[idx];
+  if (t < prev.t || t > curr.t) return null;
+  return curr;
+}
+
+function collectTimelineTimes(sampleSets) {
+  const uniq = new Set();
+  for (const samples of sampleSets) {
+    for (const sample of samples || []) {
+      if (Number.isFinite(sample?.t)) uniq.add(sample.t);
+    }
+  }
+  return Array.from(uniq).sort((a, b) => a - b);
+}
+
 function buildStackedSeries(seriesList, tiMode) {
   const byMetric = new Map();
-  const avgTotals = new Map();
-  const minTotals = new Map();
-  const maxTotals = new Map();
+  const stackedContributors = [];
 
   for (const item of seriesList) {
     const { metric, series } = item;
+    const stacksInYAxis = metric.stackMode !== "normal";
+    const samples = buildSemanticSamples(metric, series, tiMode);
     const avgByTime = new Map();
     const avgBaseByTime = new Map();
     const minByTime = new Map();
     const maxByTime = new Map();
-    const stacksInYAxis = metric.stackMode !== "normal";
-    if (series.mode === "values") {
-      const points = series.points || [];
-      for (let i = 0; i < points.length; i += 1) {
-        const point = points[i];
-        const t = seriesSampleTime(points, i, series, tiMode);
-        if (!Number.isFinite(t)) continue;
-        const raw = point.v * metric.factor;
-        if (stacksInYAxis) {
-          const base = avgTotals.get(t) || 0;
-          const stacked = base + raw;
-          avgBaseByTime.set(t, base);
-          avgTotals.set(t, stacked);
-          avgByTime.set(t, stacked);
-        } else {
-          avgBaseByTime.set(t, 0);
-          avgByTime.set(t, raw);
-        }
+    const timeline = [];
+
+    const timeSources = stacksInYAxis
+      ? [...stackedContributors.map((c) => c.samples), samples]
+      : [samples];
+    const times = collectTimelineTimes(timeSources);
+    for (const t of times) {
+      const current = sampleLastValue(samples, t);
+      if (!current) continue;
+
+      if (!stacksInYAxis) {
+        avgByTime.set(t, current.avg);
+        avgBaseByTime.set(t, 0);
+        minByTime.set(t, current.min);
+        maxByTime.set(t, current.max);
+        timeline.push({ t, avg: current.avg, base: 0 });
+        continue;
       }
-      byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime, stacksInYAxis });
-      continue;
+
+      let base = 0;
+      for (const contributor of stackedContributors) {
+        const sampled = sampleLastValue(contributor.samples, t);
+        if (sampled) base += sampled.avg;
+      }
+      const upper = base + current.avg;
+      avgByTime.set(t, upper);
+      avgBaseByTime.set(t, base);
+      minByTime.set(t, upper);
+      maxByTime.set(t, upper);
+      timeline.push({ t, avg: upper, base });
     }
 
-    const points = series.aggregatePoints || [];
-    for (let i = 0; i < points.length; i += 1) {
-      const point = points[i];
-      if (Number(point.count) === 0) continue;
-      const t = seriesSampleTime(points, i, series, tiMode);
-      if (!Number.isFinite(t)) continue;
-      const rawAvg = point.avg * metric.factor;
-      const rawMin = point.min * metric.factor;
-      const rawMax = point.max * metric.factor;
-      if (stacksInYAxis) {
-        const avgBase = avgTotals.get(t) || 0;
-        const stackedAvg = avgBase + rawAvg;
-        const stackedMin = (minTotals.get(t) || 0) + rawMin;
-        const stackedMax = (maxTotals.get(t) || 0) + rawMax;
-        avgBaseByTime.set(t, avgBase);
-        avgTotals.set(t, stackedAvg);
-        minTotals.set(t, stackedMin);
-        maxTotals.set(t, stackedMax);
-        avgByTime.set(t, stackedAvg);
-        minByTime.set(t, stackedMin);
-        maxByTime.set(t, stackedMax);
-      } else {
-        avgBaseByTime.set(t, 0);
-        avgByTime.set(t, rawAvg);
-        minByTime.set(t, rawMin);
-        maxByTime.set(t, rawMax);
-      }
-    }
-    byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime, stacksInYAxis });
+    byMetric.set(metric.name, {
+      avgByTime,
+      avgBaseByTime,
+      minByTime,
+      maxByTime,
+      stacksInYAxis,
+      timeline,
+      samples,
+    });
+
+    if (stacksInYAxis) stackedContributors.push({ samples });
   }
+
   return byMetric;
 }
 
@@ -340,50 +393,47 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
   }
 }
 
-function drawStackedRunFill(ctx, run, series, tiMode, sx, sy, lowerByTime, upperByTime) {
-  if (!Array.isArray(run) || run.length < 2) return;
+function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy) {
+  if (!Array.isArray(timeline) || timeline.length < 2) return;
   if (tiMode) {
     drawLastSemanticBand(
       ctx,
-      run,
-      (p) => {
-        const t = p?.t;
-        return Number.isFinite(t) ? (lowerByTime?.get(t) || 0) : 0;
-      },
-      (p) => {
-        const t = p?.t;
-        return Number.isFinite(t) ? (upperByTime?.get(t) || 0) : 0;
-      },
+      timeline,
+      (p) => Number(p?.base) || 0,
+      (p) => Number(p?.avg) || 0,
       sx,
       sy,
     );
     return;
   }
 
-  let started = false;
   ctx.beginPath();
-  for (let i = 0; i < run.length; i += 1) {
-    const t = seriesSampleTime(run, i, series, false);
-    if (!Number.isFinite(t)) continue;
-    const y = upperByTime?.get(t);
-    if (!Number.isFinite(y)) continue;
-    if (!started) {
-      ctx.moveTo(sx(t), sy(y));
-      started = true;
-    } else {
-      ctx.lineTo(sx(t), sy(y));
-    }
+  for (let i = 0; i < timeline.length; i += 1) {
+    const p = timeline[i];
+    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
+    else ctx.lineTo(sx(p.t), sy(p.avg));
   }
-  if (!started) return;
-  for (let i = run.length - 1; i >= 0; i -= 1) {
-    const t = seriesSampleTime(run, i, series, false);
-    if (!Number.isFinite(t)) continue;
-    const y = lowerByTime?.get(t);
-    if (!Number.isFinite(y)) continue;
-    ctx.lineTo(sx(t), sy(y));
+  for (let i = timeline.length - 1; i >= 0; i -= 1) {
+    const p = timeline[i];
+    ctx.lineTo(sx(p.t), sy(p.base));
   }
   ctx.closePath();
   ctx.fill();
+}
+
+function drawStackedTimelineLine(ctx, timeline, tiMode, sx, sy) {
+  if (!Array.isArray(timeline) || timeline.length < 2) return;
+  if (tiMode) {
+    drawLastSemanticStepLine(ctx, timeline, (p) => Number(p?.avg) || 0, sx, sy);
+    return;
+  }
+  ctx.beginPath();
+  for (let i = 0; i < timeline.length; i += 1) {
+    const p = timeline[i];
+    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
+    else ctx.lineTo(sx(p.t), sy(p.avg));
+  }
+  ctx.stroke();
 }
 
 
@@ -505,30 +555,25 @@ export function renderChart() {
   for (const item of seriesList) {
     const { metric, series } = item;
     const stackedSeries = lastStackedByMetric?.get(metric.name);
+    const stackedTimeline = Array.isArray(stackedSeries?.timeline) ? stackedSeries.timeline : [];
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
+
+    if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      drawStackedTimelineFill(ctx, stackedTimeline, tiMode, sx, sy);
+      ctx.restore();
+      drawStackedTimelineLine(ctx, stackedTimeline, tiMode, sx, sy);
+      continue;
+    }
 
     if (series.mode === "values") {
       const points = series.points || [];
       if (!metric.drawAvg || points.length === 0) continue;
       const isComputedValues = String(series?.stats?.type || "") === "computed";
       const isRawValues = String(series?.stats?.type || "") === "raw";
-      if (state.yAxisStacked && stackedSeries?.stacksInYAxis && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        drawStackedRunFill(
-          ctx,
-          points,
-          series,
-          tiMode,
-          sx,
-          sy,
-          stackedSeries.avgBaseByTime,
-          stackedSeries.avgByTime,
-        );
-        ctx.restore();
-      }
 
       if (tiMode) {
         if (isRawValues) {
@@ -536,7 +581,9 @@ export function renderChart() {
           for (let i = 0; i < points.length; i += 1) {
             const p = points[i];
             const tx = p.t;
-            const stacked = stackedSeries?.avgByTime?.get(tx);
+            const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+              ? stackedSeries?.avgByTime?.get(tx)
+              : null;
             const x = sx(tx);
             const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
             ctx.beginPath();
@@ -549,7 +596,9 @@ export function renderChart() {
             points,
             (p) => {
               const tx = p.t;
-              const stacked = stackedSeries?.avgByTime?.get(tx);
+              const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+                ? stackedSeries?.avgByTime?.get(tx)
+                : null;
               return Number.isFinite(stacked) ? stacked : p.v * metric.factor;
             },
             sx,
@@ -558,7 +607,9 @@ export function renderChart() {
         } else {
           const p = points[0];
           const x = sx(p.t);
-          const stacked = stackedSeries?.avgByTime?.get(p.t);
+          const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+            ? stackedSeries?.avgByTime?.get(p.t)
+            : null;
           const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
           ctx.beginPath();
           ctx.arc(x, y, 1.8, 0, Math.PI * 2);
@@ -572,7 +623,9 @@ export function renderChart() {
         for (let i = 0; i < points.length; i += 1) {
           const p = points[i];
           const tx = aggregateDisplayTime(points, i, series);
-          const stacked = stackedSeries?.avgByTime?.get(tx);
+          const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+            ? stackedSeries?.avgByTime?.get(tx)
+            : null;
           const x = sx(tx);
           const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
           if (i === 0) ctx.moveTo(x, y);
@@ -586,7 +639,9 @@ export function renderChart() {
       for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
         const tx = p.t;
-        const stacked = stackedSeries?.avgByTime?.get(tx);
+        const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+          ? stackedSeries?.avgByTime?.get(tx)
+          : null;
         const x = sx(tx);
         const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
         ctx.beginPath();
@@ -600,24 +655,6 @@ export function renderChart() {
     if (points.length === 0) continue;
 
     const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
-
-    if (state.yAxisStacked && metric.drawAvg && stackedSeries?.stacksInYAxis && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
-      ctx.save();
-      ctx.globalAlpha = 0.22;
-      for (const segment of runs) {
-        drawStackedRunFill(
-          ctx,
-          segment,
-          series,
-          tiMode,
-          sx,
-          sy,
-          stackedSeries.avgBaseByTime,
-          stackedSeries.avgByTime,
-        );
-      }
-      ctx.restore();
-    }
 
     if (!state.yAxisStacked) {
       ctx.save();
@@ -661,7 +698,9 @@ export function renderChart() {
             segment,
             (p) => {
               const tx = p.t;
-              const stacked = stackedSeries?.avgByTime?.get(tx);
+              const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+                ? stackedSeries?.avgByTime?.get(tx)
+                : null;
               return Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
             },
             sx,
@@ -673,7 +712,9 @@ export function renderChart() {
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            const stacked = stackedSeries?.avgByTime?.get(tx);
+            const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
+              ? stackedSeries?.avgByTime?.get(tx)
+              : null;
             const avg = Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
             if (i === 0) ctx.moveTo(sx(tx), sy(avg));
             else ctx.lineTo(sx(tx), sy(avg));
