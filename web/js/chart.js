@@ -804,11 +804,13 @@ function seriesValueAtTime(metric, series, t) {
   }
   if (!best || (series.mode !== "values" && Number(best.count) === 0)) return null;
   const stacked = stackedValueAt(metric.name, "avg", bestT);
-  const fallback = series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor;
+  const rawValue = series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor;
+  const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
 
   return {
     t: bestT,
-    value: Number.isFinite(stacked) ? stacked : fallback,
+    value: rawValue,
+    plotValue,
     index: bestIndex,
   };
 }
@@ -898,9 +900,10 @@ function sampleTIAtTime(metric, series, t) {
     const prev = points[idx - 1];
     const curr = points[idx];
     if (t < prev.t || t > curr.t) return null;
+    const rawValue = curr.v * metric.factor;
     const stacked = stackedValueAt(metric.name, "avg", curr.t);
-    const value = Number.isFinite(stacked) ? stacked : curr.v * metric.factor;
-    return { min: value, avg: value, max: value };
+    const plotAvg = Number.isFinite(stacked) ? stacked : rawValue;
+    return { min: rawValue, avg: rawValue, max: rawValue, plotAvg };
   }
 
   const points = series.aggregatePoints || [];
@@ -917,13 +920,15 @@ function sampleTIAtTime(metric, series, t) {
   const prev = points[idx - 1];
   const curr = points[idx];
   if (t < prev.t || t > curr.t || Number(curr.count) === 0) return null;
+  const rawMin = curr.min * metric.factor;
+  const rawAvg = curr.avg * metric.factor;
+  const rawMax = curr.max * metric.factor;
   const stackedAvg = stackedValueAt(metric.name, "avg", curr.t);
-  const stackedMin = stackedValueAt(metric.name, "min", curr.t);
-  const stackedMax = stackedValueAt(metric.name, "max", curr.t);
   return {
-    min: Number.isFinite(stackedMin) ? stackedMin : curr.min * metric.factor,
-    avg: Number.isFinite(stackedAvg) ? stackedAvg : curr.avg * metric.factor,
-    max: Number.isFinite(stackedMax) ? stackedMax : curr.max * metric.factor,
+    min: rawMin,
+    avg: rawAvg,
+    max: rawMax,
+    plotAvg: Number.isFinite(stackedAvg) ? stackedAvg : rawAvg,
   };
 }
 
@@ -962,7 +967,7 @@ function renderHoverAt(clientX, clientY) {
       const factor = shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
       const unitText = shownUnit ? ` ${shownUnit}` : "";
-      const yPx = lastLayout.sy(sampled.avg);
+      const yPx = lastLayout.sy(Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg);
       const dx = hoverX - cursorX;
       const dy = yPx - cursorY;
       const dist2 = dx * dx + dy * dy;
@@ -1039,18 +1044,19 @@ function renderHoverAt(clientX, clientY) {
       if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
       const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
       const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
+      const rawValue = series.mode === "values"
+        ? nearestPoint.v * metric.factor
+        : nearestPoint.avg * metric.factor;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
-      const nearestValue = Number.isFinite(stacked)
-        ? stacked
-        : (series.mode === "values" ? nearestPoint.v * metric.factor : nearestPoint.avg * metric.factor);
-      const yPx = lastLayout.sy(nearestValue);
+      const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
+      const yPx = lastLayout.sy(plotValue);
       const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
         const dx = xPx - cursorX;
         const dy = yPx - cursorY;
         candidates.push({
           metric,
-          sampled: { t: sampleT, value: nearestValue },
+          sampled: { t: sampleT, value: rawValue },
           xPx,
           yPx,
           dist2: dx * dx + dy * dy,
