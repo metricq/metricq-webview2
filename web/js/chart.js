@@ -575,7 +575,7 @@ export function renderChart() {
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
   const sy = (y) => margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
-  lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
+  lastLayout = { margin, plotW, plotH, sx, sy };
 
   const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
 
@@ -1031,11 +1031,6 @@ function renderHoverAt(clientX, clientY) {
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
-  const cursorValue = (() => {
-    if (!lastLayout || !Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return null;
-    const rel = (cursorY - margin.top) / Math.max(1, lastLayout.plotH);
-    return lastLayout.maxY - rel * (lastLayout.maxY - lastLayout.minY);
-  })();
   if (state.renderMode === "ti") {
     const rows = [];
     let nearestRowIndex = -1;
@@ -1141,9 +1136,6 @@ function renderHoverAt(clientX, clientY) {
         candidates.push({
           metric,
           sampled: { t: sampleT, value: rawValue },
-          plotValue,
-          rawValue,
-          baseValue: Number.isFinite(stacked) ? (stackedValueAt(metric.name, "base", sampleT) ?? null) : null,
           xPx,
           yPx,
           dist2: dx * dx + dy * dy,
@@ -1153,72 +1145,19 @@ function renderHoverAt(clientX, clientY) {
   }
 
   let selected = null;
-  const valueTolerance = (() => {
-    if (!lastLayout || !Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return 0;
-    const range = lastLayout.maxY - lastLayout.minY;
-    return (range * 6) / Math.max(1, lastLayout.plotH);
-  })();
-  const scoreStackCandidate = (candidate) => {
-    if (!state.yAxisStacked || !Number.isFinite(cursorValue)) return { bucket: 2, delta: Number.POSITIVE_INFINITY };
-    if (!Number.isFinite(candidate?.baseValue) || !Number.isFinite(candidate?.plotValue)) {
-      return { bucket: 2, delta: Number.POSITIVE_INFINITY };
-    }
-    const raw = Number(candidate.rawValue);
-    const base = Number(candidate.baseValue);
-    const top = Number(candidate.plotValue);
-
-    if (Math.abs(raw) <= 1e-12) {
-      const d = Math.abs(cursorValue - top);
-      if (d > valueTolerance) return { bucket: 4, delta: d };
-      // Zero-width layers are selected primarily when approaching from above:
-      // lower metric -> zero metric -> upper metric.
-      return cursorValue >= top
-        ? { bucket: 1, delta: d }
-        : { bucket: 2, delta: d };
-    }
-
-    let inside = false;
-    if (raw > 0) inside = cursorValue > base && cursorValue <= top;
-    else inside = cursorValue < base && cursorValue >= top;
-    if (inside) {
-      // De-prioritize points immediately above the lower boundary so zero layers
-      // at the same boundary can still be selected before the next upper layer.
-      const distToBase = Math.abs(cursorValue - base);
-      return distToBase <= valueTolerance
-        ? { bucket: 2, delta: distToBase }
-        : { bucket: 0, delta: 0 };
-    }
-
-    const lo = Math.min(base, top);
-    const hi = Math.max(base, top);
-    let d = 0;
-    if (cursorValue < lo) d = lo - cursorValue;
-    else if (cursorValue > hi) d = cursorValue - hi;
-    return { bucket: 3, delta: d };
-  };
-
   for (const candidate of candidates) {
     if (!selected) {
       selected = candidate;
       continue;
     }
-    if (!state.yAxisStacked) {
-      if (candidate.dist2 < selected.dist2) selected = candidate;
-      continue;
-    }
-    const candScore = scoreStackCandidate(candidate);
-    const selScore = scoreStackCandidate(selected);
-    if (candScore.bucket < selScore.bucket) {
+    if (candidate.dist2 < selected.dist2) {
       selected = candidate;
       continue;
     }
-    if (candScore.bucket > selScore.bucket) continue;
-    if (candScore.delta + 1e-12 < selScore.delta) {
-      selected = candidate;
-      continue;
-    }
-    if (Math.abs(candScore.delta - selScore.delta) <= 1e-12 && candidate.dist2 < selected.dist2) {
-      selected = candidate;
+    if (Math.abs(candidate.dist2 - selected.dist2) <= 1e-6 && state.yAxisStacked) {
+      const candMag = Math.abs(Number(candidate?.sampled?.value) || 0);
+      const selMag = Math.abs(Number(selected?.sampled?.value) || 0);
+      if (candMag > selMag) selected = candidate;
     }
   }
   const hoverSnapDistancePx = 22;
