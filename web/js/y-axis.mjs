@@ -121,11 +121,12 @@ export async function ensureGlobalYAxisRange() {
     .map((m) => ({
       name: m.name,
       factor: Number.isFinite(m.factor) ? m.factor : 1,
+      stacksInYAxis: m.stackMode !== "normal",
     }));
   const key = metrics
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((m) => `${m.name}:${m.factor.toPrecision(12)}`)
+    .map((m) => `${m.name}:${m.factor.toPrecision(12)}:${m.stacksInYAxis ? "S" : "N"}`)
     .join("\n") + `\nstacked:${stacked ? "1" : "0"}`;
   if (!key) return;
   if (
@@ -158,6 +159,7 @@ export async function ensureGlobalYAxisRange() {
         return {
           min: Math.min(scaledA, scaledB),
           max: Math.max(scaledA, scaledB),
+          stacksInYAxis: metric.stacksInYAxis,
         };
       } catch (_) {
         return null;
@@ -172,8 +174,13 @@ export async function ensureGlobalYAxisRange() {
     maxY = 0;
     for (const r of results) {
       if (!r) continue;
-      minY += r.min;
-      maxY += r.max;
+      if (r.stacksInYAxis) {
+        minY += r.min;
+        maxY += r.max;
+      } else {
+        minY = Math.min(minY, r.min);
+        maxY = Math.max(maxY, r.max);
+      }
     }
   } else {
     for (const r of results) {

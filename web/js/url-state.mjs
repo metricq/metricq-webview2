@@ -44,6 +44,7 @@ function sanitizeMetricEntry(raw, index) {
     color,
     draw,
     drawAvg: true,
+    stackMode: raw?.ns ? "normal" : "stack",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -91,6 +92,8 @@ function serializeMetricEntry(metric, index) {
       entry.f = Number(factor.toPrecision(12));
     }
   }
+
+  if (metric.stackMode === "normal") entry.ns = 1;
 
   return entry;
 }
@@ -251,6 +254,7 @@ function parseLegacyMetricToken(token, index) {
     color: defaultColorAt(index),
     draw: true,
     drawAvg: true,
+    stackMode: "stack",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",

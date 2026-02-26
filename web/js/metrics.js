@@ -54,6 +54,7 @@ export function addMetric(name, hooks) {
     color: colors[state.metrics.length % colors.length],
     draw: true,
     drawAvg: true,
+    stackMode: "stack",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -78,6 +79,7 @@ export function addExpressionMetric(name, expr, hooks) {
     color: colors[state.metrics.length % colors.length],
     draw: true,
     drawAvg: true,
+    stackMode: "stack",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -257,8 +259,14 @@ export function renderMetricList(hooks) {
     const editButton = metric.expr
       ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
       : "";
+    const stacksInYAxis = metric.stackMode !== "normal";
+    const stackButtonClass = stacksInYAxis ? "btn-outline-secondary" : "btn-warning";
+    const stackTitle = stacksInYAxis
+      ? "Im Stack-Modus: gestapelt zeichnen"
+      : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
+      <button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi bi-layers"></i></button>
       ${editButton}
       <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
       <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>
@@ -270,6 +278,11 @@ export function renderMetricList(hooks) {
       const action = button.dataset.action;
       if (action === "toggle") {
         metric.draw = !metric.draw;
+        renderMetricList(hooks);
+        hooks.renderChart();
+        hooks.onStateChanged?.();
+      } else if (action === "stack-mode") {
+        metric.stackMode = metric.stackMode === "normal" ? "stack" : "normal";
         renderMetricList(hooks);
         hooks.renderChart();
         hooks.onStateChanged?.();

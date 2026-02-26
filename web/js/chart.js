@@ -111,6 +111,7 @@ function buildStackedSeries(seriesList, tiMode) {
     const avgBaseByTime = new Map();
     const minByTime = new Map();
     const maxByTime = new Map();
+    const stacksInYAxis = metric.stackMode !== "normal";
     if (series.mode === "values") {
       const points = series.points || [];
       for (let i = 0; i < points.length; i += 1) {
@@ -118,13 +119,18 @@ function buildStackedSeries(seriesList, tiMode) {
         const t = seriesSampleTime(points, i, series, tiMode);
         if (!Number.isFinite(t)) continue;
         const raw = point.v * metric.factor;
-        const base = avgTotals.get(t) || 0;
-        const stacked = base + raw;
-        avgBaseByTime.set(t, base);
-        avgTotals.set(t, stacked);
-        avgByTime.set(t, stacked);
+        if (stacksInYAxis) {
+          const base = avgTotals.get(t) || 0;
+          const stacked = base + raw;
+          avgBaseByTime.set(t, base);
+          avgTotals.set(t, stacked);
+          avgByTime.set(t, stacked);
+        } else {
+          avgBaseByTime.set(t, 0);
+          avgByTime.set(t, raw);
+        }
       }
-      byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime });
+      byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime, stacksInYAxis });
       continue;
     }
 
@@ -137,19 +143,26 @@ function buildStackedSeries(seriesList, tiMode) {
       const rawAvg = point.avg * metric.factor;
       const rawMin = point.min * metric.factor;
       const rawMax = point.max * metric.factor;
-      const avgBase = avgTotals.get(t) || 0;
-      const stackedAvg = avgBase + rawAvg;
-      const stackedMin = (minTotals.get(t) || 0) + rawMin;
-      const stackedMax = (maxTotals.get(t) || 0) + rawMax;
-      avgBaseByTime.set(t, avgBase);
-      avgTotals.set(t, stackedAvg);
-      minTotals.set(t, stackedMin);
-      maxTotals.set(t, stackedMax);
-      avgByTime.set(t, stackedAvg);
-      minByTime.set(t, stackedMin);
-      maxByTime.set(t, stackedMax);
+      if (stacksInYAxis) {
+        const avgBase = avgTotals.get(t) || 0;
+        const stackedAvg = avgBase + rawAvg;
+        const stackedMin = (minTotals.get(t) || 0) + rawMin;
+        const stackedMax = (maxTotals.get(t) || 0) + rawMax;
+        avgBaseByTime.set(t, avgBase);
+        avgTotals.set(t, stackedAvg);
+        minTotals.set(t, stackedMin);
+        maxTotals.set(t, stackedMax);
+        avgByTime.set(t, stackedAvg);
+        minByTime.set(t, stackedMin);
+        maxByTime.set(t, stackedMax);
+      } else {
+        avgBaseByTime.set(t, 0);
+        avgByTime.set(t, rawAvg);
+        minByTime.set(t, rawMin);
+        maxByTime.set(t, rawMax);
+      }
     }
-    byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime });
+    byMetric.set(metric.name, { avgByTime, avgBaseByTime, minByTime, maxByTime, stacksInYAxis });
   }
   return byMetric;
 }
@@ -501,7 +514,7 @@ export function renderChart() {
       if (!metric.drawAvg || points.length === 0) continue;
       const isComputedValues = String(series?.stats?.type || "") === "computed";
       const isRawValues = String(series?.stats?.type || "") === "raw";
-      if (state.yAxisStacked && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
+      if (state.yAxisStacked && stackedSeries?.stacksInYAxis && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
         ctx.save();
         ctx.globalAlpha = 0.22;
         drawStackedRunFill(
@@ -588,7 +601,7 @@ export function renderChart() {
 
     const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
 
-    if (state.yAxisStacked && metric.drawAvg && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
+    if (state.yAxisStacked && metric.drawAvg && stackedSeries?.stacksInYAxis && stackedSeries?.avgByTime && stackedSeries?.avgBaseByTime) {
       ctx.save();
       ctx.globalAlpha = 0.22;
       for (const segment of runs) {
