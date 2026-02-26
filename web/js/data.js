@@ -128,18 +128,24 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   };
   const stackedNames = new Set(
     state.metrics
-      .filter((metric) => metric.draw && metric.stackMode !== "normal")
+      .filter((metric) => metric.stackMode !== "normal")
       .map((metric) => metric.name),
   );
+  const queryTargets = state.yAxisStacked
+    ? targets.filter((target) => !stackedNames.has(target.name))
+    : targets;
   const stackedTargets = targets.filter((target) => stackedNames.has(target.name));
+  req.targets = queryTargets;
 
   const started = performance.now();
   const [body, stackedBody] = await Promise.all([
-    apiFetch("/api/query", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(req),
-    }),
+    (queryTargets.length > 0)
+      ? apiFetch("/api/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req),
+      })
+      : Promise.resolve({ series: [] }),
     (state.yAxisStacked && stackedTargets.length > 0)
       ? apiFetch("/api/query/stacked", {
         method: "POST",
@@ -173,6 +179,31 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
       values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
     }
     : null;
+  if (state.yAxisStacked && state.stackedAligned) {
+    const times = state.stackedAligned.times || [];
+    const metrics = state.stackedAligned.metrics || [];
+    const values = state.stackedAligned.values || [];
+    for (let i = 0; i < metrics.length; i += 1) {
+      const name = metrics[i];
+      const row = Array.isArray(values[i]) ? values[i] : [];
+      const points = [];
+      const limit = Math.min(times.length, row.length);
+      for (let j = 0; j < limit; j += 1) {
+        const t = Number(times[j]);
+        const v = Number(row[j]);
+        if (!Number.isFinite(t) || !Number.isFinite(v)) continue;
+        points.push({ t, v });
+      }
+      state.series.set(name, {
+        metric: name,
+        mode: "values",
+        duration: 0,
+        points,
+        rawCount: points.length,
+        stats: { type: "stacked-aligned" },
+      });
+    }
+  }
   state.loadedFrom = extendedFrom;
   state.loadedTo = extendedTo;
   state.loadedMetricsKey = metricsKey;
