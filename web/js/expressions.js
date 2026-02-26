@@ -7,6 +7,7 @@ import { expandExpressionAliases } from "./expression-alias.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let editingMetricName = "";
+let blockCloseOnInvalidExpression = false;
 let expressionSearchTimer = null;
 let tokenSequence = 1;
 let hoverInfoEl = null;
@@ -512,6 +513,19 @@ function expressionFromEditor() {
   return serializeExpressionEditor().trim();
 }
 
+function expressionDraftIsValid() {
+  const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
+  return Boolean(expr);
+}
+
+function refreshExpressionValidationState() {
+  if (!dom.expressionInput.classList.contains("is-invalid")) return;
+  if (expressionDraftIsValid()) {
+    dom.expressionInput.classList.remove("is-invalid");
+    blockCloseOnInvalidExpression = false;
+  }
+}
+
 function saveExpressionMetric(hooks) {
   clearValidation();
   const name = dom.expressionMetricName.value.trim();
@@ -522,6 +536,7 @@ function saveExpressionMetric(hooks) {
   }
   if (!expr) {
     markInvalid(dom.expressionInput);
+    blockCloseOnInvalidExpression = true;
     return;
   }
   const ok = editingMetricName
@@ -532,6 +547,7 @@ function saveExpressionMetric(hooks) {
     return;
   }
   editingMetricName = "";
+  blockCloseOnInvalidExpression = false;
   const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
   modal?.hide();
 }
@@ -600,6 +616,7 @@ function placeCaretOnTokenClick(event) {
 export function wireExpressionModal(hooks) {
   function openAddModal() {
     editingMetricName = "";
+    blockCloseOnInvalidExpression = false;
     clearValidation();
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik hinzufügen";
     dom.expressionMetricName.value = buildNextExpressionName();
@@ -615,6 +632,7 @@ export function wireExpressionModal(hooks) {
     const metric = state.metrics.find((item) => item.name === metricName && item.expr);
     if (!metric) return;
     editingMetricName = metric.name;
+    blockCloseOnInvalidExpression = false;
     clearValidation();
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik bearbeiten";
     dom.expressionMetricName.value = metric.name;
@@ -659,13 +677,25 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
+  dom.expressionInput.addEventListener("input", refreshExpressionValidationState);
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
 
+  dom.expressionMetricModal.addEventListener("hide.bs.modal", (event) => {
+    if (!blockCloseOnInvalidExpression) return;
+    if (expressionDraftIsValid()) {
+      blockCloseOnInvalidExpression = false;
+      return;
+    }
+    markInvalid(dom.expressionInput);
+    event.preventDefault();
+  });
+
   dom.expressionMetricModal.addEventListener("hidden.bs.modal", () => {
     editingMetricName = "";
+    blockCloseOnInvalidExpression = false;
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     hideHoverInfo();
