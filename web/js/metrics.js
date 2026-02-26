@@ -353,6 +353,62 @@ export function renderMetricList(hooks) {
     li.appendChild(row);
     dom.metricList.appendChild(li);
   }
+
+  dom.metricList.ondragover = (event) => {
+    if (!draggingMetricName) return;
+    const rowTarget = event.target.closest("li.metric-draggable-row");
+    if (rowTarget) return;
+    const items = Array.from(dom.metricList.querySelectorAll("li.metric-draggable-row"));
+    if (items.length === 0) return;
+    event.preventDefault();
+    clearDropMarkers();
+
+    const first = items[0];
+    const last = items[items.length - 1];
+    const firstRect = first.getBoundingClientRect();
+    const lastRect = last.getBoundingClientRect();
+
+    if (event.clientY <= firstRect.top) {
+      first.classList.add("metric-drop-target");
+      first.dataset.dropPosition = "before";
+    } else if (event.clientY >= lastRect.bottom) {
+      last.classList.add("metric-drop-target");
+      last.dataset.dropPosition = "after";
+    } else {
+      const listRect = dom.metricList.getBoundingClientRect();
+      const chooseFirst = (event.clientY - listRect.top) < (listRect.bottom - event.clientY);
+      const anchor = chooseFirst ? first : last;
+      anchor.classList.add("metric-drop-target");
+      anchor.dataset.dropPosition = chooseFirst ? "before" : "after";
+    }
+    event.dataTransfer.dropEffect = "move";
+  };
+
+  dom.metricList.ondrop = (event) => {
+    if (!draggingMetricName) return;
+    const rowTarget = event.target.closest("li.metric-draggable-row");
+    if (rowTarget) return;
+    const markerTarget = dom.metricList.querySelector("li.metric-drop-target");
+    if (!markerTarget) return;
+    event.preventDefault();
+    const sourceName = event.dataTransfer.getData("text/plain") || draggingMetricName;
+    const targetName = markerTarget.dataset.metricName;
+    const placeAfter = markerTarget.dataset.dropPosition === "after";
+    const changed = reorderMetrics(sourceName, targetName, placeAfter);
+    clearDropMarkers();
+    if (!changed) return;
+    renderMetricList(hooks);
+    hooks.renderChart();
+    hooks.onStateChanged?.();
+  };
+
+  dom.metricList.ondragleave = (event) => {
+    if (!draggingMetricName) return;
+    const related = event.relatedTarget;
+    if (related && dom.metricList.contains(related)) return;
+    clearDropMarkers();
+  };
+
   renderCollapsedLegend();
 }
 
