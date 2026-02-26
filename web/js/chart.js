@@ -1158,6 +1158,7 @@ function renderHoverAt(clientX, clientY) {
     const range = lastLayout.maxY - lastLayout.minY;
     return (range * 6) / Math.max(1, lastLayout.plotH);
   })();
+  const zeroLayerTolerance = valueTolerance * 0.35;
   const scoreStackCandidate = (candidate) => {
     if (!state.yAxisStacked || !Number.isFinite(cursorValue)) return { bucket: 2, delta: Number.POSITIVE_INFINITY };
     if (!Number.isFinite(candidate?.baseValue) || !Number.isFinite(candidate?.plotValue)) {
@@ -1169,28 +1170,18 @@ function renderHoverAt(clientX, clientY) {
 
     if (Math.abs(raw) <= 1e-12) {
       const d = Math.abs(cursorValue - top);
-      if (d > valueTolerance) return { bucket: 4, delta: d };
-      // Zero-width layers are selected primarily when approaching from above:
-      // lower metric -> zero metric -> upper metric.
-      return cursorValue >= top
-        ? { bucket: 1, delta: d }
-        : { bucket: 2, delta: d };
-    }
-
-    let inside = false;
-    if (raw > 0) inside = cursorValue > base && cursorValue <= top;
-    else inside = cursorValue < base && cursorValue >= top;
-    if (inside) {
-      // De-prioritize points immediately above the lower boundary so zero layers
-      // at the same boundary can still be selected before the next upper layer.
-      const distToBase = Math.abs(cursorValue - base);
-      return distToBase <= valueTolerance
-        ? { bucket: 2, delta: distToBase }
-        : { bucket: 0, delta: 0 };
+      if (d <= zeroLayerTolerance) return { bucket: 0, delta: d };
+      return { bucket: 3, delta: d };
     }
 
     const lo = Math.min(base, top);
     const hi = Math.max(base, top);
+    const inside = cursorValue > lo + zeroLayerTolerance && cursorValue < hi - zeroLayerTolerance;
+    if (inside) return { bucket: 1, delta: 0 };
+
+    const nearBoundary = Math.min(Math.abs(cursorValue - lo), Math.abs(cursorValue - hi));
+    if (nearBoundary <= zeroLayerTolerance) return { bucket: 2, delta: nearBoundary };
+
     let d = 0;
     if (cursorValue < lo) d = lo - cursorValue;
     else if (cursorValue > hi) d = cursorValue - hi;
@@ -1223,8 +1214,15 @@ function renderHoverAt(clientX, clientY) {
   }
   const hoverSnapDistancePx = 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
+  const hoverSnapDistanceXPxStacked = 26;
+  const stackedTooFarInX = selected
+    ? Math.abs(selected.xPx - cursorX) > hoverSnapDistanceXPxStacked
+    : true;
+  const hideForDistance = state.yAxisStacked
+    ? stackedTooFarInX
+    : (!selected || selected.dist2 > hoverSnapDistanceSq);
 
-  if (!selected || selected.dist2 > hoverSnapDistanceSq) {
+  if (!selected || hideForDistance) {
     dom.hoverBox.classList.add("d-none");
     hideHoverPoint();
     hideHoverCursorLine();
