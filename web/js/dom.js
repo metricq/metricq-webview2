@@ -49,6 +49,7 @@ export const dom = {
   btnHideAll: document.getElementById("btnHideAll"),
   btnShowAll: document.getElementById("btnShowAll"),
   btnClear: document.getElementById("btnClear"),
+  btnRecolorClassic: document.getElementById("btnRecolorClassic"),
   btnRecolor: document.getElementById("btnRecolor"),
   analyzeModal: document.getElementById("analyzeModal"),
   btnExportPng: document.getElementById("btnExportPng"),

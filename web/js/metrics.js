@@ -22,14 +22,67 @@ function shownMetricFactor(metric) {
   return null;
 }
 
-function recolorForIndex(index) {
-  // Inspired by metricq-webview distinct-colors usage (lightness range ~25..75),
-  // but generated locally to avoid an extra dependency.
-  const hue = (index * 137.508) % 360;
-  const saturation = [58, 64, 70][index % 3];
-  const lightness = [34, 44, 54, 64, 72][index % 5];
+function createSeededRng(seed) {
+  let x = seed >>> 0;
+  return () => {
+    x = (x + 0x6D2B79F5) >>> 0;
+    let t = Math.imul(x ^ (x >>> 15), 1 | x);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function randomSeed32() {
+  if (globalThis.crypto?.getRandomValues) {
+    const arr = new Uint32Array(1);
+    globalThis.crypto.getRandomValues(arr);
+    return arr[0] >>> 0;
+  }
+  return Math.floor(Math.random() * 4294967296) >>> 0;
+}
+
+function shuffled(values, rand) {
+  const out = values.slice();
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+function recolorForIndex(index, seed) {
+  // Distinct colors, but seed-randomized per recolor click.
+  const rand = createSeededRng(seed);
+  const hueOffset = rand() * 360;
+  const saturationPalette = shuffled([56, 62, 68], rand);
+  const lightnessPalette = shuffled([36, 44, 52, 60, 68], rand);
+  const hue = (hueOffset + index * 137.508) % 360;
+  const saturation = saturationPalette[index % saturationPalette.length];
+  const lightness = lightnessPalette[index % lightnessPalette.length];
   return `hsl(${hue.toFixed(1)} ${saturation}% ${lightness}%)`;
 }
+
+const classicPalette = [
+  "#ff0000",
+  "#008000",
+  "#0000ff",
+  "#ffa500",
+  "#800080",
+  "#8b4513",
+  "#808000",
+  "#800000",
+  "#00ff00",
+  "#ffff00",
+  "#cc0000",
+  "#006600",
+  "#0000cc",
+  "#cc8400",
+  "#660066",
+  "#6f370f",
+  "#666600",
+  "#660000",
+  "#00cc00",
+];
 
 function collectExpressionReferences(expression) {
   const refs = [];
@@ -134,8 +187,18 @@ export function removeMetric(name, hooks) {
 }
 
 export function recolorMetrics(hooks) {
+  const seed = randomSeed32();
   state.metrics.forEach((m, i) => {
-    m.color = recolorForIndex(i);
+    m.color = recolorForIndex(i, seed);
+  });
+  renderMetricList(hooks);
+  hooks.renderChart();
+  hooks.onStateChanged?.();
+}
+
+export function recolorMetricsClassic(hooks) {
+  state.metrics.forEach((m, i) => {
+    m.color = classicPalette[i % classicPalette.length];
   });
   renderMetricList(hooks);
   hooks.renderChart();

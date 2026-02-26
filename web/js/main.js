@@ -9,6 +9,7 @@ import {
   addMetric,
   clearMetrics,
   fetchMetadata,
+  recolorMetricsClassic,
   recolorMetrics,
   renderHints,
   renderMetricList,
@@ -383,6 +384,7 @@ function wireEvents() {
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
   dom.btnClear.addEventListener("click", () => clearMetrics(hooks));
+  dom.btnRecolorClassic.addEventListener("click", () => recolorMetricsClassic(hooks));
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
 
   dom.metricSearch.addEventListener("input", () => {
