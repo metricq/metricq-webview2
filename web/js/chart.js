@@ -1154,12 +1154,51 @@ function renderHoverAt(clientX, clientY) {
     const sampled = seriesValueAtTime(metric, series, t);
     if (!sampled) continue;
     if (state.yAxisStacked) {
-      const stackedAtCursor = stackedInterpolatedAt(metric.name, t);
-      if (!stackedAtCursor) continue;
-      const sampleT = t;
-      const rawValue = stackedAtCursor.raw;
-      const plotValue = stackedAtCursor.top;
-      const yPx = lastLayout.sy(plotValue);
+      if (metric.stackMode !== "normal") {
+        const stackedAtCursor = stackedInterpolatedAt(metric.name, t);
+        if (!stackedAtCursor) continue;
+        const sampleT = t;
+        const rawValue = stackedAtCursor.raw;
+        const plotValue = stackedAtCursor.top;
+        const yPx = lastLayout.sy(plotValue);
+        const xPx = lastLayout.sx(sampleT);
+        if (xPx >= margin.left && xPx <= plotRight) {
+          const dx = xPx - cursorX;
+          const dy = yPx - cursorY;
+          candidates.push({
+            metric,
+            sampled: { t: sampleT, value: rawValue },
+            plotValue,
+            baseValue: stackedAtCursor.base,
+            isStackedLayer: true,
+            xPx,
+            yPx,
+            snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
+            dist2: dx * dx + dy * dy,
+          });
+        }
+        continue;
+      }
+
+      const nearestRaw = nearestPointByProximity(
+        metric,
+        series,
+        t,
+        cursorX,
+        cursorY,
+        lastLayout.sx,
+        lastLayout.sy,
+      );
+      if (!nearestRaw) continue;
+      const nearestPoint = nearestRaw.point;
+      const nearestIndex = nearestRaw.index;
+      if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
+      const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+      const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
+      const rawValue = series.mode === "values"
+        ? nearestPoint.v * metric.factor
+        : nearestPoint.avg * metric.factor;
+      const yPx = lastLayout.sy(rawValue);
       const xPx = lastLayout.sx(sampleT);
       if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
         const dx = xPx - cursorX;
@@ -1167,8 +1206,9 @@ function renderHoverAt(clientX, clientY) {
         candidates.push({
           metric,
           sampled: { t: sampleT, value: rawValue },
-          plotValue,
-          baseValue: stackedAtCursor.base,
+          plotValue: rawValue,
+          baseValue: 0,
+          isStackedLayer: false,
           xPx,
           yPx,
           snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
@@ -1203,14 +1243,15 @@ function renderHoverAt(clientX, clientY) {
     if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
       const dx = xPx - cursorX;
       const dy = yPx - cursorY;
-      candidates.push({
-        metric,
-        sampled: { t: sampleT, value: rawValue },
-        xPx,
-        yPx,
-        snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
-        dist2: dx * dx + dy * dy,
-      });
+        candidates.push({
+          metric,
+          sampled: { t: sampleT, value: rawValue },
+          isStackedLayer: false,
+          xPx,
+          yPx,
+          snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
+          dist2: dx * dx + dy * dy,
+        });
     }
   }
 
@@ -1226,6 +1267,11 @@ function renderHoverAt(clientX, clientY) {
     const zeroToleranceBase = valueTolerance * 0.5;
     const scored = [];
     for (const candidate of candidates) {
+      if (!candidate.isStackedLayer) {
+        const norm = candidate.dist2 / Math.max(1e-9, candidate.snapPx * candidate.snapPx);
+        scored.push({ candidate, bucket: 4, delta: norm });
+        continue;
+      }
       const top = Number(candidate.plotValue);
       const base = Number(candidate.baseValue);
       const raw = Number(candidate.sampled.value);
