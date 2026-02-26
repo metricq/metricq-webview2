@@ -1,38 +1,6 @@
-import { normalizeSIUnit } from "./units.mjs";
-
-const SI_PREFIXES = [
-  { exp: -9, prefix: "n" },
-  { exp: -6, prefix: "u" },
-  { exp: -3, prefix: "m" },
-  { exp: 0, prefix: "" },
-  { exp: 3, prefix: "k" },
-  { exp: 6, prefix: "M" },
-  { exp: 9, prefix: "G" },
-];
-
-const BASE_UNITS = ["W", "Wh", "V", "A", "VA", "Pa", "Hz", "B"];
+import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 
 const RESERVED = new Set(["min", "max", "sum", "log"]);
-
-const UNIT_TABLE = (() => {
-  const map = new Map();
-  for (const base of BASE_UNITS) {
-    for (const entry of SI_PREFIXES) {
-      map.set(`${entry.prefix}${base}`, { family: base, exp: entry.exp });
-    }
-  }
-  return map;
-})();
-
-function parseUnit(unit) {
-  return UNIT_TABLE.get(normalizeSIUnit(unit)) || null;
-}
-
-function formatUnit(family, exp) {
-  const prefix = SI_PREFIXES.find((entry) => entry.exp === exp)?.prefix;
-  if (prefix == null) return family;
-  return `${prefix}${family}`;
-}
 
 function collectDependencies(expr) {
   const out = new Set();
@@ -87,7 +55,7 @@ export function deriveExpressionUnits(metrics) {
     }
 
     const parsed = deps
-      .map((dep) => parseUnit(dep.unit || dep.displayUnit || ""))
+      .map((dep) => parseSIUnit(dep.unit || dep.displayUnit || ""))
       .filter(Boolean);
 
     if (parsed.length !== deps.length) {
@@ -114,7 +82,7 @@ export function deriveExpressionUnits(metrics) {
       }
     }
 
-    metric.unit = formatUnit(family, bestExp);
+    metric.unit = formatSIUnit(family, bestExp);
     metric.displayUnit = metric.unit;
   }
 }

@@ -1,4 +1,6 @@
-import { normalizeSIUnit } from "./units.mjs";
+import { collectExpressionReferences } from "./expression-refs.mjs";
+import { formatFactor } from "./factor-format.mjs";
+import { SI_PREFIXES, parseSIUnit } from "./si-units.mjs";
 
 export function expressionTokenForMetric(name) {
   return `[${String(name || "").trim()}]`;
@@ -6,68 +8,10 @@ export function expressionTokenForMetric(name) {
 
 const RESERVED_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
 
-const SI_PREFIXES = [
-  { exp: -9, prefix: "n" },
-  { exp: -6, prefix: "u" },
-  { exp: -3, prefix: "m" },
-  { exp: 0, prefix: "" },
-  { exp: 3, prefix: "k" },
-  { exp: 6, prefix: "M" },
-  { exp: 9, prefix: "G" },
-];
-
-const BASE_UNITS = ["W", "Wh", "V", "A", "VA", "Pa", "Hz", "B"];
-
-const UNIT_TABLE = (() => {
-  const map = new Map();
-  for (const base of BASE_UNITS) {
-    for (const entry of SI_PREFIXES) {
-      map.set(`${entry.prefix}${base}`, { family: base, exp: entry.exp });
-    }
-  }
-  return map;
-})();
-
 const metadataUnitCache = new Map();
-
-function parseUnit(unit) {
-  return UNIT_TABLE.get(normalizeSIUnit(unit)) || null;
-}
-
-function formatFactor(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  if (Math.abs(num - 1) < 1e-12) return null;
-  return num.toPrecision(12).replace(/\.?0+$/, "");
-}
 
 function wrapScaledMetric(metricName, factorText) {
   return `([${metricName}]*${factorText})`;
-}
-
-function collectExpressionReferences(expression) {
-  const refs = [];
-  const text = String(expression || "");
-
-  const bracketRegex = /\[([^\]]+)\]/g;
-  let m = bracketRegex.exec(text);
-  while (m) {
-    const name = String(m[1] || "").trim();
-    if (name) refs.push(name);
-    m = bracketRegex.exec(text);
-  }
-
-  const bare = text.replace(/\[[^\]]+\]/g, " ");
-  const identRegex = /\b([A-Za-z_][A-Za-z0-9_:.\-]*)\b/g;
-  let id = identRegex.exec(bare);
-  while (id) {
-    const token = id[1];
-    const lower = token.toLowerCase();
-    if (!RESERVED_FUNCTIONS.has(lower)) refs.push(token);
-    id = identRegex.exec(bare);
-  }
-
-  return [...new Set(refs)];
 }
 
 async function resolveMetricUnit(metricName, fetchMetricUnit) {
@@ -131,15 +75,15 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit) {
         : 1;
       refEntries.push({
         name: refName,
-        parsedUnit: parseUnit(unit),
-        displayParsed: parseUnit(displayUnit),
+        parsedUnit: parseSIUnit(unit),
+        displayParsed: parseSIUnit(displayUnit),
         manualFactor: Number.isFinite(manual) ? manual : 1,
       });
       continue;
     }
 
     const unit = await resolveMetricUnit(refName, fetchMetricUnit);
-    refEntries.push({ name: refName, parsedUnit: parseUnit(unit), displayParsed: null, manualFactor: 1 });
+    refEntries.push({ name: refName, parsedUnit: parseSIUnit(unit), displayParsed: null, manualFactor: 1 });
   }
 
   const factorMap = new Map();
@@ -199,7 +143,7 @@ export function buildComputedExpression(expression, metrics, factorMapOverride =
         break;
       }
       const name = text.slice(i + 1, end).trim();
-      const factorText = formatFactor(factorMap.get(name));
+      const factorText = formatFactor(factorMap.get(name), 12);
       out += factorText ? wrapScaledMetric(name, factorText) : text.slice(i, end + 1);
       i = end + 1;
       continue;
@@ -210,7 +154,7 @@ export function buildComputedExpression(expression, metrics, factorMapOverride =
       while (j < text.length && /[A-Za-z0-9_:.\-]/.test(text[j])) j += 1;
       const word = text.slice(i, j);
       const lower = word.toLowerCase();
-      const factorText = RESERVED_FUNCTIONS.has(lower) ? null : formatFactor(factorMap.get(word));
+      const factorText = RESERVED_FUNCTIONS.has(lower) ? null : formatFactor(factorMap.get(word), 12);
       out += factorText ? wrapScaledMetric(word, factorText) : word;
       i = j;
       continue;

@@ -1,5 +1,6 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
+import { formatFactor } from "./factor-format.mjs";
 import { metricByName, metricDisplayName, state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
@@ -23,13 +24,6 @@ function createColorCell(color) {
   return td;
 }
 
-function formatFactor(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  if (Math.abs(num - 1) < 1e-12) return null;
-  return num.toPrecision(12).replace(/\.?0+$/, "");
-}
-
 async function buildAnalyzeTargets() {
   const visibleMetrics = state.metrics.filter((metric) => metric.draw);
   const resolved = await buildQueryTargetsResolved(visibleMetrics, async (metricName) => {
@@ -39,7 +33,7 @@ async function buildAnalyzeTargets() {
 
   return resolved.map((target) => {
     const metric = metricByName(target.name);
-    const factorText = formatFactor(metric?.factor);
+    const factorText = formatFactor(metric?.factor, 12);
     if (!factorText) return target;
     if (target.expr) return { name: target.name, expr: `(${target.expr})*${factorText}` };
     return { name: target.name, expr: `([${target.name}]*${factorText})` };

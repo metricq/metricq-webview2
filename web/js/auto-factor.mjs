@@ -1,40 +1,4 @@
-import { normalizeSIUnit } from "./units.mjs";
-
-const SI_PREFIXES = [
-  { exp: -9, prefix: "n" },
-  { exp: -6, prefix: "u" },
-  { exp: -3, prefix: "m" },
-  { exp: 0, prefix: "" },
-  { exp: 3, prefix: "k" },
-  { exp: 6, prefix: "M" },
-  { exp: 9, prefix: "G" },
-];
-
-const BASE_UNITS = ["W", "Wh", "V", "A", "VA", "Pa", "Hz", "B"];
-
-function buildUnitTable() {
-  const table = new Map();
-  for (const base of BASE_UNITS) {
-    for (const item of SI_PREFIXES) {
-      table.set(`${item.prefix}${base}`, { family: base, exp: item.exp });
-    }
-  }
-  return table;
-}
-
-const UNIT_TABLE = buildUnitTable();
-
-function parseUnit(unit) {
-  if (!unit) return null;
-  const normalized = normalizeSIUnit(unit);
-  return UNIT_TABLE.get(normalized) || null;
-}
-
-function formatUnit(family, exp) {
-  const prefix = SI_PREFIXES.find((item) => item.exp === exp)?.prefix;
-  if (prefix == null) return family;
-  return `${prefix}${family}`;
-}
+import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 
 function representativeMagnitude(series) {
   if (!series) return null;
@@ -108,7 +72,7 @@ export function applyAutoScaling(metrics, seriesMap) {
 
   const groups = new Map();
   for (const metric of metrics) {
-    const parsed = parseUnit(metric.unit);
+    const parsed = parseSIUnit(metric.unit);
     if (!parsed) continue;
     const rep = representativeMagnitude(seriesMap.get(metric.name));
     const repBase = rep == null ? null : rep * 10 ** parsed.exp;
@@ -118,7 +82,7 @@ export function applyAutoScaling(metrics, seriesMap) {
 
   for (const [family, group] of groups.entries()) {
     const targetExp = chooseTargetExp(group);
-    const targetUnit = formatUnit(family, targetExp);
+    const targetUnit = formatSIUnit(family, targetExp);
     for (const item of group) {
       item.metric.factor = 10 ** (item.exp - targetExp);
       item.metric.displayUnit = targetUnit;

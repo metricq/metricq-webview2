@@ -2,26 +2,14 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
+import { collectExpressionReferences } from "./expression-refs.mjs";
+import { formatFactor, shownMetricFactor } from "./factor-format.mjs";
 import { colors, metricByName, metricDisplayName, state } from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
 let factorMetricName = "";
 let draggingMetricName = "";
-const RESERVED_EXPR_FUNCTIONS = new Set(["log", "min", "max", "sum"]);
-
-function formatFactor(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  if (Math.abs(num - 1) < 1e-12) return null;
-  return num.toPrecision(6).replace(/\.?0+$/, "");
-}
-
-function shownMetricFactor(metric) {
-  if (metric.factorMode === "manual") return formatFactor(metric.manualFactor);
-  return null;
-}
-
 function createSeededRng(seed) {
   let x = seed >>> 0;
   return () => {
@@ -83,31 +71,6 @@ const classicPalette = [
   "#660000",
   "#00cc00",
 ];
-
-function collectExpressionReferences(expression) {
-  const refs = [];
-  const text = String(expression || "");
-
-  const bracketRegex = /\[([^\]]+)\]/g;
-  let m = bracketRegex.exec(text);
-  while (m) {
-    const name = String(m[1] || "").trim();
-    if (name) refs.push(name);
-    m = bracketRegex.exec(text);
-  }
-
-  const bare = text.replace(/\[[^\]]+\]/g, " ");
-  const identRegex = /\b([A-Za-z_][A-Za-z0-9_:.\-]*)\b/g;
-  let id = identRegex.exec(bare);
-  while (id) {
-    const token = id[1];
-    const lower = token.toLowerCase();
-    if (!RESERVED_EXPR_FUNCTIONS.has(lower)) refs.push(token);
-    id = identRegex.exec(bare);
-  }
-
-  return [...new Set(refs)];
-}
 
 export function addMetric(name, hooks) {
   if (!name || metricByName(name)) return;

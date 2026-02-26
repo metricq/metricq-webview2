@@ -1,4 +1,5 @@
 import { dom } from "./dom.js";
+import { shownMetricFactor } from "./factor-format.mjs";
 import { metricDisplayName, state } from "./model.js";
 import { downloadBlob } from "./utils.js";
 
@@ -33,18 +34,6 @@ export function exportCSV() {
     }
   }
   downloadBlob("metricq-codex.csv", "text/csv", rows.join("\n"));
-}
-
-function formatFactor(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num)) return null;
-  if (Math.abs(num - 1) < 1e-12) return null;
-  return num.toPrecision(6).replace(/\.?0+$/, "");
-}
-
-function shownMetricFactor(metric) {
-  if (metric.factorMode === "manual") return formatFactor(metric.manualFactor);
-  return null;
 }
 
 function drawLegend(ctx, cssWidth, cssHeight) {
