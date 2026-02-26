@@ -1106,6 +1106,11 @@ function renderHoverAt(clientX, clientY) {
   const candidates = [];
   const plotRight = margin.left + lastLayout.plotW;
   const plotBottom = margin.top + lastLayout.plotH;
+  const maxAbsDomain = Math.max(
+    1e-9,
+    Math.abs(Number(lastLayout?.minY) || 0),
+    Math.abs(Number(lastLayout?.maxY) || 0),
+  );
 
   for (const metric of state.metrics) {
     if (!metric.draw) continue;
@@ -1143,6 +1148,7 @@ function renderHoverAt(clientX, clientY) {
           sampled: { t: sampleT, value: rawValue },
           xPx,
           yPx,
+          snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
           dist2: dx * dx + dy * dy,
         });
       }
@@ -1157,12 +1163,14 @@ function renderHoverAt(clientX, clientY) {
   } else {
     const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
     const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
-    const zeroTolerance = valueTolerance * 0.5;
+    const zeroToleranceBase = valueTolerance * 0.5;
     const scored = [];
     for (const candidate of candidates) {
       const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
       const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
       const raw = Number(candidate.sampled.value);
+      const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
+      const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
       if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) {
         scored.push({ candidate, bucket: 3, delta: Number.POSITIVE_INFINITY });
         continue;
@@ -1194,18 +1202,13 @@ function renderHoverAt(clientX, clientY) {
     scored.sort((a, b) => {
       if (a.bucket !== b.bucket) return a.bucket - b.bucket;
       if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
-      return a.candidate.dist2 - b.candidate.dist2;
+      const aNorm = a.candidate.dist2 / Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
+      const bNorm = b.candidate.dist2 / Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
+      return aNorm - bNorm;
     });
     selected = scored[0]?.candidate || null;
   }
-  const maxAbsDomain = Math.max(
-    1e-9,
-    Math.abs(Number(lastLayout?.minY) || 0),
-    Math.abs(Number(lastLayout?.maxY) || 0),
-  );
-  const selectedAbsValue = Math.abs(Number(selected?.sampled?.value) || 0);
-  const valueScale = Math.max(0, Math.min(1, selectedAbsValue / maxAbsDomain));
-  const hoverSnapDistancePx = 12 + (valueScale * 18);
+  const hoverSnapDistancePx = Number.isFinite(selected?.snapPx) ? selected.snapPx : 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
 
   if (!selected || selected.dist2 > hoverSnapDistanceSq) {
