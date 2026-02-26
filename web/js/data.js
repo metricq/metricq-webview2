@@ -100,10 +100,12 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   const visibleRange = Math.max(1, state.to - state.from);
   const extendedFrom = state.from - visibleRange;
   const extendedTo = state.to + visibleRange;
+  const requestSeq = ++latestLoadRequestSeq;
   const targets = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
     const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
     return body?.metadata?.unit || "";
   });
+  if (requestSeq !== latestLoadRequestSeq) return;
   const metricsKey = JSON.stringify(targets);
   const coveredByLoadedWindow =
     state.loadedMetricsKey === metricsKey &&
@@ -113,17 +115,10 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     extendedTo <= state.loadedTo;
   if (coveredByLoadedWindow) {
     updateVisibleState(renderChart, onStateChanged);
-    if (state.yAxisMode === "global") {
-      try {
-        await ensureGlobalYAxisRange();
-      } catch (_) {}
-    }
     renderChart();
     onStateChanged();
-    return;
   }
 
-  const requestSeq = ++latestLoadRequestSeq;
   const req = {
     targets,
     from: extendedFrom,
