@@ -417,45 +417,19 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
 
 function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy) {
   if (!Array.isArray(timeline) || timeline.length < 2) return;
-  if (tiMode) {
-    drawLastSemanticBand(
-      ctx,
-      timeline,
-      (p) => Number(p?.base) || 0,
-      (p) => Number(p?.avg) || 0,
-      sx,
-      sy,
-    );
-    return;
-  }
-
-  ctx.beginPath();
-  for (let i = 0; i < timeline.length; i += 1) {
-    const p = timeline[i];
-    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-    else ctx.lineTo(sx(p.t), sy(p.avg));
-  }
-  for (let i = timeline.length - 1; i >= 0; i -= 1) {
-    const p = timeline[i];
-    ctx.lineTo(sx(p.t), sy(p.base));
-  }
-  ctx.closePath();
-  ctx.fill();
+  drawLastSemanticBand(
+    ctx,
+    timeline,
+    (p) => Number(p?.base) || 0,
+    (p) => Number(p?.avg) || 0,
+    sx,
+    sy,
+  );
 }
 
 function drawStackedTimelineLine(ctx, timeline, tiMode, sx, sy) {
   if (!Array.isArray(timeline) || timeline.length < 2) return;
-  if (tiMode) {
-    drawLastSemanticStepLine(ctx, timeline, (p) => Number(p?.avg) || 0, sx, sy);
-    return;
-  }
-  ctx.beginPath();
-  for (let i = 0; i < timeline.length; i += 1) {
-    const p = timeline[i];
-    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-    else ctx.lineTo(sx(p.t), sy(p.avg));
-  }
-  ctx.stroke();
+  drawLastSemanticStepLine(ctx, timeline, (p) => Number(p?.avg) || 0, sx, sy);
 }
 
 
