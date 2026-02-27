@@ -451,14 +451,19 @@ export function renderMetricList(hooks) {
     const editButton = metric.expr
       ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
       : "";
-    const stacksInYAxis = metric.stackMode !== "normal";
-    const stackButtonClass = stacksInYAxis ? "btn-outline-secondary" : "btn-warning";
-    const stackTitle = stacksInYAxis
-      ? "Im Stack-Modus: gestapelt zeichnen"
-      : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";
+    const stackButton = state.yAxisStacked
+      ? (() => {
+        const stacksInYAxis = metric.stackMode !== "normal";
+        const stackButtonClass = stacksInYAxis ? "btn-outline-secondary" : "btn-warning";
+        const stackTitle = stacksInYAxis
+          ? "Im Stack-Modus: gestapelt zeichnen"
+          : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";
+        return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi bi-layers"></i></button>`;
+      })()
+      : "";
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
-      <button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi bi-layers"></i></button>
+      ${stackButton}
       ${editButton}
       <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
       <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>

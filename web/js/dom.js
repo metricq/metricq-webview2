@@ -27,7 +27,6 @@ export const dom = {
   yAxisModeManual: document.getElementById("yAxisModeManual"),
   yAxisManualMin: document.getElementById("yAxisManualMin"),
   yAxisManualMax: document.getElementById("yAxisManualMax"),
-  yAxisStacked: document.getElementById("yAxisStacked"),
   btnApplyYAxis: document.getElementById("btnApplyYAxis"),
   btnTimeRange: document.getElementById("btnTimeRange"),
   btnShiftBack: document.getElementById("btnShiftBack"),

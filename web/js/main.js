@@ -294,7 +294,6 @@ function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
-  dom.yAxisStacked.checked = !!state.yAxisStacked;
   syncStackedModeButton();
   const fillMin = Number.isFinite(state.yAxisManualMin) ? state.yAxisManualMin : state.yAxisCurrentMin;
   const fillMax = Number.isFinite(state.yAxisManualMax) ? state.yAxisManualMax : state.yAxisCurrentMax;
@@ -364,8 +363,8 @@ function wireEvents() {
   });
   dom.btnStackedMode.addEventListener("click", async () => {
     state.yAxisStacked = !state.yAxisStacked;
-    dom.yAxisStacked.checked = !!state.yAxisStacked;
     syncStackedModeButton();
+    renderMetricList(hooks);
     if (state.yAxisMode === "global") {
       try {
         await ensureGlobalYAxisRange();
@@ -432,8 +431,6 @@ function wireEvents() {
   dom.yAxisModeManual.addEventListener("change", updateYAxisManualInputsEnabled);
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
-    state.yAxisStacked = !!dom.yAxisStacked.checked;
-    syncStackedModeButton();
     const manualMin = Number.parseFloat(dom.yAxisManualMin.value);
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
