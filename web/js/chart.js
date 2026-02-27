@@ -1150,6 +1150,10 @@ function renderHoverAt(clientX, clientY) {
 
   for (const metric of state.metrics) {
     if (!metric.draw) continue;
+    const series = state.series.get(metric.name);
+    if (!series || series.error) continue;
+    const sampled = seriesValueAtTime(metric, series, t);
+    if (!sampled) continue;
     if (state.yAxisStacked) {
       if (metric.stackMode !== "normal") {
         const stackedAtCursor = stackedInterpolatedAt(metric.name, t);
@@ -1176,14 +1180,7 @@ function renderHoverAt(clientX, clientY) {
         }
         continue;
       }
-    }
 
-    const series = state.series.get(metric.name);
-    if (!series || series.error) continue;
-    const sampled = seriesValueAtTime(metric, series, t);
-    if (!sampled) continue;
-
-    if (state.yAxisStacked) {
       const nearestRaw = nearestPointByProximity(
         metric,
         series,
