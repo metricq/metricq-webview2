@@ -202,6 +202,90 @@ function serializeExpressionEditor() {
   return out;
 }
 
+function expressionLengthOfNode(node) {
+  if (!node) return 0;
+  if (node.nodeType === Node.TEXT_NODE) {
+    return String(node.textContent || "").split(CARET_SENTINEL).join("").length;
+  }
+  if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
+    const metricName = String(node.dataset.metricName || "").trim();
+    return metricName ? (metricName.length + 2) : 0;
+  }
+  let total = 0;
+  for (const child of node.childNodes || []) total += expressionLengthOfNode(child);
+  return total;
+}
+
+function expressionLengthOfFragment(fragment) {
+  let total = 0;
+  for (const child of fragment.childNodes || []) total += expressionLengthOfNode(child);
+  return total;
+}
+
+function selectionExpressionOffset() {
+  const range = getSelectionRangeInEditor();
+  if (!range) return null;
+  const before = document.createRange();
+  before.selectNodeContents(dom.expressionInput);
+  before.setEnd(range.startContainer, range.startOffset);
+  return expressionLengthOfFragment(before.cloneContents());
+}
+
+function textNodeOffsetFromExpressionOffset(text, expressionOffset) {
+  const raw = String(text || "");
+  let seen = 0;
+  for (let i = 0; i < raw.length; i += 1) {
+    if (raw[i] !== CARET_SENTINEL) {
+      if (seen >= expressionOffset) return i;
+      seen += 1;
+    }
+  }
+  return raw.length;
+}
+
+function setCaretByExpressionOffset(expressionOffset) {
+  const targetOffset = Math.max(0, Number(expressionOffset) || 0);
+  let remaining = targetOffset;
+  const children = Array.from(dom.expressionInput.childNodes || []);
+  for (const node of children) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const textLen = expressionLengthOfNode(node);
+      if (remaining <= textLen) {
+        const domOffset = textNodeOffsetFromExpressionOffset(node.textContent, remaining);
+        const range = document.createRange();
+        range.setStart(node, domOffset);
+        range.collapse(true);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        return;
+      }
+      remaining -= textLen;
+      continue;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
+      const tokenLen = expressionLengthOfNode(node);
+      if (remaining === 0) {
+        placeCaretBeforeNode(node);
+        return;
+      }
+      if (remaining <= tokenLen) {
+        const beforeDist = remaining;
+        const afterDist = tokenLen - remaining;
+        if (beforeDist <= afterDist) placeCaretBeforeNode(node);
+        else placeCaretAfterNode(node);
+        return;
+      }
+      remaining -= tokenLen;
+      continue;
+    }
+    const otherLen = expressionLengthOfNode(node);
+    if (remaining <= otherLen) break;
+    remaining -= otherLen;
+  }
+  placeCaretAtEnd(dom.expressionInput);
+}
+
 function placeCaretAfterNode(node) {
   const next = node.nextSibling;
   if (next && next.nodeType === Node.TEXT_NODE) {
@@ -581,9 +665,14 @@ function handleExpressionEditorDrop(event) {
 
 function maybeConvertTypedBracketExpression(event) {
   if (event.key !== "]") return;
+  const caretOffset = selectionExpressionOffset();
   const expr = expressionFromEditor();
   renderExpressionEditor(expr);
-  placeCaretAtEnd(dom.expressionInput);
+  if (caretOffset == null) {
+    placeCaretAtEnd(dom.expressionInput);
+    return;
+  }
+  setCaretByExpressionOffset(caretOffset);
 }
 
 function maybePlaceCaretOutsideEdgeToken(event) {
