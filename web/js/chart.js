@@ -1261,50 +1261,11 @@ function renderHoverAt(clientX, clientY) {
 
   let selected = null;
   let selectedStackScore = null;
-  if (state.yAxisStacked && Number.isFinite(cursorValue)) {
-    const directAreaHits = [];
-    for (const metric of state.metrics) {
-      if (!metric.draw || metric.stackMode === "normal") continue;
-      const at = stackedInterpolatedAt(metric.name, t);
-      if (!at) continue;
-      const top = Number(at.top);
-      const base = Number(at.base);
-      if (!Number.isFinite(top) || !Number.isFinite(base)) continue;
-      const lo = Math.min(base, top);
-      const hi = Math.max(base, top);
-      if (cursorValue < lo || cursorValue > hi) continue;
-      const xPx = lastLayout.sx(t);
-      const yPx = lastLayout.sy(top);
-      const dx = xPx - cursorX;
-      const dy = yPx - cursorY;
-      const center = (lo + hi) / 2;
-      directAreaHits.push({
-        metric,
-        sampled: { t, value: top - base },
-        plotValue: top,
-        baseValue: base,
-        isStackedLayer: true,
-        xPx,
-        yPx,
-        snapPx: 22,
-        dist2: dx * dx + dy * dy,
-        centerDelta: Math.abs(cursorValue - center),
-      });
-    }
-    if (directAreaHits.length > 0) {
-      directAreaHits.sort((a, b) => {
-        if (Math.abs(a.centerDelta - b.centerDelta) > 1e-12) return a.centerDelta - b.centerDelta;
-        return a.dist2 - b.dist2;
-      });
-      selected = directAreaHits[0];
-      selectedStackScore = { bucket: 0 };
-    }
-  }
-  if (!selected && (!state.yAxisStacked || !Number.isFinite(cursorValue))) {
+  if (!state.yAxisStacked || !Number.isFinite(cursorValue)) {
     for (const candidate of candidates) {
       if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
     }
-  } else if (!selected) {
+  } else {
     const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
     const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
     const zeroToleranceBase = valueTolerance * 0.5;
