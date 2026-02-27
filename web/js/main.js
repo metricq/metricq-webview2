@@ -348,9 +348,7 @@ function commitDragZoom() {
   hooks.loadData();
 }
 
-function wireEvents() {
-  wireExpressionModal(hooks);
-
+function wireTopBarEvents() {
   dom.btnShiftBack.addEventListener("click", () => {
     shiftRangeByFactor(-0.5);
     hooks.loadData();
@@ -379,6 +377,9 @@ function wireEvents() {
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);
   });
+}
+
+function wireTimeDialogEvents() {
   dom.btnCloseTimePopup.addEventListener("click", closeTimePopup);
   dom.btnCancelTimeRange.addEventListener("click", closeTimePopup);
   dom.btnApplyTimeRange.addEventListener("click", () => {
@@ -407,6 +408,37 @@ function wireEvents() {
     closeTimePopup();
   });
 
+  dom.rangePresets.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-range]");
+    if (!button) return;
+    applyPreset(button.dataset.range);
+  });
+
+  dom.tabRelative.addEventListener("click", (event) => {
+    event.preventDefault();
+    switchTimeMode("relative");
+  });
+  dom.tabAbsolute.addEventListener("click", (event) => {
+    event.preventDefault();
+    switchTimeMode("absolute");
+  });
+  dom.relativeAmount.addEventListener("input", updateRelativePreview);
+  dom.relativeUnit.addEventListener("change", updateRelativePreview);
+
+  document.addEventListener("mousedown", (event) => {
+    if (dom.timePopup.classList.contains("d-none")) return;
+    const target = event.target;
+    if (dom.timePopup.contains(target) || dom.btnTimeRange.contains(target))
+      return;
+    closeTimePopup();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeTimePopup();
+  });
+}
+
+function wireMetricPanelEvents() {
   dom.btnAddMetric.addEventListener("click", () => {
     addMetric(dom.metricSearch.value.trim(), hooks);
     dom.metricSearch.value = "";
@@ -426,13 +458,17 @@ function wireEvents() {
       renderHints(hints, hooks);
     }, 220);
   });
+}
 
+function wireModalEvents() {
   dom.analyzeModal.addEventListener("shown.bs.modal", runAnalyze);
-
   dom.btnExportPng.addEventListener("click", exportPNG);
   dom.btnExportCsv.addEventListener("click", exportCSV);
   dom.btnExportJson.addEventListener("click", exportJSON);
   dom.btnApplyFactor.addEventListener("click", () => applyFactorFromModal(hooks));
+}
+
+function wireYAxisEvents() {
   dom.btnYAxis.addEventListener("click", syncYAxisModalFromState);
   dom.yAxisModal.addEventListener("shown.bs.modal", syncYAxisModalFromState);
   dom.yAxisModeLocal.addEventListener("change", updateYAxisManualInputsEnabled);
@@ -452,7 +488,9 @@ function wireEvents() {
     renderChart();
     hooks.onStateChanged();
   });
+}
 
+function wireCanvasInteractionEvents() {
   dom.canvas.addEventListener("mousemove", showHover);
   dom.canvas.addEventListener("mouseleave", hideHover);
 
@@ -522,35 +560,16 @@ function wireEvents() {
     renderCollapsedLegend();
     if (!dom.timePopup.classList.contains("d-none")) positionTimePopup();
   });
+}
 
-  dom.rangePresets.addEventListener("click", (event) => {
-    const button = event.target.closest("button[data-range]");
-    if (!button) return;
-    applyPreset(button.dataset.range);
-  });
-
-  dom.tabRelative.addEventListener("click", (event) => {
-    event.preventDefault();
-    switchTimeMode("relative");
-  });
-  dom.tabAbsolute.addEventListener("click", (event) => {
-    event.preventDefault();
-    switchTimeMode("absolute");
-  });
-  dom.relativeAmount.addEventListener("input", updateRelativePreview);
-  dom.relativeUnit.addEventListener("change", updateRelativePreview);
-
-  document.addEventListener("mousedown", (event) => {
-    if (dom.timePopup.classList.contains("d-none")) return;
-    const target = event.target;
-    if (dom.timePopup.contains(target) || dom.btnTimeRange.contains(target))
-      return;
-    closeTimePopup();
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") closeTimePopup();
-  });
+function wireEvents() {
+  wireExpressionModal(hooks);
+  wireTopBarEvents();
+  wireTimeDialogEvents();
+  wireMetricPanelEvents();
+  wireModalEvents();
+  wireYAxisEvents();
+  wireCanvasInteractionEvents();
 }
 
 function shiftRangeByFactor(factor) {
