@@ -965,6 +965,65 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   return best ? { point: best, index: bestIndex } : null;
 }
 
+function selectNearestHoverCandidate(candidates) {
+  let selected = null;
+  for (const candidate of candidates) {
+    if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
+  }
+  return selected;
+}
+
+function selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain) {
+  const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
+  const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
+  const zeroToleranceBase = valueTolerance * 0.5;
+  const scored = [];
+
+  for (const candidate of candidates) {
+    const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
+    const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
+    const raw = Number(candidate.sampled.value);
+    const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
+    const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
+    if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) {
+      scored.push({ candidate, bucket: 3, delta: Number.POSITIVE_INFINITY });
+      continue;
+    }
+
+    const lo = Math.min(base, top);
+    const hi = Math.max(base, top);
+    const nearBoundary = Math.min(
+      Math.abs(cursorValue - lo),
+      Math.abs(cursorValue - hi),
+    );
+    const isNearZero = Math.abs(raw) <= zeroTolerance;
+    if (isNearZero) {
+      if (nearBoundary <= zeroTolerance) scored.push({ candidate, bucket: 1, delta: nearBoundary });
+      else scored.push({ candidate, bucket: 3, delta: nearBoundary });
+      continue;
+    }
+
+    const inside = raw >= 0
+      ? (cursorValue >= base && cursorValue < top)
+      : (cursorValue <= base && cursorValue > top);
+    if (inside) {
+      scored.push({ candidate, bucket: 0, delta: 0 });
+      continue;
+    }
+    const outsideDelta = cursorValue < lo ? (lo - cursorValue) : (cursorValue > hi ? (cursorValue - hi) : 0);
+    scored.push({ candidate, bucket: 2, delta: outsideDelta });
+  }
+
+  scored.sort((a, b) => {
+    if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+    if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
+    const aNorm = a.candidate.dist2 / Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
+    const bNorm = b.candidate.dist2 / Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
+    return aNorm - bNorm;
+  });
+  return scored[0]?.candidate || null;
+}
+
 function sampleTIAtTime(metric, series, t) {
   if (series.mode === "values") {
     const points = series.points || [];
@@ -1157,59 +1216,9 @@ function renderHoverAt(clientX, clientY) {
     }
   }
 
-  let selected = null;
-  if (!state.yAxisStacked || !Number.isFinite(cursorValue)) {
-    for (const candidate of candidates) {
-      if (!selected || candidate.dist2 < selected.dist2) selected = candidate;
-    }
-  } else {
-    const range = Math.max(1e-9, Math.abs(lastLayout.maxY - lastLayout.minY));
-    const valueTolerance = (range * 4) / Math.max(1, lastLayout.plotH);
-    const zeroToleranceBase = valueTolerance * 0.5;
-    const scored = [];
-    for (const candidate of candidates) {
-      const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
-      const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
-      const raw = Number(candidate.sampled.value);
-      const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
-      const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
-      if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) {
-        scored.push({ candidate, bucket: 3, delta: Number.POSITIVE_INFINITY });
-        continue;
-      }
-
-      const lo = Math.min(base, top);
-      const hi = Math.max(base, top);
-      const nearBoundary = Math.min(
-        Math.abs(cursorValue - lo),
-        Math.abs(cursorValue - hi),
-      );
-      const isNearZero = Math.abs(raw) <= zeroTolerance;
-      if (isNearZero) {
-        if (nearBoundary <= zeroTolerance) scored.push({ candidate, bucket: 1, delta: nearBoundary });
-        else scored.push({ candidate, bucket: 3, delta: nearBoundary });
-        continue;
-      }
-
-      const inside = raw >= 0
-        ? (cursorValue >= base && cursorValue < top)
-        : (cursorValue <= base && cursorValue > top);
-      if (inside) {
-        scored.push({ candidate, bucket: 0, delta: 0 });
-        continue;
-      }
-      const outsideDelta = cursorValue < lo ? (lo - cursorValue) : (cursorValue > hi ? (cursorValue - hi) : 0);
-      scored.push({ candidate, bucket: 2, delta: outsideDelta });
-    }
-    scored.sort((a, b) => {
-      if (a.bucket !== b.bucket) return a.bucket - b.bucket;
-      if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
-      const aNorm = a.candidate.dist2 / Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
-      const bNorm = b.candidate.dist2 / Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
-      return aNorm - bNorm;
-    });
-    selected = scored[0]?.candidate || null;
-  }
+  const selected = (!state.yAxisStacked || !Number.isFinite(cursorValue))
+    ? selectNearestHoverCandidate(candidates)
+    : selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain);
   const hoverSnapDistancePx = Number.isFinite(selected?.snapPx) ? selected.snapPx : 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
 
