@@ -215,29 +215,14 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
     for (let i = 0; i < alignedTimes.length; i += 1) {
       const t = alignedTimes[i];
       if (clipToVisible && (t < from || t > to)) continue;
-      let allFinite = true;
-      for (const cfg of stackedConfigs) {
-        const rawValue = cfg.row[i];
-        if (rawValue == null) {
-          allFinite = false;
-          break;
-        }
-        const raw = Number(rawValue);
-        if (!Number.isFinite(raw)) {
-          allFinite = false;
-          break;
-        }
-      }
-      if (!allFinite) {
-        for (const cfg of stackedConfigs) {
-          cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
-        }
-        continue;
-      }
-
       let base = 0;
       for (const cfg of stackedConfigs) {
-        const raw = Number(cfg.row[i]);
+        const rawValue = cfg.row[i];
+        const raw = rawValue == null ? 0 : Number(rawValue);
+        if (!Number.isFinite(raw)) {
+          cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+          continue;
+        }
         const scaled = raw * cfg.metric.factor;
         const upper = base + scaled;
         cfg.avgByTime.set(t, upper);
@@ -272,21 +257,10 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
   for (const t of stackedTimes) {
     const valuesAtT = new Array(stackedConfigs.length);
-    let allFinite = true;
     for (let i = 0; i < stackedConfigs.length; i += 1) {
       const current = sampleLastValue(stackedConfigs[i].samples, t);
       const avg = current?.avg;
-      if (!Number.isFinite(avg)) {
-        allFinite = false;
-        break;
-      }
-      valuesAtT[i] = Number(avg);
-    }
-    if (!allFinite) {
-      for (const cfg of stackedConfigs) {
-        cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
-      }
-      continue;
+      valuesAtT[i] = Number.isFinite(avg) ? Number(avg) : 0;
     }
 
     let base = 0;
