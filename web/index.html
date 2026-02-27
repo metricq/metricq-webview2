@@ -102,6 +102,9 @@
                 <div id="metricHints" class="metric-hints"></div>
                 <ul class="list-group list-group-flush overflow-auto" id="metricList"></ul>
                 <div class="legend-badges pt-2 border-top">
+                  <span class="badge text-bg-secondary" id="perfBadge">HTTP: - ms</span>
+                  <span class="badge text-bg-secondary">Agg: <span id="aggPoints">0</span></span>
+                  <span class="badge text-bg-secondary">Raw: <span id="rawPoints">0</span></span>
                   <span
                     class="spinner-grow spinner-grow-sm text-secondary d-none"
                     id="backendPendingSpinner"
@@ -109,9 +112,6 @@
                     aria-hidden="true"
                     title="Backend-Request läuft"
                   ></span>
-                  <span class="badge text-bg-secondary" id="perfBadge">HTTP: - ms</span>
-                  <span class="badge text-bg-secondary">Agg: <span id="aggPoints">0</span></span>
-                  <span class="badge text-bg-secondary">Raw: <span id="rawPoints">0</span></span>
                 </div>
               </div>
             </div>
