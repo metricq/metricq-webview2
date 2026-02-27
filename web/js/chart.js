@@ -216,9 +216,15 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       const t = alignedTimes[i];
       if (clipToVisible && (t < from || t > to)) continue;
       let base = 0;
+      let stackChainValid = true;
       for (const cfg of stackedConfigs) {
+        if (!stackChainValid) {
+          cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+          continue;
+        }
         const raw = Number(cfg.row[i]);
         if (!Number.isFinite(raw)) {
+          stackChainValid = false;
           cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
           continue;
         }
@@ -256,9 +262,18 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
   for (const t of stackedTimes) {
     let base = 0;
+    let stackChainValid = true;
     for (const cfg of stackedConfigs) {
+      if (!stackChainValid) {
+        cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+        continue;
+      }
       const current = sampleLastValue(cfg.samples, t);
-      if (!current) continue;
+      if (!current || !Number.isFinite(current.avg)) {
+        stackChainValid = false;
+        cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+        continue;
+      }
       const upper = base + current.avg;
       cfg.avgByTime.set(t, upper);
       cfg.avgBaseByTime.set(t, base);
@@ -690,6 +705,7 @@ export function renderChart() {
       }
       if (stackedTimeline.length === 1) {
         const p = stackedTimeline[0];
+        if (!Number.isFinite(Number(p?.avg))) continue;
         ctx.beginPath();
         ctx.arc(sx(p.t), sy(p.avg), 1.8, 0, Math.PI * 2);
         ctx.fill();
