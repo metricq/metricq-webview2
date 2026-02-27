@@ -82,6 +82,7 @@ const presetTokenMap = {
 };
 const COMPACT_SIDEBAR_BREAKPOINT_PX = 1400;
 let zoomRangeBadgeTimer = null;
+let timeDialogMode = "relative";
 
 function syncRenderModeButton() {
   if (!dom.btnRenderMode) return;
@@ -172,7 +173,10 @@ function positionTimePopup() {
 }
 
 function openTimePopup() {
-  switchTimeMode(state.timeMode || "relative");
+  timeDialogMode = state.timeMode === "absolute" ? "absolute" : "relative";
+  switchTimeMode(timeDialogMode);
+  dom.fromInput.value = toLocalInput(new Date(state.from));
+  dom.toInput.value = toLocalInput(new Date(state.to));
   dom.timePopup.classList.remove("d-none");
   updateRelativePreview();
   positionTimePopup();
@@ -379,7 +383,7 @@ function wireEvents() {
   dom.btnCancelTimeRange.addEventListener("click", closeTimePopup);
   dom.btnApplyTimeRange.addEventListener("click", () => {
     const absoluteActive =
-      state.timeMode === "absolute" ||
+      timeDialogMode === "absolute" ||
       dom.tabAbsolute.classList.contains("active") ||
       !dom.absolutePanel.classList.contains("d-none");
     if (absoluteActive) {
@@ -391,7 +395,12 @@ function wireEvents() {
         state.to = to;
       }
     } else {
-      applyRelativeRange();
+      state.timeMode = "relative";
+      const rel = applyRelativeRange();
+      state.from = rel.from;
+      state.to = rel.to;
+      dom.fromInput.value = toLocalInput(new Date(state.from));
+      dom.toInput.value = toLocalInput(new Date(state.to));
     }
     updateRangeButtonLabel();
     hooks.loadData();
@@ -558,7 +567,7 @@ function shiftRangeByFactor(factor) {
 
 function switchTimeMode(mode) {
   const isRelative = mode === "relative";
-  state.timeMode = isRelative ? "relative" : "absolute";
+  timeDialogMode = isRelative ? "relative" : "absolute";
   dom.tabRelative.classList.toggle("active", isRelative);
   dom.tabAbsolute.classList.toggle("active", !isRelative);
   dom.relativePanel.classList.toggle("d-none", !isRelative);
@@ -575,17 +584,16 @@ function updateRelativePreview() {
 }
 
 function applyRelativeRange() {
-  state.timeMode = "relative";
   const amount = Math.max(
     1,
     Number.parseInt(dom.relativeAmount.value, 10) || 1,
   );
   const unit = dom.relativeUnit.value || "h";
   const now = Date.now();
-  state.from = relativeRangeStart(now, amount, unit);
-  state.to = now;
-  dom.fromInput.value = toLocalInput(new Date(state.from));
-  dom.toInput.value = toLocalInput(new Date(state.to));
+  return {
+    from: relativeRangeStart(now, amount, unit),
+    to: now,
+  };
 }
 
 function relativePresetValues(preset) {
@@ -608,9 +616,6 @@ function applyPreset(preset) {
     dom.relativeUnit.value = rel.unit;
     switchTimeMode("relative");
     updateRelativePreview();
-    applyRelativeRange();
-    updateRangeButtonLabel();
-    hooks.onStateChanged();
     return;
   }
 
@@ -625,11 +630,7 @@ function applyPreset(preset) {
 
   dom.fromInput.value = toLocalInput(from);
   dom.toInput.value = toLocalInput(to);
-  state.from = from.getTime();
-  state.to = to.getTime();
   switchTimeMode("absolute");
-  updateRangeButtonLabel();
-  hooks.onStateChanged();
 }
 
 function evalPresetToken(token, now) {
