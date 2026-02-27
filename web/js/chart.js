@@ -217,7 +217,12 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       if (clipToVisible && (t < from || t > to)) continue;
       let allFinite = true;
       for (const cfg of stackedConfigs) {
-        const raw = Number(cfg.row[i]);
+        const rawValue = cfg.row[i];
+        if (rawValue == null) {
+          allFinite = false;
+          break;
+        }
+        const raw = Number(rawValue);
         if (!Number.isFinite(raw)) {
           allFinite = false;
           break;
