@@ -331,21 +331,17 @@ func stackedValueAtLastSemantics(points []stackedValuePoint, t int64) (float64, 
 func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, error) {
 	timelineSet := map[int64]struct{}{}
 	pointsByMetric := make([][]stackedValuePoint, 0, len(series))
-	metricHasData := make([]bool, 0, len(series))
 	metricNames := make([]string, 0, len(series))
 	for _, item := range series {
 		if errText := strings.TrimSpace(item.Error); errText != "" {
 			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q failed: %s", item.Metric, errText)
 		}
 		points := seriesToStackedPoints(item)
-		metricNames = append(metricNames, item.Metric)
 		if len(points) == 0 {
-			pointsByMetric = append(pointsByMetric, nil)
-			metricHasData = append(metricHasData, false)
 			continue
 		}
 		pointsByMetric = append(pointsByMetric, points)
-		metricHasData = append(metricHasData, true)
+		metricNames = append(metricNames, item.Metric)
 		for _, point := range points {
 			timelineSet[point.t] = struct{}{}
 		}
@@ -364,66 +360,22 @@ func alignStackedSeries(series []apiQuerySeries) (apiStackedSeriesResponse, erro
 	}
 	sort.Slice(timeline, func(i, j int) bool { return timeline[i] < timeline[j] })
 	if len(timeline) == 0 {
-		return apiStackedSeriesResponse{
-			Times:   []int64{},
-			Metrics: metricNames,
-			Values:  make([][]*float64, len(metricNames)),
-		}, nil
+		return apiStackedSeriesResponse{}, fmt.Errorf("no aligned timeline points")
 	}
 
 	values := make([][]*float64, len(metricNames))
-	dataMetricIndexes := make([]int, 0, len(metricNames))
 	for i, points := range pointsByMetric {
 		row := make([]*float64, len(timeline))
-		if metricHasData[i] {
-			dataMetricIndexes = append(dataMetricIndexes, i)
-			for idx, t := range timeline {
-				value, ok := stackedValueAtLastSemantics(points, t)
-				if !ok {
-					row[idx] = nil
-					continue
-				}
-				val := value
-				row[idx] = &val
+		for idx, t := range timeline {
+			value, ok := stackedValueAtLastSemantics(points, t)
+			if !ok {
+				row[idx] = nil
+				continue
 			}
+			val := value
+			row[idx] = &val
 		}
 		values[i] = row
-	}
-	if len(dataMetricIndexes) == 0 {
-		return apiStackedSeriesResponse{
-			Times:   []int64{},
-			Metrics: metricNames,
-			Values:  make([][]*float64, len(metricNames)),
-		}, nil
-	}
-
-	// Trim trailing timeline points that are incomplete across metrics.
-	// This avoids end-of-range artifacts when metrics have different sampling cadences.
-	lastComplete := -1
-	for idx := 0; idx < len(timeline); idx++ {
-		complete := true
-		for _, i := range dataMetricIndexes {
-			if values[i][idx] == nil {
-				complete = false
-				break
-			}
-		}
-		if complete {
-			lastComplete = idx
-		}
-	}
-	if lastComplete < 0 {
-		return apiStackedSeriesResponse{
-			Times:   []int64{},
-			Metrics: metricNames,
-			Values:  make([][]*float64, len(metricNames)),
-		}, nil
-	}
-	if lastComplete < len(timeline)-1 {
-		timeline = timeline[:lastComplete+1]
-		for i := range values {
-			values[i] = values[i][:lastComplete+1]
-		}
 	}
 
 	return apiStackedSeriesResponse{
