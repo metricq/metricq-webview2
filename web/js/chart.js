@@ -218,7 +218,10 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       let base = 0;
       for (const cfg of stackedConfigs) {
         const raw = Number(cfg.row[i]);
-        if (!Number.isFinite(raw)) continue;
+        if (!Number.isFinite(raw)) {
+          cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+          continue;
+        }
         const scaled = raw * cfg.metric.factor;
         const upper = base + scaled;
         cfg.avgByTime.set(t, upper);
@@ -485,44 +488,58 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
 
 function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy) {
   if (!Array.isArray(timeline) || timeline.length < 2) return;
-  if (tiMode) {
-    drawLastSemanticBand(
-      ctx,
-      timeline,
-      (p) => Number(p?.base) || 0,
-      (p) => Number(p?.avg) || 0,
-      sx,
-      sy,
-    );
-    return;
+  const runs = splitValidRuns(
+    timeline,
+    (p) => Number.isFinite(Number(p?.avg)) && Number.isFinite(Number(p?.base)),
+  );
+  for (const run of runs) {
+    if (run.length < 2) continue;
+    if (tiMode) {
+      drawLastSemanticBand(
+        ctx,
+        run,
+        (p) => Number(p?.base) || 0,
+        (p) => Number(p?.avg) || 0,
+        sx,
+        sy,
+      );
+      continue;
+    }
+    ctx.beginPath();
+    for (let i = 0; i < run.length; i += 1) {
+      const p = run[i];
+      if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
+      else ctx.lineTo(sx(p.t), sy(p.avg));
+    }
+    for (let i = run.length - 1; i >= 0; i -= 1) {
+      const p = run[i];
+      ctx.lineTo(sx(p.t), sy(p.base));
+    }
+    ctx.closePath();
+    ctx.fill();
   }
-  ctx.beginPath();
-  for (let i = 0; i < timeline.length; i += 1) {
-    const p = timeline[i];
-    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-    else ctx.lineTo(sx(p.t), sy(p.avg));
-  }
-  for (let i = timeline.length - 1; i >= 0; i -= 1) {
-    const p = timeline[i];
-    ctx.lineTo(sx(p.t), sy(p.base));
-  }
-  ctx.closePath();
-  ctx.fill();
 }
 
 function drawStackedTimelineLine(ctx, timeline, tiMode, sx, sy) {
   if (!Array.isArray(timeline) || timeline.length < 2) return;
-  if (tiMode) {
-    drawLastSemanticStepLine(ctx, timeline, (p) => Number(p?.avg) || 0, sx, sy);
-    return;
+  const runs = splitValidRuns(
+    timeline,
+    (p) => Number.isFinite(Number(p?.avg)) && Number.isFinite(Number(p?.base)),
+  );
+  for (const run of runs) {
+    if (run.length < 2) continue;
+    if (tiMode) {
+      drawLastSemanticStepLine(ctx, run, (p) => Number(p?.avg) || 0, sx, sy);
+      continue;
+    }
+    ctx.beginPath();
+    for (let i = 0; i < run.length; i += 1) {
+      const p = run[i];
+      if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
+      else ctx.lineTo(sx(p.t), sy(p.avg));
+    }
+    ctx.stroke();
   }
-  ctx.beginPath();
-  for (let i = 0; i < timeline.length; i += 1) {
-    const p = timeline[i];
-    if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-    else ctx.lineTo(sx(p.t), sy(p.avg));
-  }
-  ctx.stroke();
 }
 
 function drawEmptyChartState(ctx, margin) {
