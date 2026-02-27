@@ -801,8 +801,7 @@ export function renderChart() {
 
     const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
 
-    const showBand = !state.yAxisStacked || !stackedSeries?.stacksInYAxis;
-    if (showBand) {
+    if (!state.yAxisStacked) {
       ctx.save();
       ctx.globalAlpha = 0.2;
       for (const segment of runs) {
