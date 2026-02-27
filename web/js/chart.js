@@ -548,6 +548,7 @@ export function renderChart() {
   const seriesList = getVisibleSeries();
   if (seriesList.length === 0) {
     lastStackedByMetric = null;
+    lastLayout = null;
     ctx.fillStyle = "#000000";
     ctx.font = "14px sans-serif";
     ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
@@ -565,7 +566,7 @@ export function renderChart() {
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
   const sy = (y) => margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
-  lastLayout = { margin, plotW, plotH, sx, sy };
+  lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
 
   const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
 
