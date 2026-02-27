@@ -525,51 +525,15 @@ function drawStackedTimelineLine(ctx, timeline, tiMode, sx, sy) {
   ctx.stroke();
 }
 
+function drawEmptyChartState(ctx, margin) {
+  lastStackedByMetric = null;
+  lastLayout = null;
+  ctx.fillStyle = "#000000";
+  ctx.font = "14px sans-serif";
+  ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
+}
 
-export function renderChart() {
-  resizeCanvas();
-  const width = dom.chartWrap.clientWidth;
-  const height = dom.chartWrap.clientHeight;
-  const ctx = dom.ctx;
-
-  ctx.clearRect(0, 0, width, height);
-
-  const margin = { top: 12, right: 18, bottom: 34, left: 52 };
-  const plotW = width - margin.left - margin.right;
-  const plotH = height - margin.top - margin.bottom;
-  if (dom.collapsedLegend) {
-    dom.collapsedLegend.style.left = "auto";
-    dom.collapsedLegend.style.top = `${margin.top + 4}px`;
-    dom.collapsedLegend.style.right = `${margin.right + 4}px`;
-    dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * 0.34)))}px`;
-    if (state.renderMode === "ti") dom.collapsedLegend.classList.add("d-none");
-  }
-
-  const seriesList = getVisibleSeries();
-  if (seriesList.length === 0) {
-    lastStackedByMetric = null;
-    lastLayout = null;
-    ctx.fillStyle = "#000000";
-    ctx.font = "14px sans-serif";
-    ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
-    return;
-  }
-
-  const tiMode = state.renderMode === "ti";
-  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode, false) : null;
-  const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
-  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode, true) : null;
-  const domain = resolveYAxisDomain(domainSeries, domainStacked);
-  state.yAxisCurrentMin = domain.minY;
-  state.yAxisCurrentMax = domain.maxY;
-  const xMin = state.from;
-  const xMax = state.to;
-  const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
-  const sy = (y) => margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
-  lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
-
-  const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
-
+function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
   ctx.strokeStyle = "#d9dee8";
   ctx.lineWidth = 1;
   for (const value of yTicks) {
@@ -611,7 +575,9 @@ export function renderChart() {
     const y = sy(value);
     ctx.fillText(yTickLabels[i], margin.left - 6, y + 4);
   }
+}
 
+function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
   const rangeMs = xMax - xMin;
   const targetTicks = Math.max(4, Math.floor(plotW / 110));
   const tickStepMs = pickTimeTickStep(rangeMs, targetTicks);
@@ -637,6 +603,50 @@ export function renderChart() {
       : formatAxisTime(tick, rangeMs, tickStepMs);
     ctx.fillText(label, x, height - 9);
   }
+}
+
+
+export function renderChart() {
+  resizeCanvas();
+  const width = dom.chartWrap.clientWidth;
+  const height = dom.chartWrap.clientHeight;
+  const ctx = dom.ctx;
+
+  ctx.clearRect(0, 0, width, height);
+
+  const margin = { top: 12, right: 18, bottom: 34, left: 52 };
+  const plotW = width - margin.left - margin.right;
+  const plotH = height - margin.top - margin.bottom;
+  if (dom.collapsedLegend) {
+    dom.collapsedLegend.style.left = "auto";
+    dom.collapsedLegend.style.top = `${margin.top + 4}px`;
+    dom.collapsedLegend.style.right = `${margin.right + 4}px`;
+    dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * 0.34)))}px`;
+    if (state.renderMode === "ti") dom.collapsedLegend.classList.add("d-none");
+  }
+
+  const seriesList = getVisibleSeries();
+  if (seriesList.length === 0) {
+    drawEmptyChartState(ctx, margin);
+    return;
+  }
+
+  const tiMode = state.renderMode === "ti";
+  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode, false) : null;
+  const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
+  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode, true) : null;
+  const domain = resolveYAxisDomain(domainSeries, domainStacked);
+  state.yAxisCurrentMin = domain.minY;
+  state.yAxisCurrentMax = domain.maxY;
+  const xMin = state.from;
+  const xMax = state.to;
+  const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
+  const sy = (y) => margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
+  lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
+
+  const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
+  drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
+  drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax);
 
   // Clip all series drawing to the actual plot region between axes.
   ctx.save();
