@@ -663,18 +663,21 @@ export function renderChart() {
     ctx.lineWidth = 1.5;
 
     if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
-      const crossHalf = 3;
-      for (const p of stackedTimeline) {
-        const x = sx(p.t);
-        const y = sy(p.avg);
-        ctx.beginPath();
-        ctx.moveTo(x - crossHalf, y - crossHalf);
-        ctx.lineTo(x + crossHalf, y + crossHalf);
-        ctx.moveTo(x + crossHalf, y - crossHalf);
-        ctx.lineTo(x - crossHalf, y + crossHalf);
-        ctx.stroke();
+      if (stackedTimeline.length >= 2) {
+        ctx.save();
+        ctx.globalAlpha = 0.22;
+        drawStackedTimelineFill(ctx, stackedTimeline, tiMode, sx, sy);
+        ctx.restore();
+        drawStackedTimelineLine(ctx, stackedTimeline, tiMode, sx, sy);
+        continue;
       }
-      continue;
+      if (stackedTimeline.length === 1) {
+        const p = stackedTimeline[0];
+        ctx.beginPath();
+        ctx.arc(sx(p.t), sy(p.avg), 1.8, 0, Math.PI * 2);
+        ctx.fill();
+        continue;
+      }
     }
 
     if (series.mode === "values") {
