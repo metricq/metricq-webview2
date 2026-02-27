@@ -626,7 +626,10 @@ export function applyFactorFromModal(hooks) {
   if (!factorMetricName) return;
   const metric = metricByName(factorMetricName);
   if (!metric) return;
-  metric.manualFactor = sanitizeFactor(dom.factorInput.value, metric.manualFactor || 1);
+  const rawFactor = String(dom.factorInput.value ?? "").trim();
+  metric.manualFactor = rawFactor === ""
+    ? 1
+    : sanitizeFactor(rawFactor, metric.manualFactor || 1);
   metric.factorMode = "manual";
   if (!metric.expr && dom.factorAliasInput) {
     metric.alias = String(dom.factorAliasInput.value || "").trim();
