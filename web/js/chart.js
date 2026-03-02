@@ -1038,11 +1038,13 @@ function selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain) {
   }
 
   scored.sort((a, b) => {
-    if (a.bucket !== b.bucket) return a.bucket - b.bucket;
-    if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
     const aNorm = a.candidate.dist2 / Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
     const bNorm = b.candidate.dist2 / Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
-    return aNorm - bNorm;
+    // Prioritize the visually nearest point first.
+    if (Math.abs(aNorm - bNorm) > 1e-9) return aNorm - bNorm;
+    if (a.bucket !== b.bucket) return a.bucket - b.bucket;
+    if (Math.abs(a.delta - b.delta) > 1e-12) return a.delta - b.delta;
+    return 0;
   });
   return scored[0]?.candidate || null;
 }
