@@ -640,7 +640,7 @@ function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
   ctx.textAlign = "center";
   const canvasLeft = 0;
   const canvasRight = width;
-  const labelPad = 2;
+  const labelPad = 8;
   for (let i = 0; i < xTicks.length; i += 1) {
     const tick = xTicks[i];
     const x = sx(tick);
