@@ -576,6 +576,7 @@ function drawEmptyChartState(ctx, margin) {
 }
 
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
+  const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
   ctx.lineWidth = 1;
   for (const value of yTicks) {
@@ -615,6 +616,11 @@ function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesL
   for (let i = 0; i < yTicks.length; i += 1) {
     const value = yTicks[i];
     const y = sy(value);
+    // Small black tick marker for each rendered y-label.
+    ctx.beginPath();
+    ctx.moveTo(margin.left, y);
+    ctx.lineTo(margin.left - yTickLen, y);
+    ctx.stroke();
     ctx.fillText(yTickLabels[i], margin.left - 6, y + 4);
   }
 }
