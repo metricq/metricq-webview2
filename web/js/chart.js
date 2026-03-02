@@ -1263,10 +1263,18 @@ function renderHoverAt(clientX, clientY) {
     return;
   }
 
-  const shownUnit = selected.metric.displayUnit || selected.metric.unit;
-  const factor = shownMetricFactor(selected.metric);
-  const factorText = factor ? ` x${factor}` : "";
-  const rowHtml = `<div><span style=\"display:inline-block;width:10px;height:10px;background:${selected.metric.color};margin-right:6px\"></span>${metricDisplayName(selected.metric)}${factorText}: <strong>${selected.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+  const selectedPixelX = Math.round(selected.xPx);
+  const selectedPixelY = Math.round(selected.yPx);
+  const samePixel = candidates.filter((candidate) =>
+    Math.round(candidate.xPx) === selectedPixelX && Math.round(candidate.yPx) === selectedPixelY,
+  );
+  const rows = samePixel.length > 1 ? samePixel : [selected];
+  const rowHtml = rows.map((row) => {
+    const shownUnit = row.metric.displayUnit || row.metric.unit;
+    const factor = shownMetricFactor(row.metric);
+    const factorText = factor ? ` x${factor}` : "";
+    return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${row.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+  }).join("");
   dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
   dom.hoverBox.classList.remove("d-none");
 
