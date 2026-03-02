@@ -638,8 +638,8 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
   ctx.strokeStyle = "#e7ebf3";
   ctx.fillStyle = "#000000";
   ctx.textAlign = "center";
-  const plotLeft = margin.left;
-  const plotRight = margin.left + plotW;
+  const canvasLeft = 0;
+  const canvasRight = width;
   const labelPad = 2;
   for (let i = 0; i < xTicks.length; i += 1) {
     const tick = xTicks[i];
@@ -665,20 +665,10 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
     ctx.restore();
 
     const textWidth = ctx.measureText(label).width;
-    let labelX = x;
-    let labelAlign = "center";
-    if (x - textWidth / 2 < plotLeft + labelPad) {
-      labelX = plotLeft + labelPad;
-      labelAlign = "left";
-    } else if (x + textWidth / 2 > plotRight - labelPad) {
-      labelX = plotRight - labelPad;
-      labelAlign = "right";
-    }
-    ctx.save();
-    ctx.textAlign = labelAlign;
-    ctx.textBaseline = "top";
-    ctx.fillText(label, labelX, axisY + tickLen + 2);
-    ctx.restore();
+    const minX = canvasLeft + textWidth / 2 + labelPad;
+    const maxX = canvasRight - textWidth / 2 - labelPad;
+    const labelX = Math.max(minX, Math.min(x, maxX));
+    ctx.fillText(label, labelX, height - 9);
   }
 }
 
