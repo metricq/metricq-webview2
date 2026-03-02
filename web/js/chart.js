@@ -625,7 +625,7 @@ function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesL
   }
 }
 
-function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
+function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
   const rangeMs = xMax - xMin;
   const targetTicks = Math.max(4, Math.floor(plotW / 110));
   const tickStepMs = pickTimeTickStep(rangeMs, targetTicks);
@@ -712,7 +712,7 @@ export function renderChart() {
   lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
 
   const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
-  drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax);
+  drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax);
   drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
 
   // Clip all series drawing to the actual plot region between axes.
