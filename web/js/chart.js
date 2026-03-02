@@ -638,8 +638,7 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
 
     ctx.beginPath();
     ctx.moveTo(x, margin.top);
-    // Extend one pixel into the x-axis to avoid tiny anti-aliasing gaps.
-    ctx.lineTo(x, axisY + 1);
+    ctx.lineTo(x, axisY);
     ctx.stroke();
 
     const label = i === 0
@@ -689,8 +688,8 @@ export function renderChart() {
   lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
 
   const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
-  drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
   drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax);
+  drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
 
   // Clip all series drawing to the actual plot region between axes.
   ctx.save();
