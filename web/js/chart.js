@@ -215,6 +215,11 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
     for (let i = 0; i < alignedTimes.length; i += 1) {
       const t = alignedTimes[i];
       if (clipToVisible && (t < from || t > to)) continue;
+      const hasNullAtT = stackedConfigs.some((cfg) => cfg.row[i] == null);
+      if (hasNullAtT) {
+        for (const cfg of stackedConfigs) cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+        continue;
+      }
       let base = 0;
       for (const cfg of stackedConfigs) {
         const rawValue = cfg.row[i];
@@ -257,10 +262,22 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
   for (const t of stackedTimes) {
     const valuesAtT = new Array(stackedConfigs.length);
+    let hasMissingAtT = false;
     for (let i = 0; i < stackedConfigs.length; i += 1) {
       const current = sampleLastValue(stackedConfigs[i].samples, t);
       const avg = current?.avg;
-      valuesAtT[i] = Number.isFinite(avg) ? Number(avg) : 0;
+      if (Number.isFinite(avg)) {
+        const numeric = Number(avg);
+        valuesAtT[i] = numeric;
+      } else {
+        hasMissingAtT = true;
+        break;
+      }
+    }
+
+    if (hasMissingAtT) {
+      for (const cfg of stackedConfigs) cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+      continue;
     }
 
     let base = 0;
@@ -609,6 +626,7 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
   const xTicks = buildXTicks(xMin, xMax, tickStepMs);
   const maxVerticalGridLines = Math.max(4, Math.floor(plotW / 95));
   const gridStride = Math.max(1, Math.ceil(xTicks.length / maxVerticalGridLines));
+  const axisY = height - margin.bottom;
 
   ctx.strokeStyle = "#e7ebf3";
   ctx.fillStyle = "#000000";
@@ -620,7 +638,8 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
 
     ctx.beginPath();
     ctx.moveTo(x, margin.top);
-    ctx.lineTo(x, height - margin.bottom);
+    // Extend one pixel into the x-axis to avoid tiny anti-aliasing gaps.
+    ctx.lineTo(x, axisY + 1);
     ctx.stroke();
 
     const label = i === 0
@@ -927,7 +946,7 @@ function pointValue(series, point, factor) {
   return (series.mode === "values" ? point.v : point.avg) * factor;
 }
 
-const HOVER_X_WEIGHT = 1.3;
+const HOVER_X_WEIGHT = 1.4;
 const HOVER_Y_WEIGHT = 1.0;
 
 function weightedHoverDist2(dx, dy) {
