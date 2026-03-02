@@ -31,26 +31,6 @@ function decodeStatePayload(encoded) {
   return JSON.parse(json);
 }
 
-function decodeStatePayloadBestEffort(encoded) {
-  const variants = [];
-  const raw = String(encoded || "");
-  if (raw) variants.push(raw);
-  const plusFixed = raw.replace(/ /g, "+");
-  if (plusFixed && plusFixed !== raw) variants.push(plusFixed);
-  const fromUrlSafe = fromUrlSafeBase64(raw);
-  if (fromUrlSafe && fromUrlSafe !== raw && !variants.includes(fromUrlSafe)) variants.push(fromUrlSafe);
-
-  let lastError = null;
-  for (const variant of variants) {
-    try {
-      return decodeStatePayload(variant);
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError || new Error("State konnte nicht dekodiert werden.");
-}
-
 function bytesToBase64(bytes) {
   let binary = "";
   const chunkSize = 0x8000;
@@ -379,7 +359,7 @@ export async function applyStateFromUrl() {
     if (encodedCompressed) {
       payload = await decodeCompressedStatePayload(encodedCompressed);
     } else {
-      payload = decodeStatePayloadBestEffort(encoded);
+      payload = decodeStatePayload(encoded);
     }
   } catch (_) {
     throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
@@ -510,7 +490,7 @@ export async function inspectUrlStateDebug() {
       payload = await decodeCompressedStatePayload(encodedCompressed);
       checks.push(statusLine("decode", "ok", "statez erfolgreich entpackt (gzip) und dekodiert."));
     } else {
-      payload = decodeStatePayloadBestEffort(encoded);
+      payload = decodeStatePayload(encoded);
       checks.push(statusLine("decode", "ok", "Base64 + JSON erfolgreich dekodiert."));
     }
   } catch (err) {
