@@ -38,6 +38,7 @@ import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 import {
   applyLegacyWebviewHashFallback,
   applyStateFromUrl,
+  inspectUrlStateDebug,
   InvalidUrlStateError,
   syncUrlStateNow,
 } from "./url-state.mjs";
@@ -45,7 +46,7 @@ import {
 let suppressUrlStateSync = false;
 function syncUrlStateIfAllowed() {
   if (suppressUrlStateSync) return;
-  syncUrlStateNow();
+  void syncUrlStateNow().catch(() => {});
 }
 
 const hooks = {
@@ -157,6 +158,72 @@ function clearUrlToBasePath() {
   url.search = "";
   url.hash = "";
   history.replaceState(null, "", url);
+}
+
+function ensureUrlStateDebugModal() {
+  let modalEl = document.getElementById("urlStateDebugModal");
+  if (modalEl) return modalEl;
+  modalEl = document.createElement("div");
+  modalEl.id = "urlStateDebugModal";
+  modalEl.className = "modal fade";
+  modalEl.tabIndex = -1;
+  modalEl.setAttribute("aria-hidden", "true");
+  modalEl.innerHTML = `
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">URL-State Debug</h5>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-2 small text-muted" id="urlStateDebugSummary"></div>
+          <div class="table-responsive mb-3">
+            <table class="table table-sm align-middle mb-0">
+              <thead><tr><th>Feld</th><th>Status</th><th>Details</th></tr></thead>
+              <tbody id="urlStateDebugChecks"></tbody>
+            </table>
+          </div>
+          <label class="form-label small mb-1">Dekodierter Payload</label>
+          <pre id="urlStateDebugPayload" class="mb-0 p-2 border rounded bg-light small" style="max-height: 44vh;"></pre>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modalEl);
+  return modalEl;
+}
+
+function showUrlStateDebugModal(report) {
+  if (!report?.hasStateParam || !globalThis.bootstrap?.Modal) return;
+  const modalEl = ensureUrlStateDebugModal();
+  const summaryEl = modalEl.querySelector("#urlStateDebugSummary");
+  const checksEl = modalEl.querySelector("#urlStateDebugChecks");
+  const payloadEl = modalEl.querySelector("#urlStateDebugPayload");
+  if (!summaryEl || !checksEl || !payloadEl) return;
+
+  const checks = Array.isArray(report.checks) ? report.checks : [];
+  const okCount = checks.filter((c) => c.status === "ok").length;
+  const missingCount = checks.filter((c) => c.status === "fehlt").length;
+  const invalidCount = checks.filter((c) => c.status === "ungültig").length;
+  summaryEl.textContent = `state-Länge: ${report.encodedLength} | ok: ${okCount}, fehlt: ${missingCount}, ungültig: ${invalidCount}`;
+
+  checksEl.innerHTML = checks.map((check) => {
+    const status = String(check?.status || "");
+    const badge = status === "ok"
+      ? "success"
+      : (status === "fehlt" ? "warning text-dark" : "danger");
+    const field = String(check?.field || "");
+    const detail = String(check?.detail || "");
+    return `<tr><td><code>${field}</code></td><td><span class="badge bg-${badge}">${status}</span></td><td>${detail}</td></tr>`;
+  }).join("");
+
+  payloadEl.textContent = report.decodeOk
+    ? JSON.stringify(report.payload, null, 2)
+    : "<nicht dekodierbar>";
+
+  globalThis.bootstrap.Modal.getOrCreateInstance(modalEl).show();
 }
 
 function positionTimePopup() {
@@ -713,10 +780,12 @@ function baseTokenDate(base, now) {
 }
 
 async function init() {
+  const urlStateDebugReport = await inspectUrlStateDebug();
   let restoredFromUrl = false;
   let urlStateError = "";
   try {
-    restoredFromUrl = applyStateFromUrl() || applyLegacyWebviewHashFallback();
+    restoredFromUrl = await applyStateFromUrl();
+    if (!restoredFromUrl) restoredFromUrl = applyLegacyWebviewHashFallback();
   } catch (err) {
     if (err instanceof InvalidUrlStateError) {
       urlStateError = err.message;
@@ -730,6 +799,7 @@ async function init() {
   if (urlStateError) {
     showUrlStateErrorModal(urlStateError);
   }
+  showUrlStateDebugModal(urlStateDebugReport);
   if (!restoredFromUrl) setInitialRange();
   syncYAxisModalFromState();
   syncRenderModeButton();

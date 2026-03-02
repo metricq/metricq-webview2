@@ -4,6 +4,7 @@ import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
 
 const URL_STATE_PARAM = "state";
+const URL_STATE_PARAM_COMPRESSED = "statez";
 const URL_STATE_VERSION = 1;
 const RELATIVE_UNITS = new Set(["m", "h", "d", "w", "M", "y"]);
 
@@ -27,6 +28,71 @@ function encodeStatePayload(payload) {
 
 function decodeStatePayload(encoded) {
   const json = decodeURIComponent(escape(atob(encoded)));
+  return JSON.parse(json);
+}
+
+function bytesToBase64(bytes) {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(base64) {
+  const binary = atob(base64);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
+  return out;
+}
+
+function toUrlSafeBase64(base64) {
+  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function fromUrlSafeBase64(urlSafe) {
+  const base64 = urlSafe.replace(/-/g, "+").replace(/_/g, "/");
+  const padLen = (4 - (base64.length % 4)) % 4;
+  return `${base64}${"=".repeat(padLen)}`;
+}
+
+async function gzipBytes(plainBytes) {
+  if (typeof CompressionStream !== "function") {
+    throw new Error("CompressionStream nicht verfügbar");
+  }
+  const stream = new CompressionStream("gzip");
+  const writer = stream.writable.getWriter();
+  await writer.write(plainBytes);
+  await writer.close();
+  const ab = await new Response(stream.readable).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+async function gunzipBytes(gzipBytesData) {
+  if (typeof DecompressionStream !== "function") {
+    throw new Error("DecompressionStream nicht verfügbar");
+  }
+  const stream = new DecompressionStream("gzip");
+  const writer = stream.writable.getWriter();
+  await writer.write(gzipBytesData);
+  await writer.close();
+  const ab = await new Response(stream.readable).arrayBuffer();
+  return new Uint8Array(ab);
+}
+
+async function encodeCompressedStatePayload(payload) {
+  const json = JSON.stringify(payload);
+  const utf8 = new TextEncoder().encode(json);
+  const gz = await gzipBytes(utf8);
+  return toUrlSafeBase64(bytesToBase64(gz));
+}
+
+async function decodeCompressedStatePayload(encoded) {
+  const gz = base64ToBytes(fromUrlSafeBase64(encoded));
+  const utf8 = await gunzipBytes(gz);
+  const json = new TextDecoder().decode(utf8);
   return JSON.parse(json);
 }
 
@@ -260,16 +326,17 @@ function applyRelativeConfig(r) {
   return true;
 }
 
-export function syncUrlStateNow() {
+export async function syncUrlStateNow() {
   if (!Number.isFinite(state.from) || !Number.isFinite(state.to) || state.from >= state.to) {
     return;
   }
 
   const payload = buildPayload();
-  const encoded = encodeStatePayload(payload);
+  const compressedEncoded = await encodeCompressedStatePayload(payload);
 
   const url = new URL(window.location.href);
-  url.searchParams.set(URL_STATE_PARAM, encoded);
+  url.searchParams.set(URL_STATE_PARAM_COMPRESSED, compressedEncoded);
+  url.searchParams.delete(URL_STATE_PARAM);
   history.replaceState(null, "", url);
 }
 
@@ -277,18 +344,23 @@ export function scheduleUrlStateSync() {
   if (syncTimer != null) window.clearTimeout(syncTimer);
   syncTimer = window.setTimeout(() => {
     syncTimer = null;
-    syncUrlStateNow();
+    void syncUrlStateNow();
   }, 0);
 }
 
-export function applyStateFromUrl() {
+export async function applyStateFromUrl() {
   const url = new URL(window.location.href);
   const encoded = url.searchParams.get(URL_STATE_PARAM);
-  if (!encoded) return false;
+  const encodedCompressed = url.searchParams.get(URL_STATE_PARAM_COMPRESSED);
+  if (!encoded && !encodedCompressed) return false;
 
   let payload;
   try {
-    payload = decodeStatePayload(encoded);
+    if (encodedCompressed) {
+      payload = await decodeCompressedStatePayload(encodedCompressed);
+    } else {
+      payload = decodeStatePayload(encoded);
+    }
   } catch (_) {
     throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
   }
@@ -331,6 +403,15 @@ export function applyStateFromUrl() {
 
   applyYAxisConfig(payload?.y);
 
+  // Normalize legacy/plain links to compressed form in the address bar.
+  if (encoded && !encodedCompressed) {
+    try {
+      await syncUrlStateNow();
+    } catch (_) {
+      // Keep loaded state even if recompression is unavailable.
+    }
+  }
+
   return true;
 }
 
@@ -372,4 +453,139 @@ export function applyLegacyWebviewHashFallback() {
   state.renderMode = "standard";
 
   return state.metrics.length > 0;
+}
+
+function statusLine(field, status, detail = "") {
+  return {
+    field,
+    status,
+    detail: String(detail || ""),
+  };
+}
+
+export async function inspectUrlStateDebug() {
+  const url = new URL(window.location.href);
+  const encoded = url.searchParams.get(URL_STATE_PARAM);
+  const encodedCompressed = url.searchParams.get(URL_STATE_PARAM_COMPRESSED);
+  if (!encoded && !encodedCompressed) {
+    return {
+      hasStateParam: false,
+      encodedLength: 0,
+      decodeOk: false,
+      payload: null,
+      checks: [statusLine("state", "fehlt", "URL-Parameter `state` ist nicht vorhanden.")],
+    };
+  }
+
+  const checks = [];
+  if (encodedCompressed) {
+    checks.push(statusLine("statez", "ok", `Komprimierter Parameter vorhanden (Länge: ${encodedCompressed.length})`));
+  } else {
+    checks.push(statusLine("state", "ok", `Parameter vorhanden (Länge: ${encoded.length})`));
+  }
+
+  let payload = null;
+  try {
+    if (encodedCompressed) {
+      payload = await decodeCompressedStatePayload(encodedCompressed);
+      checks.push(statusLine("decode", "ok", "statez erfolgreich entpackt (gzip) und dekodiert."));
+    } else {
+      payload = decodeStatePayload(encoded);
+      checks.push(statusLine("decode", "ok", "Base64 + JSON erfolgreich dekodiert."));
+    }
+  } catch (err) {
+    checks.push(statusLine("decode", "ungültig", err?.message || "Dekodierung fehlgeschlagen."));
+    return {
+      hasStateParam: true,
+      encodedLength: encodedCompressed ? encodedCompressed.length : encoded.length,
+      decodeOk: false,
+      payload: null,
+      checks,
+    };
+  }
+
+  const version = Number(payload?.v);
+  if (Number.isFinite(version)) {
+    const status = version === URL_STATE_VERSION ? "ok" : "ungültig";
+    checks.push(statusLine("v", status, `Version=${version}, erwartet=${URL_STATE_VERSION}`));
+  } else {
+    checks.push(statusLine("v", "fehlt", "Versionsfeld fehlt oder ist keine Zahl."));
+  }
+
+  const metricsRaw = Array.isArray(payload?.m) ? payload.m : null;
+  if (!metricsRaw) {
+    checks.push(statusLine("m", "fehlt", "Metrikliste fehlt oder ist kein Array."));
+  } else {
+    const sanitized = metricsRaw
+      .map((entry, index) => sanitizeMetricEntry(entry, index))
+      .filter(Boolean);
+    const invalidCount = metricsRaw.length - sanitized.length;
+    const status = sanitized.length > 0 ? "ok" : "ungültig";
+    checks.push(
+      statusLine(
+        "m",
+        status,
+        `${metricsRaw.length} Einträge, ${sanitized.length} gültig, ${invalidCount} ungültig.`,
+      ),
+    );
+  }
+
+  const hasRelative = payload?.r != null;
+  const hasAbsolute = payload?.f != null || payload?.t != null;
+  if (hasRelative && hasAbsolute) {
+    checks.push(statusLine("zeit", "ungültig", "Relative und absolute Zeitangaben gleichzeitig vorhanden."));
+  } else if (!hasRelative && !hasAbsolute) {
+    checks.push(statusLine("zeit", "fehlt", "Weder relative noch absolute Zeitangabe vorhanden."));
+  } else if (hasRelative) {
+    const amount = Math.max(1, Number.parseInt(String(payload?.r?.a ?? "1"), 10) || 1);
+    const unit = String(payload?.r?.u || "h");
+    const validUnit = RELATIVE_UNITS.has(unit);
+    checks.push(
+      statusLine(
+        "r",
+        validUnit ? "ok" : "ungültig",
+        `a=${amount}, u=${unit}${validUnit ? "" : " (unbekannte Einheit)"}`,
+      ),
+    );
+  } else {
+    const from = Number(payload?.f);
+    const to = Number(payload?.t);
+    if (Number.isFinite(from) && Number.isFinite(to) && from < to) {
+      checks.push(statusLine("f/t", "ok", `f=${from}, t=${to}, Δ=${to - from} ms`));
+    } else {
+      checks.push(statusLine("f/t", "ungültig", `f=${payload?.f}, t=${payload?.t}`));
+    }
+  }
+
+  const renderMode = String(payload?.rm || "").trim().toLowerCase();
+  if (!renderMode || renderMode === "standard" || renderMode === "ti") {
+    checks.push(statusLine("rm", "ok", renderMode || "standard (implizit)"));
+  } else {
+    checks.push(statusLine("rm", "ungültig", renderMode));
+  }
+
+  const yMode = String(payload?.y?.m || "local");
+  if (yMode === "local" || yMode === "global") {
+    checks.push(statusLine("y.m", "ok", yMode));
+  } else if (yMode === "manual") {
+    const min = Number(payload?.y?.min);
+    const max = Number(payload?.y?.max);
+    const valid = Number.isFinite(min) && Number.isFinite(max) && min < max;
+    checks.push(statusLine("y.m", valid ? "ok" : "ungültig", `manual (min=${payload?.y?.min}, max=${payload?.y?.max})`));
+  } else {
+    checks.push(statusLine("y.m", "ungültig", yMode));
+  }
+  if (payload?.y?.s != null) {
+    checks.push(statusLine("y.s", Number(payload?.y?.s) === 1 ? "ok" : "ungültig", `s=${payload?.y?.s}`));
+  } else {
+    checks.push(statusLine("y.s", "fehlt", "Stacked-Flag nicht gesetzt (Default: aus)."));
+  }
+
+  return {
+    hasStateParam: true,
+    encodedLength: encodedCompressed ? encodedCompressed.length : encoded.length,
+    decodeOk: true,
+    payload,
+    checks,
+  };
 }
