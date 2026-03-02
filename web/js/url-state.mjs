@@ -82,11 +82,18 @@ async function encodeCompressedStatePayload(payload) {
   const json = JSON.stringify(payload);
   const utf8 = new TextEncoder().encode(json);
   const gz = await gzipBytes(utf8);
-  return toUrlSafeBase64(bytesToBase64(gz));
+  return bytesToBase64(gz);
+}
+
+function normalizeAnyBase64(input) {
+  const raw = String(input || "").trim();
+  if (!raw) return raw;
+  if (raw.includes("-") || raw.includes("_")) return fromUrlSafeBase64(raw);
+  return raw;
 }
 
 async function decodeCompressedStatePayload(encoded) {
-  const gz = base64ToBytes(fromUrlSafeBase64(encoded));
+  const gz = base64ToBytes(normalizeAnyBase64(encoded));
   const utf8 = await gunzipBytes(gz);
   const json = new TextDecoder().decode(utf8);
   return JSON.parse(json);
