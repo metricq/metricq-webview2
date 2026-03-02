@@ -62,11 +62,9 @@ async function gzipBytes(plainBytes) {
   if (typeof CompressionStream !== "function") {
     throw new Error("CompressionStream nicht verfügbar");
   }
-  const stream = new CompressionStream("gzip");
-  const writer = stream.writable.getWriter();
-  await writer.write(plainBytes);
-  await writer.close();
-  const ab = await new Response(stream.readable).arrayBuffer();
+  const input = new Blob([plainBytes]).stream();
+  const compressed = input.pipeThrough(new CompressionStream("gzip"));
+  const ab = await new Response(compressed).arrayBuffer();
   return new Uint8Array(ab);
 }
 
@@ -74,11 +72,9 @@ async function gunzipBytes(gzipBytesData) {
   if (typeof DecompressionStream !== "function") {
     throw new Error("DecompressionStream nicht verfügbar");
   }
-  const stream = new DecompressionStream("gzip");
-  const writer = stream.writable.getWriter();
-  await writer.write(gzipBytesData);
-  await writer.close();
-  const ab = await new Response(stream.readable).arrayBuffer();
+  const input = new Blob([gzipBytesData]).stream();
+  const decompressed = input.pipeThrough(new DecompressionStream("gzip"));
+  const ab = await new Response(decompressed).arrayBuffer();
   return new Uint8Array(ab);
 }
 
