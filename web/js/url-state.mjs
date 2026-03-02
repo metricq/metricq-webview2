@@ -48,16 +48,6 @@ function base64ToBytes(base64) {
   return out;
 }
 
-function toUrlSafeBase64(base64) {
-  return base64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-function fromUrlSafeBase64(urlSafe) {
-  const base64 = urlSafe.replace(/-/g, "+").replace(/_/g, "/");
-  const padLen = (4 - (base64.length % 4)) % 4;
-  return `${base64}${"=".repeat(padLen)}`;
-}
-
 async function gzipBytes(plainBytes) {
   if (typeof CompressionStream !== "function") {
     throw new Error("CompressionStream nicht verfügbar");
@@ -85,15 +75,8 @@ async function encodeCompressedStatePayload(payload) {
   return bytesToBase64(gz);
 }
 
-function normalizeAnyBase64(input) {
-  const raw = String(input || "").trim();
-  if (!raw) return raw;
-  if (raw.includes("-") || raw.includes("_")) return fromUrlSafeBase64(raw);
-  return raw;
-}
-
 async function decodeCompressedStatePayload(encoded) {
-  const gz = base64ToBytes(normalizeAnyBase64(encoded));
+  const gz = base64ToBytes(String(encoded || "").trim());
   const utf8 = await gunzipBytes(gz);
   const json = new TextDecoder().decode(utf8);
   return JSON.parse(json);
