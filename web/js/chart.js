@@ -676,7 +676,8 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
     }
     ctx.save();
     ctx.textAlign = labelAlign;
-    ctx.fillText(label, labelX, height - 9);
+    ctx.textBaseline = "top";
+    ctx.fillText(label, labelX, axisY + tickLen + 2);
     ctx.restore();
   }
 }
