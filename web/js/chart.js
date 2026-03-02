@@ -924,6 +924,15 @@ function pointValue(series, point, factor) {
   return (series.mode === "values" ? point.v : point.avg) * factor;
 }
 
+const HOVER_X_WEIGHT = 1.3;
+const HOVER_Y_WEIGHT = 1.0;
+
+function weightedHoverDist2(dx, dy) {
+  const wx = dx * HOVER_X_WEIGHT;
+  const wy = dy * HOVER_Y_WEIGHT;
+  return wx * wx + wy * wy;
+}
+
 function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
   const points = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
   if (points.length === 0) return null;
@@ -943,7 +952,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
       const y = sy(value);
       const dx = x - cursorX;
       const dy = y - cursorY;
-      const d2 = dx * dx + dy * dy;
+      const d2 = weightedHoverDist2(dx, dy);
       if (d2 < bestDist2) {
         best = p;
         bestIndex = i;
@@ -978,7 +987,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     const y = sy(value);
     const dx = x - cursorX;
     const dy = y - cursorY;
-    const d2 = dx * dx + dy * dy;
+    const d2 = weightedHoverDist2(dx, dy);
     if (d2 < bestDist2) {
       best = p;
       bestIndex = i;
@@ -1140,7 +1149,7 @@ function renderHoverAt(clientX, clientY) {
       const yPx = lastLayout.sy(Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg);
       const dx = hoverX - cursorX;
       const dy = yPx - cursorY;
-      const dist2 = dx * dx + dy * dy;
+      const dist2 = weightedHoverDist2(dx, dy);
       const rowIndex = rows.length;
       rows.push({
         metric,
@@ -1235,7 +1244,7 @@ function renderHoverAt(clientX, clientY) {
           xPx,
           yPx,
           snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
-          dist2: dx * dx + dy * dy,
+          dist2: weightedHoverDist2(dx, dy),
         });
       }
     }
