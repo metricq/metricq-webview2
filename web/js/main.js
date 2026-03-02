@@ -196,7 +196,7 @@ function ensureUrlStateDebugModal() {
 }
 
 function showUrlStateDebugModal(report) {
-  if (!report?.hasStateParam || !globalThis.bootstrap?.Modal) return;
+  if (!report?.hasStateParam) return;
   const modalEl = ensureUrlStateDebugModal();
   const summaryEl = modalEl.querySelector("#urlStateDebugSummary");
   const checksEl = modalEl.querySelector("#urlStateDebugChecks");
@@ -223,7 +223,30 @@ function showUrlStateDebugModal(report) {
     ? JSON.stringify(report.payload, null, 2)
     : "<nicht dekodierbar>";
 
-  globalThis.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+  if (globalThis.bootstrap?.Modal) {
+    globalThis.bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    return;
+  }
+
+  // Fallback without Bootstrap JS: show as plain overlay panel.
+  modalEl.classList.add("show");
+  modalEl.style.display = "block";
+  modalEl.style.background = "rgba(0,0,0,0.35)";
+  modalEl.removeAttribute("aria-hidden");
+  document.body.classList.add("modal-open");
+  const close = () => {
+    modalEl.classList.remove("show");
+    modalEl.style.display = "none";
+    modalEl.style.background = "";
+    modalEl.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("modal-open");
+  };
+  modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((btn) => {
+    btn.addEventListener("click", close, { once: true });
+  });
+  modalEl.addEventListener("click", (ev) => {
+    if (ev.target === modalEl) close();
+  }, { once: true });
 }
 
 function positionTimePopup() {
