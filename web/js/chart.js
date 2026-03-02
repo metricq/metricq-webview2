@@ -627,6 +627,7 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
   const maxVerticalGridLines = Math.max(4, Math.floor(plotW / 95));
   const gridStride = Math.max(1, Math.ceil(xTicks.length / maxVerticalGridLines));
   const axisY = height - margin.bottom;
+  const tickLen = 4;
 
   ctx.strokeStyle = "#e7ebf3";
   ctx.fillStyle = "#000000";
@@ -644,6 +645,16 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
     const label = i === 0
       ? formatReferenceLabel(tick, rangeMs, tickStepMs)
       : formatAxisTime(tick, rangeMs, tickStepMs);
+
+    // Small black tick marker for each rendered x-label.
+    ctx.save();
+    ctx.strokeStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(x, axisY);
+    ctx.lineTo(x, axisY + tickLen);
+    ctx.stroke();
+    ctx.restore();
+
     ctx.fillText(label, x, height - 9);
   }
 }
