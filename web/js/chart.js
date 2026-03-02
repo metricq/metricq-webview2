@@ -665,10 +665,19 @@ function drawXAxisGrid(ctx, height, margin, plotW, sx, xMin, xMax) {
     ctx.restore();
 
     const textWidth = ctx.measureText(label).width;
-    const minX = plotLeft + textWidth / 2 + labelPad;
-    const maxX = plotRight - textWidth / 2 - labelPad;
-    const labelX = Math.max(minX, Math.min(x, maxX));
+    let labelX = x;
+    let labelAlign = "center";
+    if (x - textWidth / 2 < plotLeft + labelPad) {
+      labelX = plotLeft + labelPad;
+      labelAlign = "left";
+    } else if (x + textWidth / 2 > plotRight - labelPad) {
+      labelX = plotRight - labelPad;
+      labelAlign = "right";
+    }
+    ctx.save();
+    ctx.textAlign = labelAlign;
     ctx.fillText(label, labelX, height - 9);
+    ctx.restore();
   }
 }
 
