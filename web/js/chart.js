@@ -992,7 +992,7 @@ export function renderChart() {
     return;
   }
   if (seriesList.length === 0) {
-    setChartEmptyStateVisible(false);
+    if (!showHelpOverlay) setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;
   }
