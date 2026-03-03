@@ -1,7 +1,6 @@
 import { dom } from "./dom.js";
 import { state } from "./model.js";
 import { loadData } from "./data.js";
-import { applyAutoScaling } from "./auto-factor.mjs";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
@@ -33,7 +32,6 @@ import {
   toLocalInput,
   updateRangeButtonLabel,
 } from "./utils.js";
-import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 import {
@@ -304,62 +302,6 @@ function updateYAxisManualInputsEnabled() {
   dom.yAxisManualMax.disabled = !manual;
 }
 
-function updateYAxisUnitOptions() {
-  if (!dom.yAxisUnitGroup || !dom.yAxisUnitList) return;
-  const visibleMetrics = state.metrics.filter((metric) => metric.draw);
-  const groups = new Map();
-  const configuredOverrides = state.yAxisUnitOverrides && typeof state.yAxisUnitOverrides === "object"
-    ? state.yAxisUnitOverrides
-    : {};
-  for (const metric of visibleMetrics) {
-    const unitParsed = parseSIUnit(metric.unit);
-    if (!unitParsed) continue;
-    const displayParsed = parseSIUnit(metric.displayUnit || metric.unit);
-    const family = unitParsed.family;
-    const hasOverride = String(configuredOverrides[family] || "").trim() !== "";
-    const normalized = displayParsed && displayParsed.family === family && displayParsed.exp !== unitParsed.exp;
-    if (!normalized && !hasOverride) continue;
-    groups.set(family, true);
-  }
-
-  if (groups.size === 0) {
-    dom.yAxisUnitGroup.classList.add("d-none");
-    dom.yAxisUnitList.innerHTML = "";
-    return;
-  }
-
-  const overrides = {};
-  const families = Array.from(groups.keys()).sort();
-  const rows = [];
-  for (const family of families) {
-    const options = ['<option value="">Auto</option>'];
-    for (const prefix of SI_PREFIXES) {
-      const unit = formatSIUnit(family, prefix.exp);
-      options.push(`<option value="${unit}">${unit}</option>`);
-    }
-    const selectId = `yAxisUnitSelect-${family}`;
-    rows.push(`
-      <div class="row g-2 align-items-center">
-        <div class="col-4"><label for="${selectId}" class="col-form-label-sm">${family}</label></div>
-        <div class="col-8"><select id="${selectId}" class="form-select form-select-sm" data-family="${family}">${options.join("")}</select></div>
-      </div>
-    `);
-  }
-  dom.yAxisUnitList.innerHTML = rows.join("");
-  const legacyUnit = String(state.yAxisUnitOverrides?.__legacy__ || "").trim();
-  const legacyParsed = parseSIUnit(legacyUnit);
-  for (const select of dom.yAxisUnitList.querySelectorAll("select[data-family]")) {
-    const family = String(select.dataset.family || "");
-    const directOverride = String(state.yAxisUnitOverrides?.[family] || "").trim();
-    const override = directOverride || ((legacyParsed && legacyParsed.family === family) ? legacyUnit : "");
-    const valid = override && SI_PREFIXES.some((p) => formatSIUnit(family, p.exp) === override);
-    select.value = valid ? override : "";
-    if (valid) overrides[family] = override;
-  }
-  state.yAxisUnitOverrides = overrides;
-  dom.yAxisUnitGroup.classList.remove("d-none");
-}
-
 function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
@@ -370,7 +312,6 @@ function syncYAxisModalFromState() {
   dom.yAxisManualMin.value = Number.isFinite(fillMin) ? String(fillMin) : "";
   dom.yAxisManualMax.value = Number.isFinite(fillMax) ? String(fillMax) : "";
   updateYAxisManualInputsEnabled();
-  updateYAxisUnitOptions();
 }
 
 function updateDragSelection() {
@@ -559,17 +500,6 @@ function wireYAxisEvents() {
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
     state.yAxisManualMax = Number.isFinite(manualMax) ? manualMax : null;
-    const nextOverrides = {};
-    if (dom.yAxisUnitList) {
-      for (const select of dom.yAxisUnitList.querySelectorAll("select[data-family]")) {
-        const family = String(select.dataset.family || "");
-        const unit = String(select.value || "").trim();
-        if (family && unit) nextOverrides[family] = unit;
-      }
-    }
-    state.yAxisUnitOverrides = nextOverrides;
-    applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
-    renderMetricList(hooks);
     if (state.yAxisMode === "global") {
       try {
         await ensureGlobalYAxisRange();

@@ -76,7 +76,6 @@ function updateVisibleState(
   renderChart,
   onStateChanged,
   startedAt = null,
-  requestMs = null,
   aggPoints = null,
   rawPoints = null,
   totalDbMs = null,
@@ -86,7 +85,7 @@ function updateVisibleState(
   for (const [name, series] of state.series.entries()) {
     visibleSeries.set(name, clipSeriesToVisibleRange(series));
   }
-  applyAutoScaling(state.metrics, visibleSeries, { preferredDisplayUnits: state.yAxisUnitOverrides });
+  applyAutoScaling(state.metrics, visibleSeries);
   renderMetricList({
     renderChart,
     loadData: () => loadData(renderChart, onStateChanged),
@@ -97,15 +96,9 @@ function updateVisibleState(
   if (Number.isFinite(aggPoints)) dom.aggPointsEl.textContent = String(aggPoints);
   if (Number.isFinite(rawPoints)) dom.rawPointsEl.textContent = String(rawPoints);
   if (startedAt != null && Number.isFinite(totalDbMs)) {
-    const totalMs = Math.round(performance.now() - startedAt);
-    const reqMsRounded = Number.isFinite(requestMs) ? Math.round(requestMs) : null;
-    const frontendMs = reqMsRounded == null ? null : Math.max(0, totalMs - reqMsRounded);
+    const totalHttpMs = Math.round(performance.now() - startedAt);
     const totalDbRoundedMs = Math.round(totalDbMs);
-    if (reqMsRounded == null) {
-      dom.perfBadge.textContent = `HTTP: ${totalMs} ms | DB: ${totalDbRoundedMs} ms`;
-    } else {
-      dom.perfBadge.textContent = `HTTP: ${totalMs} ms | REQ: ${reqMsRounded} ms | FE: ${frontendMs} ms | DB: ${totalDbRoundedMs} ms`;
-    }
+    dom.perfBadge.textContent = `HTTP: ${totalHttpMs} ms | DB: ${totalDbRoundedMs} ms`;
   }
 
 }
@@ -191,7 +184,6 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   req.targets = queryTargets;
 
   const started = performance.now();
-  const requestStarted = performance.now();
   const [body, stackedBody] = await Promise.all([
     (queryTargets.length > 0)
       ? apiFetch("/api/query", {
@@ -213,7 +205,6 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
       })
       : Promise.resolve(null),
   ]);
-  const requestMs = performance.now() - requestStarted;
 
   let aggPoints = 0;
   let rawPoints = 0;
@@ -265,7 +256,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   state.loadedTo = extendedTo;
   state.loadedMetricsKey = metricsKey;
 
-  updateVisibleState(renderChart, onStateChanged, started, requestMs, aggPoints, rawPoints, totalDbMs);
+  updateVisibleState(renderChart, onStateChanged, started, aggPoints, rawPoints, totalDbMs);
   if (state.yAxisMode === "global") {
     try {
       await ensureGlobalYAxisRange();

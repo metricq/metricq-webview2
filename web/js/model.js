@@ -14,7 +14,6 @@ export const state = {
   yAxisGlobalMetricsKey: "",
   yAxisCurrentMin: null,
   yAxisCurrentMax: null,
-  yAxisUnitOverrides: {},
   yAxisStacked: false,
   stackedAligned: null,
   timeMode: "relative",

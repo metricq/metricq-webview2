@@ -246,7 +246,7 @@ export function updateExpressionMetric(originalName, name, expr, hooks) {
 export function removeMetric(name, hooks) {
   state.metrics = state.metrics.filter((m) => m.name !== name);
   state.series.delete(name);
-  applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
   hooks.onStateChanged?.();
@@ -282,7 +282,7 @@ export function clearMetrics(hooks) {
   state.metrics = [];
   state.series.clear();
   factorMetricName = "";
-  applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
 }
@@ -295,7 +295,7 @@ export async function fetchMetadata(name, hooks) {
     const beforeFactors = new Map(state.metrics.map((m) => [m.name, Number(m.factor) || 1]));
     metric.unit = normalizeSIUnit(body?.metadata?.unit);
     metric.description = String(body.metadata.description || "");
-    applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
+    applyAutoScaling(state.metrics, state.series);
     const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
     const factorsChanged = state.metrics.some((m) => {
       const before = beforeFactors.get(m.name);
@@ -635,7 +635,7 @@ export function applyFactorFromModal(hooks) {
   if (!metric.expr && dom.factorAliasInput) {
     metric.alias = String(dom.factorAliasInput.value || "").trim();
   }
-  applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
+  applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
   hooks.onStateChanged?.();

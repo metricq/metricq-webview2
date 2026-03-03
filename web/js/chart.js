@@ -17,14 +17,6 @@ let hoverCursorLineEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
 const rgbaCache = new Map();
-let renderPerfEmaMs = null;
-
-function updateRenderPerfBadge(ms) {
-  if (!dom.renderPerfBadge || !Number.isFinite(ms)) return;
-  const alpha = 0.22;
-  renderPerfEmaMs = renderPerfEmaMs == null ? ms : (renderPerfEmaMs * (1 - alpha) + ms * alpha);
-  dom.renderPerfBadge.textContent = `Render: ${renderPerfEmaMs.toFixed(1)} ms`;
-}
 
 function cssColorWithAlpha(color, alpha) {
   const key = `${String(color || "")}|${Number(alpha)}`;
@@ -861,7 +853,6 @@ function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
 
 
 export function renderChart() {
-  const renderStarted = performance.now();
   resizeCanvas();
   const width = dom.chartWrap.clientWidth;
   const height = dom.chartWrap.clientHeight;
@@ -883,7 +874,6 @@ export function renderChart() {
   const seriesList = getVisibleSeries();
   if (seriesList.length === 0) {
     drawEmptyChartState(ctx, margin);
-    updateRenderPerfBadge(performance.now() - renderStarted);
     return;
   }
 
@@ -1073,7 +1063,6 @@ export function renderChart() {
   }
 
   ctx.restore();
-  updateRenderPerfBadge(performance.now() - renderStarted);
 }
 
 export function timestampAtCanvasX(clientX) {

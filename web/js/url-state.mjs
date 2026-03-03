@@ -101,50 +101,26 @@ function serializeMetricEntry(metric, index) {
 
 function serializeYAxis() {
   const stacked = state.yAxisStacked ? 1 : undefined;
-  const rawOverrides = state.yAxisUnitOverrides && typeof state.yAxisUnitOverrides === "object"
-    ? state.yAxisUnitOverrides
-    : {};
-  const unitOverrides = Object.fromEntries(
-    Object.entries(rawOverrides)
-      .map(([family, unit]) => [String(family).trim(), String(unit).trim()])
-      .filter(([family, unit]) => family && !family.startsWith("__") && unit),
-  );
-  const unitPart = Object.keys(unitOverrides).length > 0 ? { us: unitOverrides } : {};
   if (state.yAxisMode === "local") {
-    if (stacked || Object.keys(unitOverrides).length > 0) return { m: "local", ...(stacked ? { s: stacked } : {}), ...unitPart };
+    if (stacked) return { m: "local", s: stacked };
     return null;
   }
   if (state.yAxisMode === "manual") {
     const min = Number(state.yAxisManualMin);
     const max = Number(state.yAxisManualMax);
     if (Number.isFinite(min) && Number.isFinite(max) && min < max) {
-      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}), ...unitPart };
+      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}) };
     }
-    return { m: "manual", ...(stacked ? { s: stacked } : {}), ...unitPart };
+    return { m: "manual", ...(stacked ? { s: stacked } : {}) };
   }
   if (state.yAxisMode === "global") {
-    return { m: "global", ...(stacked ? { s: stacked } : {}), ...unitPart };
+    return { m: "global", ...(stacked ? { s: stacked } : {}) };
   }
   return null;
 }
 
 function applyYAxisConfig(y) {
   state.yAxisStacked = Number(y?.s) === 1;
-  const nextOverrides = {};
-  const raw = y?.us && typeof y.us === "object" ? y.us : null;
-  if (raw) {
-    for (const [family, unit] of Object.entries(raw)) {
-      const k = String(family || "").trim();
-      const v = String(unit || "").trim();
-      if (!k || !v) continue;
-      nextOverrides[k] = v;
-    }
-  } else {
-    // Backward compatibility with old single-unit override.
-    const legacy = String(y?.u || "").trim();
-    if (legacy) nextOverrides.__legacy__ = legacy;
-  }
-  state.yAxisUnitOverrides = nextOverrides;
   if (!y || y.m === "local") {
     state.yAxisMode = "local";
     state.yAxisManualMin = null;
