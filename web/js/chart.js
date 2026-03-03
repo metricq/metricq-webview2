@@ -1215,6 +1215,10 @@ export function getPlotXBoundsInCanvas() {
   };
 }
 
+export function isChartInteractive() {
+  return Boolean(lastLayout);
+}
+
 function seriesValueAtTime(metric, series, t) {
   const points = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
   if (points.length === 0) return null;

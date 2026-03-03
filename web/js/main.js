@@ -19,6 +19,7 @@ import {
 import {
   getPlotXBoundsInCanvas,
   hideHover,
+  isChartInteractive,
   MAX_ZOOM_RANGE_MS,
   MIN_ZOOM_RANGE_MS,
   panByPixels,
@@ -735,6 +736,10 @@ function wireCanvasInteractionEvents() {
   dom.canvas.addEventListener("mouseleave", hideHover);
 
   dom.canvas.addEventListener("mousedown", (event) => {
+    if (!isChartInteractive()) {
+      event.preventDefault();
+      return;
+    }
     if (event.button !== 0) return;
     event.preventDefault();
     hideHover();
@@ -782,6 +787,10 @@ function wireCanvasInteractionEvents() {
   dom.canvas.addEventListener(
     "wheel",
     (event) => {
+      if (!isChartInteractive()) {
+        event.preventDefault();
+        return;
+      }
       event.preventDefault();
       forceAbsoluteTimeModeFromCurrentRange();
       const center = timestampAtCanvasX(event.clientX);
