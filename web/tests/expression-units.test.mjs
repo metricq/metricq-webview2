@@ -15,6 +15,17 @@ test("propagates compatible additive units to expression metrics", () => {
   assert.equal(metrics[2].displayUnit, "kW");
 });
 
+test("prefers local displayUnit for expression unit propagation", () => {
+  const metrics = [
+    { name: "a", unit: "W", displayUnit: "MW", factorMode: "auto", expr: "" },
+    { name: "expr", unit: "", displayUnit: "", factorMode: "auto", expr: "[a]" },
+  ];
+
+  deriveExpressionUnits(metrics);
+  assert.equal(metrics[1].unit, "MW");
+  assert.equal(metrics[1].displayUnit, "MW");
+});
+
 test("clears unit when expression uses multiplicative operators", () => {
   const metrics = [
     { name: "a", unit: "W", displayUnit: "W", factorMode: "auto", expr: "" },

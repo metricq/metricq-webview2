@@ -90,7 +90,7 @@ export function deriveExpressionUnits(metrics) {
     }
 
     const parsed = deps
-      .map((dep) => parseSIUnit(dep.unit || dep.displayUnit || ""))
+      .map((dep) => parseSIUnit(dep.displayUnit || dep.unit || ""))
       .filter(Boolean);
 
     if (parsed.length !== deps.length) {
@@ -140,7 +140,7 @@ export async function deriveExpressionUnitsResolved(metrics, fetchMetricUnit) {
     for (const depName of depNames) {
       const local = byName.get(depName);
       const unit = local
-        ? String(local.unit || local.displayUnit || "").trim()
+        ? String(local.displayUnit || local.unit || "").trim()
         : String(await resolveUnit(depName)).trim();
       const parsedUnit = parseSIUnit(unit);
       if (!parsedUnit) {
