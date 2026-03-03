@@ -768,7 +768,7 @@ function setNavbarHelpToggleVisible(visible, withPop = false) {
     dom.btnHelpOverlayToggle.classList.remove("is-pop");
     void dom.btnHelpOverlayToggle.offsetWidth;
     dom.btnHelpOverlayToggle.classList.add("is-pop");
-    window.setTimeout(() => dom.btnHelpOverlayToggle?.classList.remove("is-pop"), 660);
+    window.setTimeout(() => dom.btnHelpOverlayToggle?.classList.remove("is-pop"), 980);
   }
 }
 
@@ -801,7 +801,7 @@ function animateEmptyStateToNavbarHelpButton() {
       { transform: "translate(0px, 0px) scale(1, 1)", opacity: 0.95 },
       { transform: `translate(${dx}px, ${dy}px) scale(${sxFactor}, ${syFactor})`, opacity: 0.1 },
     ],
-    { duration: 720, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" },
+    { duration: 1400, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" },
   );
   anim.addEventListener("finish", () => ghost.remove(), { once: true });
   anim.addEventListener("cancel", () => ghost.remove(), { once: true });
@@ -954,7 +954,7 @@ export function renderChart() {
     setNavbarHelpToggleVisible(true, wasHelpVisible);
     if (wasHelpVisible) {
       animateEmptyStateToNavbarHelpButton();
-      scheduleEmptyStateHideAfterMinimize(1080);
+      scheduleEmptyStateHideAfterMinimize(1900);
     } else {
       setChartEmptyStateVisible(false);
     }

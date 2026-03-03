@@ -51,7 +51,7 @@
 .chart-empty-state.is-minimizing .chart-empty-card {
   opacity: 0;
   transform: scale(0.95);
-  transition: opacity 1050ms ease, transform 1050ms ease;
+  transition: opacity 1850ms ease, transform 1850ms ease;
 }
 
 .chart-empty-card {
