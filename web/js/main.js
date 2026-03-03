@@ -556,6 +556,7 @@ function renderContextualHelp() {
   const metricCount = state.metrics.length;
   const hasMetrics = metricCount > 0;
   const sidebarOpen = !state.sidebarCollapsed;
+  if (dom.btnEmptyHideHelp) dom.btnEmptyHideHelp.classList.toggle("d-none", !hasMetrics);
 
   dom.chartHelpTitle.textContent = hasMetrics
     ? "Metriken vorhanden: nächste Schritte"
