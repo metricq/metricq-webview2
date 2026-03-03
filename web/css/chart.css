@@ -110,29 +110,38 @@
   font-size: 0.93rem;
 }
 
-.chart-empty-actions {
+.chart-help-sections {
+  margin-top: 0.75rem;
+  display: grid;
+  gap: 0.56rem;
+}
+
+.chart-help-section {
+  border: 1px solid #dbe3f0;
+  background: rgba(255, 255, 255, 0.68);
+  border-radius: 0.62rem;
+  padding: 0.5rem 0.55rem;
+  text-align: left;
+}
+
+.chart-help-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #556276;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.01em;
+}
+
+.chart-help-actions {
   display: flex;
-  gap: 0.5rem;
-  justify-content: center;
   flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
-.chart-empty-tips {
-  margin-top: 0.7rem;
-  display: flex;
-  gap: 0.8rem;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-
-.chart-empty-tip {
-  font-size: 0.82rem;
-  color: #335ea2;
-  text-decoration: none;
-}
-
-.chart-empty-tip:hover {
-  text-decoration: underline;
+.chart-help-actions .btn {
+  --bs-btn-padding-y: 0.23rem;
+  --bs-btn-padding-x: 0.5rem;
+  --bs-btn-font-size: 0.82rem;
 }
 
 .chart-empty-minimize-ghost {

@@ -77,30 +77,9 @@
                       <i class="bi bi-x-lg"></i>
                     </button>
                     <div class="chart-empty-icon"><i class="bi bi-graph-up"></i></div>
-                    <h3>Noch keine Metriken ausgewählt</h3>
-                    <p>Füge eine existierende Metrik hinzu oder starte mit einer berechneten Metrik.</p>
-                    <div class="chart-empty-actions">
-                      <button class="btn btn-primary btn-sm" id="btnEmptyFocusSearch" type="button">
-                        <i class="bi bi-search me-1"></i>Metrik suchen
-                      </button>
-                      <button class="btn btn-outline-primary btn-sm" id="btnEmptyOpenExpression" type="button">
-                        <i class="bi bi-plus-lg me-1"></i>Berechnete Metrik
-                      </button>
-                      <button class="btn btn-outline-secondary btn-sm" id="btnEmptyOpenTimeRange" type="button">
-                        <i class="bi bi-clock me-1"></i>Zeitraum wählen
-                      </button>
-                      <button class="btn btn-outline-secondary btn-sm" id="btnEmptyOpenYAxis" type="button">
-                        <i class="bi bi-arrows-vertical me-1"></i>Y-Achse konfigurieren
-                      </button>
-                      <button class="btn btn-outline-secondary btn-sm" id="btnEmptyToggleStacked" type="button">
-                        <i class="bi bi-layers me-1"></i>Stacking umschalten
-                      </button>
-                    </div>
-                    <div class="chart-empty-tips">
-                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_1h">Letzte Stunde</button>
-                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_24h">Letzte 24 Stunden</button>
-                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_7d">Letzte 7 Tage</button>
-                    </div>
+                    <h3 id="chartHelpTitle">Noch keine Metriken ausgewählt</h3>
+                    <p id="chartHelpSubtitle">Füge eine existierende Metrik hinzu oder starte mit einer berechneten Metrik.</p>
+                    <div id="chartHelpSections" class="chart-help-sections"></div>
                   </div>
                 </div>
                 <div id="hoverBox" class="hover-box d-none"></div>

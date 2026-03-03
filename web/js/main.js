@@ -48,11 +48,16 @@ function syncUrlStateIfAllowed() {
   void syncUrlStateNow().catch(() => {});
 }
 
+function onStateChangedCombined() {
+  renderContextualHelp();
+  syncUrlStateIfAllowed();
+}
+
 const hooks = {
   renderChart,
-  loadData: () => loadData(renderChart, syncUrlStateIfAllowed),
+  loadData: () => loadData(renderChart, onStateChangedCombined),
   renderCollapsedLegend,
-  onStateChanged: syncUrlStateIfAllowed,
+  onStateChanged: onStateChangedCombined,
 };
 
 const presetTokenMap = {
@@ -104,16 +109,6 @@ function syncStackedModeButton() {
   dom.btnStackedMode.title = stackedActive
     ? "Stacked-Mode aktiv"
     : "Stacked-Mode inaktiv";
-  if (dom.btnEmptyToggleStacked) {
-    dom.btnEmptyToggleStacked.classList.toggle("btn-primary", stackedActive);
-    dom.btnEmptyToggleStacked.classList.toggle("btn-outline-secondary", !stackedActive);
-    dom.btnEmptyToggleStacked.innerHTML = stackedActive
-      ? '<i class="bi bi-layers-half me-1"></i>Stacking deaktivieren'
-      : '<i class="bi bi-layers me-1"></i>Stacking aktivieren';
-    dom.btnEmptyToggleStacked.title = stackedActive
-      ? "Stacked-Mode ist aktiv"
-      : "Stacked-Mode ist inaktiv";
-  }
 }
 
 function updateSidebarToggleIcon() {
@@ -137,6 +132,7 @@ function setSidebarCollapsed(collapsed) {
   syncRenderModeButton();
   syncStackedModeButton();
   renderCollapsedLegend();
+  renderContextualHelp();
   renderChart();
 }
 
@@ -542,52 +538,192 @@ function animateCoachToTarget(fromEl, targetEl) {
   });
 }
 
+function firstMetricToggleButton() {
+  return dom.metricList?.querySelector("li.metric-draggable-row button[data-action='toggle']") || null;
+}
+
+function firstMetricColorButton() {
+  return dom.metricList?.querySelector("li.metric-draggable-row .metric-color-button") || null;
+}
+
+function helpActionButton(action, label, icon, tone = "outline-secondary", disabled = false) {
+  const disabledAttr = disabled ? " disabled" : "";
+  return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}><i class="bi ${icon} me-1"></i>${label}</button>`;
+}
+
+function helpSection(title, actionsHtml) {
+  return `
+    <section class="chart-help-section">
+      <div class="chart-help-section-title">${title}</div>
+      <div class="chart-help-actions">${actionsHtml}</div>
+    </section>
+  `;
+}
+
+function renderContextualHelp() {
+  if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle) return;
+  const metricCount = state.metrics.length;
+  const hasMetrics = metricCount > 0;
+  const sidebarOpen = !state.sidebarCollapsed;
+
+  dom.chartHelpTitle.textContent = hasMetrics
+    ? "Metriken vorhanden: nächste Schritte"
+    : "Noch keine Metriken ausgewählt";
+  dom.chartHelpSubtitle.textContent = hasMetrics
+    ? "Nutze die passenden Aktionen für Metriken, Sichtbarkeit, Farben und Achsen."
+    : "Starte mit einer Metrik oder lege eine berechnete Metrik an.";
+
+  const sections = [];
+  sections.push(helpSection(
+    hasMetrics ? "Metriken hinzufügen" : "Erste Metrik",
+    [
+      helpActionButton("focus_metric_search", "Metrik suchen", "bi-search", "primary"),
+      helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"),
+    ].join(""),
+  ));
+
+  if (sidebarOpen) {
+    sections.push(helpSection(
+      "Sidebar",
+      helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"),
+    ));
+    sections.push(helpSection(
+      "Sichtbarkeit",
+      [
+        helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"),
+        helpActionButton("show_all", "Alle zeigen", "bi-eye"),
+        helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles", "outline-secondary", !hasMetrics),
+      ].join(""),
+    ));
+    sections.push(helpSection(
+      "Farben",
+      [
+        helpActionButton("recolor_classic", "Klassisch", "bi-brush"),
+        helpActionButton("recolor_random", "Neu färben", "bi-palette"),
+        helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill", "outline-secondary", !hasMetrics),
+      ].join(""),
+    ));
+  } else {
+    sections.push(helpSection(
+      "Achsen und Zeit",
+      [
+        helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical"),
+        helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers"),
+        helpActionButton("open_time_range", "Zeitraum", "bi-clock-history"),
+      ].join(""),
+    ));
+    sections.push(helpSection(
+      "Sidebar",
+      helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"),
+    ));
+  }
+
+  dom.chartHelpSections.innerHTML = sections.join("");
+}
+
+async function runHelpAction(action, sourceEl) {
+  const ensureSidebarOpen = () => {
+    if (!state.sidebarCollapsed) return;
+    setSidebarCollapsed(false);
+  };
+
+  if (action === "focus_metric_search") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.metricSearch);
+    dom.metricSearch?.focus();
+    return;
+  }
+  if (action === "open_expression") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.btnAddExpressionMetric);
+    dom.btnAddExpressionMetric?.click();
+    return;
+  }
+  if (action === "close_sidebar") {
+    if (!state.sidebarCollapsed) {
+      await animateCoachToTarget(sourceEl, dom.btnSidebarToggle);
+      dom.btnSidebarToggle?.click();
+    }
+    return;
+  }
+  if (action === "open_sidebar") {
+    if (state.sidebarCollapsed) {
+      await animateCoachToTarget(sourceEl, dom.btnSidebarToggle);
+      dom.btnSidebarToggle?.click();
+    }
+    return;
+  }
+  if (action === "hide_all") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.btnHideAll);
+    dom.btnHideAll?.click();
+    return;
+  }
+  if (action === "show_all") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.btnShowAll);
+    dom.btnShowAll?.click();
+    return;
+  }
+  if (action === "toggle_first_metric") {
+    ensureSidebarOpen();
+    const target = firstMetricToggleButton();
+    await animateCoachToTarget(sourceEl, target);
+    target?.click();
+    return;
+  }
+  if (action === "recolor_classic") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.btnRecolorClassic);
+    dom.btnRecolorClassic?.click();
+    return;
+  }
+  if (action === "recolor_random") {
+    ensureSidebarOpen();
+    await animateCoachToTarget(sourceEl, dom.btnRecolor);
+    dom.btnRecolor?.click();
+    return;
+  }
+  if (action === "first_metric_color") {
+    ensureSidebarOpen();
+    const target = firstMetricColorButton();
+    await animateCoachToTarget(sourceEl, target);
+    target?.click();
+    return;
+  }
+  if (action === "open_y_axis") {
+    await animateCoachToTarget(sourceEl, dom.btnYAxis);
+    dom.btnYAxis?.click();
+    return;
+  }
+  if (action === "toggle_stacked") {
+    await animateCoachToTarget(sourceEl, dom.btnStackedMode);
+    dom.btnStackedMode?.click();
+    return;
+  }
+  if (action === "open_time_range") {
+    await animateCoachToTarget(sourceEl, dom.btnTimeRange);
+    toggleTimePopup();
+  }
+}
+
 function wireChartEmptyStateEvents() {
   dom.btnHelpOverlayToggle?.addEventListener("click", () => {
     state.helpOverlayForced = true;
     state.helpOverlayMinimizeDeferred = false;
     state.helpOverlayMinimizeActive = false;
+    renderContextualHelp();
     renderChart();
   });
   dom.btnEmptyHideHelp?.addEventListener("click", () => {
     startHelpOverlayMinimize(1900);
   });
-  dom.btnEmptyFocusSearch?.addEventListener("click", async (event) => {
-    if (state.sidebarCollapsed) setSidebarCollapsed(false);
-    await animateCoachToTarget(event.currentTarget, dom.metricSearch);
-    dom.metricSearch?.focus();
-  });
-  dom.btnEmptyOpenExpression?.addEventListener("click", async (event) => {
-    if (state.sidebarCollapsed) setSidebarCollapsed(false);
-    await animateCoachToTarget(event.currentTarget, dom.btnAddExpressionMetric);
-    dom.btnAddExpressionMetric?.click();
-  });
-  dom.btnEmptyOpenTimeRange?.addEventListener("click", async (event) => {
-    await animateCoachToTarget(event.currentTarget, dom.btnTimeRange);
-    toggleTimePopup();
-  });
-  dom.btnEmptyOpenYAxis?.addEventListener("click", async (event) => {
-    await animateCoachToTarget(event.currentTarget, dom.btnYAxis);
-    dom.btnYAxis?.click();
-  });
-  dom.btnEmptyToggleStacked?.addEventListener("click", async (event) => {
-    await animateCoachToTarget(event.currentTarget, dom.btnStackedMode);
-    dom.btnStackedMode?.click();
-  });
   dom.chartEmptyState?.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-empty-range]");
+    const target = event.target.closest("[data-help-action]");
     if (!target) return;
-    const preset = String(target.dataset.emptyRange || "");
-    if (!preset) return;
-    if (dom.timePopup.classList.contains("d-none")) openTimePopup();
-    const presetButton = dom.rangePresets?.querySelector(`button[data-range="${preset}"]`);
-    const run = async () => {
-      await animateCoachToTarget(target, presetButton);
-      presetButton?.click();
-      closeTimePopup();
-      dom.btnApplyTimeRange?.click();
-    };
-    void run();
+    const action = String(target.dataset.helpAction || "").trim();
+    if (!action) return;
+    void runHelpAction(action, target);
   });
 }
 
@@ -873,6 +1009,7 @@ async function init() {
   if (restoredFromUrl) setSidebarCollapsed(true);
   else if (!state.compactSidebarMode) setSidebarCollapsed(false);
   renderMetricList(hooks);
+  renderContextualHelp();
   for (const metric of state.metrics) {
     if (!metric.expr) fetchMetadata(metric.name, hooks);
   }
