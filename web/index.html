@@ -86,7 +86,6 @@
                 <div class="btn-group btn-group-sm">
                   <button class="btn btn-outline-secondary" id="btnHideAll" title="Alle ausblenden"><i class="bi bi-eye-slash"></i></button>
                   <button class="btn btn-outline-secondary" id="btnShowAll" title="Alle zeigen"><i class="bi bi-eye"></i></button>
-                  <button class="btn btn-outline-secondary" id="btnScaleDebug" title="Skalierungs-Debug" data-bs-toggle="modal" data-bs-target="#scaleDebugModal"><i class="bi bi-sliders"></i></button>
                   <button class="btn btn-outline-secondary" id="btnRecolorClassic" title="Klassisch färben"><i class="bi bi-brush"></i></button>
                   <button class="btn btn-outline-secondary" id="btnRecolor" title="Neu färben"><i class="bi bi-palette"></i></button>
                   <button class="btn btn-outline-danger" id="btnClear" title="Alle entfernen"><i class="bi bi-trash"></i></button>
@@ -276,41 +275,6 @@
                 <tbody id="analyzeTableBody"></tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="modal fade" id="scaleDebugModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-xl modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Skalierungs-Debug</h5>
-            <button class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
-          </div>
-          <div class="modal-body">
-            <div class="table-responsive">
-              <table class="table table-sm align-middle">
-                <thead>
-                  <tr>
-                    <th>Metrik</th>
-                    <th>Unit</th>
-                    <th>Display</th>
-                    <th>Factor-Mode</th>
-                    <th>Manual</th>
-                    <th>Effektiv</th>
-                    <th>Norm</th>
-                    <th>Typ</th>
-                    <th>Refs</th>
-                  </tr>
-                </thead>
-                <tbody id="scaleDebugBody"></tbody>
-              </table>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn btn-outline-secondary" id="btnRefreshScaleDebug" type="button">Aktualisieren</button>
-            <button class="btn btn-primary" data-bs-dismiss="modal">Schließen</button>
           </div>
         </div>
       </div>
