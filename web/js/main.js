@@ -6,7 +6,6 @@ import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { wireExpressionModal } from "./expressions.js";
 import {
-  addMetric,
   clearMetrics,
   fetchMetadata,
   recolorMetricsClassic,
@@ -506,10 +505,10 @@ function wireTimeDialogEvents() {
 }
 
 function wireMetricPanelEvents() {
-  dom.btnAddMetric.addEventListener("click", () => {
-    addMetric(dom.metricSearch.value.trim(), hooks);
+  dom.btnResetMetricSearch.addEventListener("click", () => {
     dom.metricSearch.value = "";
     dom.metricHints.innerHTML = "";
+    dom.metricSearch.focus();
   });
 
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));

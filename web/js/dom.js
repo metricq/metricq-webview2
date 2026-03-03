@@ -44,7 +44,7 @@ export const dom = {
   relativeAmount: document.getElementById("relativeAmount"),
   relativeUnit: document.getElementById("relativeUnit"),
   relativePreview: document.getElementById("relativePreview"),
-  btnAddMetric: document.getElementById("btnAddMetric"),
+  btnResetMetricSearch: document.getElementById("btnResetMetricSearch"),
   btnAddExpressionMetric: document.getElementById("btnAddExpressionMetric"),
   btnHideAll: document.getElementById("btnHideAll"),
   btnShowAll: document.getElementById("btnShowAll"),
