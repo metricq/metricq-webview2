@@ -31,6 +31,77 @@
   cursor: crosshair;
 }
 
+.chart-empty-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 4;
+}
+
+.chart-empty-card {
+  width: min(640px, 100%);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.96));
+  border: 1px solid #d4dceb;
+  border-radius: 0.9rem;
+  box-shadow: 0 0.4rem 1.1rem rgba(16, 24, 40, 0.12);
+  padding: 1.1rem 1rem 1rem;
+  text-align: center;
+}
+
+.chart-empty-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.65rem;
+  background: rgba(13, 110, 253, 0.12);
+  color: #1b5fc4;
+  font-size: 1.2rem;
+  margin-bottom: 0.55rem;
+}
+
+.chart-empty-card h3 {
+  margin: 0;
+  font-size: 1.06rem;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.chart-empty-card p {
+  margin: 0.45rem 0 0.9rem;
+  color: #5f6b7b;
+  font-size: 0.93rem;
+}
+
+.chart-empty-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.chart-empty-tips {
+  margin-top: 0.7rem;
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.chart-empty-tip {
+  font-size: 0.82rem;
+  color: #335ea2;
+  text-decoration: none;
+}
+
+.chart-empty-tip:hover {
+  text-decoration: underline;
+}
+
 .hover-box {
   position: absolute;
   pointer-events: none;
@@ -212,5 +283,9 @@
   #chartCanvas {
     min-height: 0;
     height: 100%;
+  }
+
+  .chart-empty-card {
+    padding: 0.95rem 0.85rem 0.85rem;
   }
 }

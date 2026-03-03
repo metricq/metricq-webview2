@@ -480,6 +480,28 @@ function wireMetricPanelEvents() {
   syncMetricSearchReset();
 }
 
+function wireChartEmptyStateEvents() {
+  dom.btnEmptyFocusSearch?.addEventListener("click", () => {
+    if (state.sidebarCollapsed) setSidebarCollapsed(false);
+    dom.metricSearch?.focus();
+  });
+  dom.btnEmptyOpenExpression?.addEventListener("click", () => {
+    dom.btnAddExpressionMetric?.click();
+  });
+  dom.btnEmptyOpenTimeRange?.addEventListener("click", () => {
+    toggleTimePopup();
+  });
+  dom.chartEmptyState?.addEventListener("click", (event) => {
+    const target = event.target.closest("[data-empty-range]");
+    if (!target) return;
+    const preset = String(target.dataset.emptyRange || "");
+    if (!preset) return;
+    applyPreset(preset);
+    closeTimePopup();
+    dom.btnApplyTimeRange?.click();
+  });
+}
+
 function wireModalEvents() {
   dom.analyzeModal.addEventListener("shown.bs.modal", runAnalyze);
   dom.btnExportPng.addEventListener("click", exportPNG);
@@ -587,6 +609,7 @@ function wireEvents() {
   wireTopBarEvents();
   wireTimeDialogEvents();
   wireMetricPanelEvents();
+  wireChartEmptyStateEvents();
   wireModalEvents();
   wireYAxisEvents();
   wireCanvasInteractionEvents();

@@ -754,6 +754,11 @@ function drawEmptyChartState(ctx, margin) {
   ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
 }
 
+function setChartEmptyStateVisible(visible) {
+  if (!dom.chartEmptyState) return;
+  dom.chartEmptyState.classList.toggle("d-none", !visible);
+}
+
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
@@ -872,7 +877,16 @@ export function renderChart() {
   }
 
   const seriesList = getVisibleSeries();
+  const noMetricsSelected = state.metrics.length === 0;
+  setChartEmptyStateVisible(noMetricsSelected);
+  if (noMetricsSelected) {
+    lastStackedByMetric = null;
+    lastLayout = null;
+    hideHover();
+    return;
+  }
   if (seriesList.length === 0) {
+    setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;
   }

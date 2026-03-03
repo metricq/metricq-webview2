@@ -68,6 +68,29 @@
             <div class="card shadow-sm h-100 d-flex flex-column">
               <div class="card-body p-0 chart-body flex-fill" id="chartWrap">
                 <canvas id="chartCanvas"></canvas>
+                <div id="chartEmptyState" class="chart-empty-state d-none" aria-live="polite">
+                  <div class="chart-empty-card">
+                    <div class="chart-empty-icon"><i class="bi bi-graph-up"></i></div>
+                    <h3>Noch keine Metriken ausgewählt</h3>
+                    <p>Füge eine Metrik hinzu oder starte mit einer berechneten Kennzahl.</p>
+                    <div class="chart-empty-actions">
+                      <button class="btn btn-primary btn-sm" id="btnEmptyFocusSearch" type="button">
+                        <i class="bi bi-search me-1"></i>Metrik suchen
+                      </button>
+                      <button class="btn btn-outline-primary btn-sm" id="btnEmptyOpenExpression" type="button">
+                        <i class="bi bi-plus-lg me-1"></i>Berechnete Metrik
+                      </button>
+                      <button class="btn btn-outline-secondary btn-sm" id="btnEmptyOpenTimeRange" type="button">
+                        <i class="bi bi-clock me-1"></i>Zeitraum wählen
+                      </button>
+                    </div>
+                    <div class="chart-empty-tips">
+                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_1h">Letzte Stunde</button>
+                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_24h">Letzte 24 Stunden</button>
+                      <button class="btn btn-link p-0 chart-empty-tip" type="button" data-empty-range="last_7d">Letzte 7 Tage</button>
+                    </div>
+                  </div>
+                </div>
                 <div id="hoverBox" class="hover-box d-none"></div>
                 <div id="dragSelectBox" class="drag-select-box d-none"></div>
                 <div id="zoomRangeBadge" class="zoom-range-badge"></div>
