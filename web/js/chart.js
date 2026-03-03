@@ -16,7 +16,6 @@ let hoverPointEl = null;
 let hoverCursorLineEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
-let helpMinimizeTimerId = null;
 const rgbaCache = new Map();
 
 function cssColorWithAlpha(color, alpha) {
@@ -807,19 +806,6 @@ function animateEmptyStateToNavbarHelpButton() {
   anim.addEventListener("cancel", () => ghost.remove(), { once: true });
 }
 
-function scheduleEmptyStateHideAfterMinimize(durationMs) {
-  if (!dom.chartEmptyState) return;
-  if (helpMinimizeTimerId != null) {
-    window.clearTimeout(helpMinimizeTimerId);
-    helpMinimizeTimerId = null;
-  }
-  dom.chartEmptyState.classList.add("is-minimizing");
-  helpMinimizeTimerId = window.setTimeout(() => {
-    helpMinimizeTimerId = null;
-    setChartEmptyStateVisible(false);
-  }, durationMs);
-}
-
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
@@ -940,24 +926,35 @@ export function renderChart() {
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
   if (noMetricsSelected) state.helpOverlayForced = false;
-  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced || !!state.helpOverlayMinimizeDeferred;
+  const now = Date.now();
+  const minimizingNow = !noMetricsSelected
+    && !state.helpOverlayForced
+    && !state.helpOverlayMinimizeDeferred
+    && Number(state.helpOverlayMinimizeUntil) > now;
+  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced || !!state.helpOverlayMinimizeDeferred || minimizingNow;
   const wasHelpVisible = dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
   if (showHelpOverlay) {
-    if (helpMinimizeTimerId != null) {
-      window.clearTimeout(helpMinimizeTimerId);
-      helpMinimizeTimerId = null;
-    }
-    dom.chartEmptyState?.classList.remove("is-minimizing");
     setChartEmptyStateVisible(true);
-    setNavbarHelpToggleVisible(false);
-  } else {
-    setNavbarHelpToggleVisible(true, wasHelpVisible);
-    if (wasHelpVisible) {
-      animateEmptyStateToNavbarHelpButton();
-      scheduleEmptyStateHideAfterMinimize(1900);
+    if (minimizingNow) {
+      if (!state.helpOverlayMinimizeActive && wasHelpVisible) {
+        animateEmptyStateToNavbarHelpButton();
+        setNavbarHelpToggleVisible(true, true);
+      } else {
+        setNavbarHelpToggleVisible(true);
+      }
+      dom.chartEmptyState?.classList.add("is-minimizing");
+      state.helpOverlayMinimizeActive = true;
     } else {
-      setChartEmptyStateVisible(false);
+      dom.chartEmptyState?.classList.remove("is-minimizing");
+      setNavbarHelpToggleVisible(false);
+      state.helpOverlayMinimizeActive = false;
+      if (noMetricsSelected) state.helpOverlayMinimizeUntil = 0;
     }
+  } else {
+    setNavbarHelpToggleVisible(true);
+    setChartEmptyStateVisible(false);
+    state.helpOverlayMinimizeActive = false;
+    state.helpOverlayMinimizeUntil = 0;
   }
   if (noMetricsSelected) {
     lastStackedByMetric = null;

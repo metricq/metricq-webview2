@@ -638,6 +638,9 @@ function saveExpressionMetric(hooks) {
     modal.hide();
   } else if (state.helpOverlayMinimizeDeferred) {
     state.helpOverlayMinimizeDeferred = false;
+    state.helpOverlayForced = false;
+    state.helpOverlayMinimizeUntil = Date.now() + 1900;
+    state.helpOverlayMinimizeActive = false;
     hooks.renderChart();
   }
 }
@@ -797,7 +800,12 @@ export function wireExpressionModal(hooks) {
     renderMetricSearchHints([]);
     hideHoverInfo();
     clearDropMarker();
-    if (shouldReleaseHelpMinimize) hooks.renderChart();
+    if (shouldReleaseHelpMinimize) {
+      state.helpOverlayForced = false;
+      state.helpOverlayMinimizeUntil = Date.now() + 1900;
+      state.helpOverlayMinimizeActive = false;
+      hooks.renderChart();
+    }
   });
 
   dom.expressionMetricSearch.addEventListener("input", () => {

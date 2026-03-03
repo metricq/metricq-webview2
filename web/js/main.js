@@ -544,10 +544,16 @@ function animateCoachToTarget(fromEl, targetEl) {
 function wireChartEmptyStateEvents() {
   dom.btnHelpOverlayToggle?.addEventListener("click", () => {
     state.helpOverlayForced = true;
+    state.helpOverlayMinimizeDeferred = false;
+    state.helpOverlayMinimizeUntil = 0;
+    state.helpOverlayMinimizeActive = false;
     renderChart();
   });
   dom.btnEmptyHideHelp?.addEventListener("click", () => {
     state.helpOverlayForced = false;
+    state.helpOverlayMinimizeDeferred = false;
+    state.helpOverlayMinimizeUntil = Date.now() + 1900;
+    state.helpOverlayMinimizeActive = false;
     renderChart();
   });
   dom.btnEmptyFocusSearch?.addEventListener("click", async (event) => {

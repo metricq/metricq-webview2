@@ -24,6 +24,8 @@ export const state = {
   compactSidebarMode: false,
   helpOverlayForced: false,
   helpOverlayMinimizeDeferred: false,
+  helpOverlayMinimizeUntil: 0,
+  helpOverlayMinimizeActive: false,
   interactionMode: "",
   isPanning: false,
   panStartX: 0,

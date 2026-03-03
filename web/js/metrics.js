@@ -318,6 +318,7 @@ const classicPalette = [
 
 export function addMetric(name, hooks) {
   if (!name || metricByName(name)) return;
+  const hadNoMetrics = state.metrics.length === 0;
   state.metrics.push({
     name,
     expr: "",
@@ -334,6 +335,13 @@ export function addMetric(name, hooks) {
     description: "",
   });
   renderMetricList(hooks);
+  if (hadNoMetrics) {
+    state.helpOverlayForced = false;
+    state.helpOverlayMinimizeDeferred = false;
+    state.helpOverlayMinimizeUntil = Date.now() + 1900;
+    state.helpOverlayMinimizeActive = false;
+    hooks.renderChart();
+  }
   hooks.loadData();
   hooks.onStateChanged?.();
   fetchMetadata(name, hooks);
