@@ -60,10 +60,7 @@ function positionMetricHintHover(el, clientX, clientY) {
   const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
 
   const preferRight = clientX + offsetX;
-  const rightOverflow = preferRight + width > viewportW - pad;
-  const left = rightOverflow
-    ? Math.max(pad, clientX - width - offsetX)
-    : Math.max(pad, Math.min(preferRight, viewportW - width - pad));
+  const left = Math.max(pad, Math.min(preferRight, viewportW - width - pad));
 
   const preferTop = clientY + offsetY;
   const top = Math.max(pad, Math.min(preferTop, viewportH - height - pad));
