@@ -14,6 +14,7 @@ let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
+let hoverRafId = 0;
 let colorSampleCtx = null;
 const rgbaCache = new Map();
 
@@ -1405,7 +1406,13 @@ export function showHover(event) {
   if (state.interactionMode === "zoom-select" || state.isPanning) return;
   lastHoverClientX = event.clientX;
   lastHoverClientY = event.clientY;
-  renderHoverAt(event.clientX, event.clientY);
+  if (hoverRafId) return;
+  hoverRafId = window.requestAnimationFrame(() => {
+    hoverRafId = 0;
+    if (state.interactionMode === "zoom-select" || state.isPanning) return;
+    if (lastHoverClientX == null || lastHoverClientY == null) return;
+    renderHoverAt(lastHoverClientX, lastHoverClientY);
+  });
 }
 
 export function refreshHover() {
@@ -1415,6 +1422,10 @@ export function refreshHover() {
 }
 
 export function hideHover() {
+  if (hoverRafId) {
+    window.cancelAnimationFrame(hoverRafId);
+    hoverRafId = 0;
+  }
   lastHoverClientX = null;
   lastHoverClientY = null;
   dom.hoverBox.classList.add("d-none");
