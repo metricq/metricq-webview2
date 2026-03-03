@@ -480,15 +480,65 @@ function wireMetricPanelEvents() {
   syncMetricSearchReset();
 }
 
+function animateCoachToTarget(fromEl, targetEl) {
+  if (!targetEl) return Promise.resolve();
+  const targetRect = targetEl.getBoundingClientRect();
+  if (targetRect.width <= 0 || targetRect.height <= 0) return Promise.resolve();
+
+  targetEl.classList.add("coach-highlight-target");
+
+  const ring = document.createElement("div");
+  ring.className = "coach-highlight-ring";
+  ring.style.left = `${Math.round(targetRect.left - 6)}px`;
+  ring.style.top = `${Math.round(targetRect.top - 6)}px`;
+  ring.style.width = `${Math.round(targetRect.width + 12)}px`;
+  ring.style.height = `${Math.round(targetRect.height + 12)}px`;
+  document.body.appendChild(ring);
+
+  let dot = null;
+  if (fromEl) {
+    const fromRect = fromEl.getBoundingClientRect();
+    const x1 = fromRect.left + fromRect.width / 2;
+    const y1 = fromRect.top + fromRect.height / 2;
+    const x2 = targetRect.left + targetRect.width / 2;
+    const y2 = targetRect.top + targetRect.height / 2;
+    dot = document.createElement("div");
+    dot.className = "coach-guide-dot";
+    dot.style.left = `${Math.round(x1)}px`;
+    dot.style.top = `${Math.round(y1)}px`;
+    document.body.appendChild(dot);
+    dot.animate(
+      [
+        { transform: "translate(0px, 0px) scale(1)", opacity: 0.9 },
+        { transform: `translate(${Math.round(x2 - x1)}px, ${Math.round(y2 - y1)}px) scale(0.8)`, opacity: 0.25 },
+      ],
+      { duration: 650, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" },
+    );
+  }
+
+  return new Promise((resolve) => {
+    window.setTimeout(() => {
+      targetEl.classList.remove("coach-highlight-target");
+      ring.remove();
+      dot?.remove();
+      resolve();
+    }, 900);
+  });
+}
+
 function wireChartEmptyStateEvents() {
-  dom.btnEmptyFocusSearch?.addEventListener("click", () => {
+  dom.btnEmptyFocusSearch?.addEventListener("click", async (event) => {
     if (state.sidebarCollapsed) setSidebarCollapsed(false);
+    await animateCoachToTarget(event.currentTarget, dom.metricSearch);
     dom.metricSearch?.focus();
   });
-  dom.btnEmptyOpenExpression?.addEventListener("click", () => {
+  dom.btnEmptyOpenExpression?.addEventListener("click", async (event) => {
+    if (state.sidebarCollapsed) setSidebarCollapsed(false);
+    await animateCoachToTarget(event.currentTarget, dom.btnAddExpressionMetric);
     dom.btnAddExpressionMetric?.click();
   });
-  dom.btnEmptyOpenTimeRange?.addEventListener("click", () => {
+  dom.btnEmptyOpenTimeRange?.addEventListener("click", async (event) => {
+    await animateCoachToTarget(event.currentTarget, dom.btnTimeRange);
     toggleTimePopup();
   });
   dom.chartEmptyState?.addEventListener("click", (event) => {
