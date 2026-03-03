@@ -13,9 +13,15 @@ function buildLegendRow(metric) {
   const row = document.createElement("div");
   row.className = "collapsed-legend-item";
 
-  const swatch = document.createElement("span");
-  swatch.className = "collapsed-legend-color";
-  swatch.style.background = metric.color;
+  const indicator = document.createElement("span");
+  if (metric.stackMode !== "normal") {
+    indicator.className = "collapsed-legend-icon";
+    indicator.style.color = metric.color;
+    indicator.innerHTML = '<i class="bi bi-layers-fill" aria-hidden="true"></i>';
+  } else {
+    indicator.className = "collapsed-legend-color";
+    indicator.style.background = metric.color;
+  }
 
   const labelWrap = document.createElement("div");
   labelWrap.className = "collapsed-legend-label";
@@ -36,7 +42,7 @@ function buildLegendRow(metric) {
     labelWrap.appendChild(desc);
   }
 
-  row.append(swatch, labelWrap);
+  row.append(indicator, labelWrap);
   return row;
 }
 
