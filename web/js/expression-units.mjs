@@ -66,11 +66,18 @@ function applyDerivedUnit(metric, parsed) {
   metric.displayUnit = metric.unit;
 }
 
+function keepManualUnitAsIs(metric) {
+  if (metric?.factorMode !== "manual") return false;
+  const unit = String(metric?.unit || "").trim();
+  const displayUnit = String(metric?.displayUnit || "").trim();
+  return Boolean(unit && displayUnit);
+}
+
 export function deriveExpressionUnits(metrics) {
   const byName = new Map((metrics || []).map((metric) => [metric.name, metric]));
 
   for (const metric of metrics || []) {
-    if (!metric.expr || metric.factorMode === "manual") continue;
+    if (!metric.expr || keepManualUnitAsIs(metric)) continue;
 
     if (!expressionSupportsUnitPropagation(metric.expr)) {
       metric.unit = "";
@@ -122,7 +129,7 @@ export async function deriveExpressionUnitsResolved(metrics, fetchMetricUnit) {
   };
 
   for (const metric of metrics || []) {
-    if (!metric.expr || metric.factorMode === "manual") continue;
+    if (!metric.expr || keepManualUnitAsIs(metric)) continue;
     if (!expressionSupportsUnitPropagation(metric.expr)) {
       metric.unit = "";
       metric.displayUnit = "";

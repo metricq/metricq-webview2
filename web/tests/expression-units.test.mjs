@@ -76,3 +76,14 @@ test("keeps manual expression metric untouched", () => {
   assert.equal(metrics[1].unit, "kW");
   assert.equal(metrics[1].displayUnit, "kW");
 });
+
+test("derives unit for manual expression metric when missing", () => {
+  const metrics = [
+    { name: "a", unit: "W", displayUnit: "kW", factorMode: "auto", expr: "" },
+    { name: "manual_missing", unit: "", displayUnit: "", factorMode: "manual", expr: "[a]*0.95" },
+  ];
+
+  deriveExpressionUnits(metrics);
+  assert.equal(metrics[1].unit, "kW");
+  assert.equal(metrics[1].displayUnit, "kW");
+});
