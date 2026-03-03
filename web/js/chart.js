@@ -112,6 +112,7 @@ function filterSeriesForVisibleRange(seriesList, tiMode) {
 
 function seriesSampleTime(points, index, series, tiMode) {
   if (tiMode) return points?.[index]?.t;
+  if (state.yAxisStacked) return points?.[index]?.t;
   const isAggregateSeries = series?.mode === "aggregates";
   const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
   if (isAggregateSeries || isComputedValuesSeries) return aggregateDisplayTime(points, index, series);

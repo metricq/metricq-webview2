@@ -19,29 +19,10 @@ function computeMaxDataPoints() {
   return Math.min(widthBased, hardCap);
 }
 
-function stackedAlignedDisplayTimes(rawTimes) {
-  const numericTimes = (rawTimes || []).map((t) => Number(t));
-  if (state.renderMode === "ti") return numericTimes;
-  const out = [];
-  for (let i = 0; i < numericTimes.length; i += 1) {
-    const curr = numericTimes[i];
-    if (!Number.isFinite(curr)) {
-      out.push(Number.NaN);
-      continue;
-    }
-    if (i === 0) {
-      out.push(curr);
-      continue;
-    }
-    const prev = numericTimes[i - 1];
-    out.push(Number.isFinite(prev) ? Math.round((prev + curr) / 2) : curr);
-  }
-  return out;
-}
-
 function seriesDisplayTime(points, index, series) {
   const point = points?.[index];
   if (!point) return NaN;
+  if (state.yAxisStacked) return point.t;
   const isAggregateSeries = series?.mode === "aggregates";
   const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
   if (state.renderMode !== "ti" && index > 0 && (isAggregateSeries || isComputedValuesSeries)) {
@@ -222,7 +203,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   }
   state.stackedAligned = stackedBody
     ? {
-      times: stackedAlignedDisplayTimes(Array.isArray(stackedBody.times) ? stackedBody.times : []),
+      times: Array.isArray(stackedBody.times) ? stackedBody.times : [],
       metrics: Array.isArray(stackedBody.metrics) ? stackedBody.metrics : [],
       values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
     }
