@@ -36,20 +36,40 @@ function renderMetricHintHoverHtml(metricName, details) {
 function showMetricHintHover(clientX, clientY, html) {
   const el = ensureMetricHintHoverElement();
   el.innerHTML = html;
-  el.style.left = `${Math.round(clientX + 12)}px`;
-  el.style.top = `${Math.round(clientY + 14)}px`;
+  positionMetricHintHover(el, clientX, clientY);
   el.classList.remove("d-none");
 }
 
 function moveMetricHintHover(clientX, clientY) {
   if (!metricHintHoverEl || metricHintHoverEl.classList.contains("d-none")) return;
-  metricHintHoverEl.style.left = `${Math.round(clientX + 12)}px`;
-  metricHintHoverEl.style.top = `${Math.round(clientY + 14)}px`;
+  positionMetricHintHover(metricHintHoverEl, clientX, clientY);
 }
 
 function hideMetricHintHover() {
   if (!metricHintHoverEl) return;
   metricHintHoverEl.classList.add("d-none");
+}
+
+function positionMetricHintHover(el, clientX, clientY) {
+  const pad = 8;
+  const offsetX = 12;
+  const offsetY = 14;
+  const width = el.offsetWidth || 220;
+  const height = el.offsetHeight || 120;
+  const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+
+  const preferRight = clientX + offsetX;
+  const rightOverflow = preferRight + width > viewportW - pad;
+  const left = rightOverflow
+    ? Math.max(pad, clientX - width - offsetX)
+    : Math.max(pad, Math.min(preferRight, viewportW - width - pad));
+
+  const preferTop = clientY + offsetY;
+  const top = Math.max(pad, Math.min(preferTop, viewportH - height - pad));
+
+  el.style.left = `${Math.round(left)}px`;
+  el.style.top = `${Math.round(top)}px`;
 }
 
 function metricDetailsFromState(metricName) {
