@@ -137,7 +137,8 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit, fe
       const unit = localUnit || (await resolveMetricUnit(refName, fetchMetricUnit));
       const displayUnit = String(localMetric.displayUnit || "").trim();
       const parsedUnit = parseSIUnit(unit);
-      const displayParsed = parseSIUnit(displayUnit) || (await inferDisplayParsed(refName, parsedUnit, fetchMetricRange));
+      const inferredDisplayParsed = await inferDisplayParsed(refName, parsedUnit, fetchMetricRange);
+      const displayParsed = inferredDisplayParsed || parseSIUnit(displayUnit);
       const manual = localMetric.factorMode === "manual"
         ? Number(localMetric.manualFactor)
         : 1;

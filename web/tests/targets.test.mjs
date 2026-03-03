@@ -89,3 +89,20 @@ test("buildQueryTargetsResolved aligns expression unit with normalized reference
   assert.equal(metrics[1].unit, "kW");
   assert.equal(metrics[1].displayUnit, "kW");
 });
+
+test("buildQueryTargetsResolved prefers inferred normalization over stale local display unit", async () => {
+  const metrics = [
+    { name: "base.power", unit: "W", displayUnit: "W", factorMode: "auto", expr: "" },
+    { name: "capella.abwaerme", unit: "", displayUnit: "", factorMode: "manual", manualFactor: 0.1, expr: "[base.power]*0.95" },
+  ];
+  const out = await buildQueryTargetsResolved(
+    metrics,
+    async (name) => (name === "base.power" ? "W" : ""),
+    async () => ({ minimum: 0, maximum: 2_000_000 }),
+  );
+  const exprTarget = out.find((t) => t.name === "capella.abwaerme");
+  assert.ok(exprTarget?.expr, "expected resolved expression target");
+  assert.match(exprTarget.expr, /\(\[base\.power\]\*0\.001\)/);
+  assert.equal(metrics[1].unit, "kW");
+  assert.equal(metrics[1].displayUnit, "kW");
+});
