@@ -248,13 +248,51 @@ function stackedEntryValueAt(entry, type, t) {
   if (!entry || !Number.isFinite(t)) return null;
   const idx = lookupTypedTimeIndex(entry.times, Number(entry.length) || 0, t);
   if (idx < 0 || entry.valid[idx] !== 1) return null;
-  const values = type === "min"
-    ? entry.minValues
-    : (type === "max"
-      ? entry.maxValues
-      : (type === "base" ? entry.baseValues : entry.avgValues));
+  const values = stackedValuesArray(entry, type);
   const value = values[idx];
   return Number.isFinite(value) ? value : null;
+}
+
+function stackedValuesArray(entry, type) {
+  if (type === "min") return entry.minValues;
+  if (type === "max") return entry.maxValues;
+  if (type === "base") return entry.baseValues;
+  return entry.avgValues;
+}
+
+function createSequentialStackedLookup(entry, type = "avg") {
+  if (!entry) return null;
+  const times = entry.times;
+  const valid = entry.valid;
+  const values = stackedValuesArray(entry, type);
+  const length = Number(entry.length) || 0;
+  let idx = 0;
+  let lastT = Number.NEGATIVE_INFINITY;
+  return (t) => {
+    if (!Number.isFinite(t) || length <= 0) return null;
+    // Keep fast forward-only lookup for render loops, but recover on out-of-order calls.
+    if (t < lastT) idx = 0;
+    lastT = t;
+    while (idx < length && times[idx] < t) idx += 1;
+    if (idx >= length || times[idx] !== t || valid[idx] !== 1) return null;
+    const value = values[idx];
+    return Number.isFinite(value) ? value : null;
+  };
+}
+
+function fallbackStackedLookup(stackedSeries, tx) {
+  return state.yAxisStacked && stackedSeries?.stacksInYAxis
+    ? stackedEntryValueAt(stackedSeries, "avg", tx)
+    : null;
+}
+
+function resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, raw) {
+  if (stackedAvgAt) {
+    const stacked = stackedAvgAt(tx);
+    return Number.isFinite(stacked) ? stacked : raw;
+  }
+  const stacked = fallbackStackedLookup(stackedSeries, tx);
+  return Number.isFinite(stacked) ? stacked : raw;
 }
 
 function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
@@ -875,6 +913,9 @@ export function renderChart() {
   for (const item of seriesList) {
     const { metric, series } = item;
     const stackedSeries = lastStackedByMetric?.get(metric.name);
+    const stackedAvgAt = state.yAxisStacked && stackedSeries?.stacksInYAxis
+      ? createSequentialStackedLookup(stackedSeries, "avg")
+      : null;
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
@@ -907,11 +948,8 @@ export function renderChart() {
           for (let i = 0; i < points.length; i += 1) {
             const p = points[i];
             const tx = p.t;
-            const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-              ? stackedEntryValueAt(stackedSeries, "avg", tx)
-              : null;
             const x = sx(tx);
-            const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
+            const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
@@ -922,10 +960,7 @@ export function renderChart() {
             points,
             (p) => {
               const tx = p.t;
-              const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-                ? stackedEntryValueAt(stackedSeries, "avg", tx)
-                : null;
-              return Number.isFinite(stacked) ? stacked : p.v * metric.factor;
+              return resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor);
             },
             sx,
             sy,
@@ -933,10 +968,7 @@ export function renderChart() {
         } else {
           const p = points[0];
           const x = sx(p.t);
-          const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-            ? stackedEntryValueAt(stackedSeries, "avg", p.t)
-            : null;
-          const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
+          const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, p.t, p.v * metric.factor));
           ctx.beginPath();
           ctx.arc(x, y, 1.8, 0, Math.PI * 2);
           ctx.fill();
@@ -949,11 +981,8 @@ export function renderChart() {
         for (let i = 0; i < points.length; i += 1) {
           const p = points[i];
           const tx = aggregateDisplayTime(points, i, series);
-          const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-            ? stackedEntryValueAt(stackedSeries, "avg", tx)
-            : null;
           const x = sx(tx);
-          const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
+          const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -965,11 +994,8 @@ export function renderChart() {
       for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
         const tx = p.t;
-        const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-          ? stackedEntryValueAt(stackedSeries, "avg", tx)
-          : null;
         const x = sx(tx);
-        const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
+        const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -1025,10 +1051,7 @@ export function renderChart() {
             segment,
             (p) => {
               const tx = p.t;
-              const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-                ? stackedEntryValueAt(stackedSeries, "avg", tx)
-                : null;
-              return Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
+              return resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.avg * metric.factor);
             },
             sx,
             sy,
@@ -1039,10 +1062,7 @@ export function renderChart() {
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-              ? stackedEntryValueAt(stackedSeries, "avg", tx)
-              : null;
-            const avg = Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
+            const avg = resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.avg * metric.factor);
             if (i === 0) ctx.moveTo(sx(tx), sy(avg));
             else ctx.lineTo(sx(tx), sy(avg));
           }
