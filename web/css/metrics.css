@@ -1,17 +1,18 @@
+.metric-search-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0.35rem;
+}
+
 .metric-search-wrap {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
 }
 
-.metric-search-wrap .form-control {
-    border-top-right-radius: 0;
-    border-bottom-right-radius: 0;
-}
-
 .metric-search-reset {
     position: absolute;
-    right: 0.18rem;
+    right: 0.22rem;
     top: 50%;
     transform: translateY(-50%);
     width: 1.35rem;
