@@ -38,8 +38,7 @@ function showMetricHintHover(clientX, clientY, html, lockWidth = true) {
   el.innerHTML = html;
   el.classList.remove("d-none");
   if (lockWidth) {
-    el.style.width = "";
-    const measuredWidth = Math.ceil(el.getBoundingClientRect().width || el.offsetWidth || 0);
+    const measuredWidth = measureMetricHintWidth(el);
     if (measuredWidth > 0) {
       el.style.width = `${measuredWidth}px`;
     }
@@ -78,6 +77,31 @@ function positionMetricHintHover(el, clientX, clientY) {
 
   el.style.left = `${Math.round(left)}px`;
   el.style.top = `${Math.round(top)}px`;
+}
+
+function measureMetricHintWidth(el) {
+  const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
+  const rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize || "16") || 16;
+  const cssMaxWidth = Math.max(120, Math.min(460, viewportW - (2 * rootFontPx)));
+
+  const prevVisibility = el.style.visibility;
+  const prevLeft = el.style.left;
+  const prevTop = el.style.top;
+  const prevWidth = el.style.width;
+
+  // Measure in a neutral position to avoid shrink-to-fit based on cursor-side placement.
+  el.style.visibility = "hidden";
+  el.style.left = "8px";
+  el.style.top = "8px";
+  el.style.width = "max-content";
+  const rawWidth = Math.ceil(el.getBoundingClientRect().width || el.scrollWidth || el.offsetWidth || 0);
+
+  el.style.visibility = prevVisibility;
+  el.style.left = prevLeft;
+  el.style.top = prevTop;
+  el.style.width = prevWidth;
+
+  return Math.max(120, Math.min(rawWidth, cssMaxWidth));
 }
 
 function metricDetailsFromState(metricName) {
