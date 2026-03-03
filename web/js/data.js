@@ -78,7 +78,7 @@ function updateVisibleState(renderChart, onStateChanged, startedAt = null, aggPo
   for (const [name, series] of state.series.entries()) {
     visibleSeries.set(name, clipSeriesToVisibleRange(series));
   }
-  applyAutoScaling(state.metrics, visibleSeries);
+  applyAutoScaling(state.metrics, visibleSeries, { preferredDisplayUnit: state.yAxisUnitOverride });
   renderMetricList({
     renderChart,
     loadData: () => loadData(renderChart, onStateChanged),

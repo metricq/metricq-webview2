@@ -1,6 +1,7 @@
 import { dom } from "./dom.js";
 import { state } from "./model.js";
 import { loadData } from "./data.js";
+import { applyAutoScaling } from "./auto-factor.mjs";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
@@ -32,6 +33,7 @@ import {
   toLocalInput,
   updateRangeButtonLabel,
 } from "./utils.js";
+import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 import {
@@ -293,6 +295,46 @@ function updateYAxisManualInputsEnabled() {
   dom.yAxisManualMax.disabled = !manual;
 }
 
+function updateYAxisUnitOptions() {
+  if (!dom.yAxisUnitGroup || !dom.yAxisUnitSelect) return;
+  const visibleMetrics = state.metrics.filter((metric) => metric.draw);
+  let family = "";
+  let hasSiMetric = false;
+  let normalized = false;
+  for (const metric of visibleMetrics) {
+    const unitParsed = parseSIUnit(metric.unit);
+    if (!unitParsed) continue;
+    hasSiMetric = true;
+    if (!family) family = unitParsed.family;
+    if (family !== unitParsed.family) {
+      family = "";
+      break;
+    }
+    const displayParsed = parseSIUnit(metric.displayUnit || metric.unit);
+    if (displayParsed && displayParsed.family === unitParsed.family && displayParsed.exp !== unitParsed.exp) {
+      normalized = true;
+    }
+  }
+
+  if (!hasSiMetric || !family || !normalized) {
+    dom.yAxisUnitGroup.classList.add("d-none");
+    dom.yAxisUnitSelect.innerHTML = "";
+    return;
+  }
+
+  const options = ['<option value="">Auto (Normalisierung)</option>'];
+  for (const prefix of SI_PREFIXES) {
+    const unit = formatSIUnit(family, prefix.exp);
+    options.push(`<option value="${unit}">${unit}</option>`);
+  }
+  dom.yAxisUnitSelect.innerHTML = options.join("");
+  const override = String(state.yAxisUnitOverride || "").trim();
+  const hasOverride = override && SI_PREFIXES.some((p) => formatSIUnit(family, p.exp) === override);
+  dom.yAxisUnitSelect.value = hasOverride ? override : "";
+  if (override && !hasOverride) state.yAxisUnitOverride = "";
+  dom.yAxisUnitGroup.classList.remove("d-none");
+}
+
 function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
@@ -303,6 +345,7 @@ function syncYAxisModalFromState() {
   dom.yAxisManualMin.value = Number.isFinite(fillMin) ? String(fillMin) : "";
   dom.yAxisManualMax.value = Number.isFinite(fillMax) ? String(fillMax) : "";
   updateYAxisManualInputsEnabled();
+  updateYAxisUnitOptions();
 }
 
 function updateDragSelection() {
@@ -491,6 +534,9 @@ function wireYAxisEvents() {
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
     state.yAxisManualMax = Number.isFinite(manualMax) ? manualMax : null;
+    state.yAxisUnitOverride = String(dom.yAxisUnitSelect?.value || "").trim();
+    applyAutoScaling(state.metrics, state.series, { preferredDisplayUnit: state.yAxisUnitOverride });
+    renderMetricList(hooks);
     if (state.yAxisMode === "global") {
       try {
         await ensureGlobalYAxisRange();

@@ -28,6 +28,8 @@ export const dom = {
   yAxisModeManual: document.getElementById("yAxisModeManual"),
   yAxisManualMin: document.getElementById("yAxisManualMin"),
   yAxisManualMax: document.getElementById("yAxisManualMax"),
+  yAxisUnitGroup: document.getElementById("yAxisUnitGroup"),
+  yAxisUnitSelect: document.getElementById("yAxisUnitSelect"),
   btnApplyYAxis: document.getElementById("btnApplyYAxis"),
   btnTimeRange: document.getElementById("btnTimeRange"),
   btnShiftBack: document.getElementById("btnShiftBack"),

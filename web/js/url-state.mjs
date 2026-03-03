@@ -101,23 +101,29 @@ function serializeMetricEntry(metric, index) {
 
 function serializeYAxis() {
   const stacked = state.yAxisStacked ? 1 : undefined;
-  if (state.yAxisMode === "local") return stacked ? { m: "local", s: stacked } : null;
+  const unitOverride = String(state.yAxisUnitOverride || "").trim();
+  const unitPart = unitOverride ? { u: unitOverride } : {};
+  if (state.yAxisMode === "local") {
+    if (stacked || unitOverride) return { m: "local", ...(stacked ? { s: stacked } : {}), ...unitPart };
+    return null;
+  }
   if (state.yAxisMode === "manual") {
     const min = Number(state.yAxisManualMin);
     const max = Number(state.yAxisManualMax);
     if (Number.isFinite(min) && Number.isFinite(max) && min < max) {
-      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}) };
+      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}), ...unitPart };
     }
-    return { m: "manual", ...(stacked ? { s: stacked } : {}) };
+    return { m: "manual", ...(stacked ? { s: stacked } : {}), ...unitPart };
   }
   if (state.yAxisMode === "global") {
-    return { m: "global", ...(stacked ? { s: stacked } : {}) };
+    return { m: "global", ...(stacked ? { s: stacked } : {}), ...unitPart };
   }
   return null;
 }
 
 function applyYAxisConfig(y) {
   state.yAxisStacked = Number(y?.s) === 1;
+  state.yAxisUnitOverride = String(y?.u || "").trim();
   if (!y || y.m === "local") {
     state.yAxisMode = "local";
     state.yAxisManualMin = null;
