@@ -643,3 +643,74 @@ export function applyFactorFromModal(hooks) {
     globalThis.bootstrap.Modal.getOrCreateInstance(dom.factorModal).hide();
   }
 }
+
+export async function renderScaleDebugModal() {
+  if (!dom.scaleDebugBody) return;
+  const body = dom.scaleDebugBody;
+  body.innerHTML = "";
+
+  for (const metric of state.metrics) {
+    const tr = document.createElement("tr");
+
+    const nameTd = document.createElement("td");
+    nameTd.textContent = metricDisplayName(metric) || metric.name;
+    nameTd.title = metric.name;
+
+    const unit = String(metric.unit || "").trim();
+    const displayUnit = String(metric.displayUnit || "").trim();
+    const manual = metric.factorMode === "manual" ? sanitizeFactor(metric.manualFactor, 1) : 1;
+    const effective = sanitizeFactor(metric.factor, 1);
+    const normalization = sanitizeFactor(effective / manual, 1);
+
+    const unitTd = document.createElement("td");
+    unitTd.textContent = unit || "—";
+    const displayTd = document.createElement("td");
+    displayTd.textContent = displayUnit || "—";
+
+    const modeTd = document.createElement("td");
+    modeTd.textContent = metric.factorMode || "auto";
+    const manualTd = document.createElement("td");
+    manualTd.textContent = formatFactor(manual) || "1";
+    const effectiveTd = document.createElement("td");
+    effectiveTd.textContent = formatFactor(effective) || "1";
+    const normTd = document.createElement("td");
+    normTd.textContent = formatFactor(normalization) || "1";
+
+    const typeTd = document.createElement("td");
+    const typeBits = [];
+    if (metric.expr) typeBits.push("expr");
+    else typeBits.push("raw");
+    typeBits.push(metric.stackMode === "normal" ? "non-stack" : "stack");
+    typeTd.textContent = typeBits.join(", ");
+
+    const refsTd = document.createElement("td");
+    const expr = String(metric.expr || "").trim();
+    if (!expr) {
+      refsTd.textContent = "—";
+    } else {
+      const refs = collectExpressionReferences(expr);
+      if (refs.length === 0) {
+        refsTd.textContent = "—";
+      } else {
+        refsTd.textContent = "lade …";
+        const parts = [];
+        for (const refName of refs) {
+          const info = await resolveReferenceNormalizationInfo(refName);
+          if (!info) {
+            parts.push(`[${refName}]: n/a`);
+            continue;
+          }
+          const shownNorm = formatFactor(info.normalization) || "1";
+          const unitPart = info.unit && info.displayUnit && info.unit !== info.displayUnit
+            ? ` ${info.unit}->${info.displayUnit}`
+            : (info.unit || "");
+          parts.push(`[${refName}]: x${shownNorm}${unitPart ? ` (${unitPart})` : ""}`);
+        }
+        refsTd.textContent = parts.join(" | ");
+      }
+    }
+
+    tr.append(nameTd, unitTd, displayTd, modeTd, manualTd, effectiveTd, normTd, typeTd, refsTd);
+    body.appendChild(tr);
+  }
+}

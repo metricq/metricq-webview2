@@ -10,6 +10,7 @@ import {
   fetchMetadata,
   recolorMetricsClassic,
   recolorMetrics,
+  renderScaleDebugModal,
   renderHints,
   renderMetricList,
   searchMetricHints,
@@ -455,6 +456,21 @@ function wireMetricPanelEvents() {
 
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
+  if (dom.btnScaleDebug) {
+    dom.btnScaleDebug.addEventListener("click", () => {
+      void renderScaleDebugModal();
+    });
+  }
+  if (dom.btnRefreshScaleDebug) {
+    dom.btnRefreshScaleDebug.addEventListener("click", () => {
+      void renderScaleDebugModal();
+    });
+  }
+  if (dom.scaleDebugModal) {
+    dom.scaleDebugModal.addEventListener("shown.bs.modal", () => {
+      void renderScaleDebugModal();
+    });
+  }
   dom.btnClear.addEventListener("click", () => clearMetrics(hooks));
   dom.btnRecolorClassic.addEventListener("click", () => recolorMetricsClassic(hooks));
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
