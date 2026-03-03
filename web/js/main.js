@@ -556,6 +556,10 @@ function wireChartEmptyStateEvents() {
     await animateCoachToTarget(event.currentTarget, dom.btnTimeRange);
     toggleTimePopup();
   });
+  dom.btnEmptyOpenYAxis?.addEventListener("click", async (event) => {
+    await animateCoachToTarget(event.currentTarget, dom.btnYAxis);
+    dom.btnYAxis?.click();
+  });
   dom.btnEmptyToggleStacked?.addEventListener("click", async (event) => {
     await animateCoachToTarget(event.currentTarget, dom.btnStackedMode);
     dom.btnStackedMode?.click();
