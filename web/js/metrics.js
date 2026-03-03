@@ -33,14 +33,19 @@ function renderMetricHintHoverHtml(metricName, details) {
   `;
 }
 
-function showMetricHintHover(clientX, clientY, html) {
+function showMetricHintHover(clientX, clientY, html, lockWidth = true) {
   const el = ensureMetricHintHoverElement();
   el.innerHTML = html;
   el.classList.remove("d-none");
-  el.style.width = "";
-  const measuredWidth = Math.ceil(el.getBoundingClientRect().width || el.offsetWidth || 0);
-  if (measuredWidth > 0) {
-    el.style.width = `${measuredWidth}px`;
+  if (lockWidth) {
+    el.style.width = "";
+    const measuredWidth = Math.ceil(el.getBoundingClientRect().width || el.offsetWidth || 0);
+    if (measuredWidth > 0) {
+      el.style.width = `${measuredWidth}px`;
+    }
+  } else {
+    // Keep width flexible while only placeholder content is shown.
+    el.style.width = "";
   }
   positionMetricHintHover(el, clientX, clientY);
 }
@@ -112,10 +117,10 @@ function bindMetricHintHover(element, metricName) {
     const x = event.clientX || 0;
     const y = event.clientY || 0;
     hoveredHintMetricName = metricName;
-    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, null));
+    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, null), false);
     const details = await fetchMetricHintDetails(metricName);
     if (hoveredHintMetricName !== metricName) return;
-    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, details));
+    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, details), true);
   };
   element.addEventListener("mouseenter", show);
   element.addEventListener("mousemove", (event) => moveMetricHintHover(event.clientX, event.clientY));
