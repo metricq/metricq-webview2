@@ -14,6 +14,7 @@ export const dom = {
   metricSearch: document.getElementById("metricSearch"),
   metricHints: document.getElementById("metricHints"),
   metricList: document.getElementById("metricList"),
+  renderPerfBadge: document.getElementById("renderPerfBadge"),
   perfBadge: document.getElementById("perfBadge"),
   aggPointsEl: document.getElementById("aggPoints"),
   rawPointsEl: document.getElementById("rawPoints"),
