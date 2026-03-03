@@ -61,22 +61,64 @@ WEB_DIR=./web LISTEN_ADDR=:8080 go run .
 
 Dann reichen Browser-Reloads, um HTML/CSS/JS-Änderungen zu sehen, ohne den Go-Prozess neu zu starten.
 
-## API (neu)
+## API
 
+Aktuell registrierte Endpunkte:
 - `GET /api/health`
-- `GET /api/metrics?query=<infix>&limit=<n>`
+- `GET /api/metrics?query=<infix-or-/selector/>&limit=<n>`
 - `GET /api/metadata?metric=<name>`
-- `POST /api/query` (`metrics`, `from`, `to`, `maxDataPoints`)
-- `POST /api/analyze` (`metrics`, `from`, `to`)
+- `POST /api/query`
+- `POST /api/query/stacked`
+- `POST /api/query/range`
+- `POST /api/analyze`
 
-## Kompatibilitätsrouten
+### `POST /api/query`
 
-Für bestehende Clients sind folgende Endpunkte zusätzlich vorhanden:
-- `POST /search`
-- `POST /metadata`
-- `POST /query`
-- `POST /analyze`
-- `POST /legacy/cntr_status.php`
-- `GET /legacy/counter_data.php`
+Request:
+- Zeitbereich und Dichte:
+  - `from` (unix ms)
+  - `to` (unix ms)
+  - `maxDataPoints` (int)
+- Ziele entweder als:
+  - `metrics: string[]` (einfache Metriknamen), oder
+  - `targets: [{ name?, metric? , expr? }]`
 
-Hinweis: `POST /timeline` ist derzeit als `not implemented` markiert.
+Hinweise:
+- `metric` und `expr` sind pro Target gegenseitig exklusiv.
+- `name` ist optional (Fallback: `metric` bzw. `expr`).
+
+Response:
+- `{ "series": apiQuerySeries[] }`
+- `apiQuerySeries.mode` ist `"values"` oder `"aggregates"` (bei Fehlern mit `error`).
+
+### `POST /api/query/stacked`
+
+Gleicher Request wie bei `/api/query`, aber Response ist für Frontend-Stacking resampled und aligned:
+- `times: number[]`
+- `metrics: string[]`
+- `values: (number|null)[][]`
+
+`values[i][j]` ist der Wert der `i`-ten Metrik zum `j`-ten Zeitpunkt aus `times`.
+`null` bedeutet: kein gültiger Wert zu diesem Zeitpunkt (z. B. außerhalb `activeTime` unter Last-Semantik).
+
+### `POST /api/query/range`
+
+Request:
+- `metrics: string[]`
+- optional `from`, `to` (unix ms; falls leer: Backend-Defaultbereich)
+
+Response:
+- `{ "minimum": number, "maximum": number, "metrics": string[] }`
+
+### `POST /api/analyze`
+
+Request:
+- `from`, `to` (unix ms)
+- `metrics` oder `targets` (wie bei `/api/query`)
+
+Response:
+- `{ "entries": [{ metric, minimum, maximum, sum, count, mean, duration, error? }, ...] }`
+
+## Hinweis zu alten Routen
+
+Die früher dokumentierten Alias-/Legacy-Routen (`/search`, `/query`, `/legacy/*`, etc.) sind im aktuellen Stand **nicht** mehr registriert.
