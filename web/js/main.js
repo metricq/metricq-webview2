@@ -83,6 +83,7 @@ const presetTokenMap = {
 };
 const COMPACT_SIDEBAR_BREAKPOINT_PX = 1400;
 let zoomRangeBadgeTimer = null;
+let wheelZoomLoadTimer = null;
 let timeDialogMode = "relative";
 
 function syncRenderModeButton() {
@@ -259,6 +260,14 @@ function showZoomRangeBadge() {
     dom.zoomRangeBadge.classList.remove("is-visible");
     zoomRangeBadgeTimer = null;
   }, 900);
+}
+
+function scheduleWheelZoomDataLoad() {
+  if (wheelZoomLoadTimer != null) window.clearTimeout(wheelZoomLoadTimer);
+  wheelZoomLoadTimer = window.setTimeout(() => {
+    wheelZoomLoadTimer = null;
+    hooks.loadData();
+  }, 150);
 }
 
 function forceAbsoluteTimeModeFromCurrentRange() {
@@ -604,7 +613,7 @@ function wireCanvasInteractionEvents() {
       const center = timestampAtCanvasX(event.clientX);
       zoomAt(center, event.deltaY < 0 ? 0.8 : 1.25, () => {
         showZoomRangeBadge();
-        hooks.loadData();
+        scheduleWheelZoomDataLoad();
       });
     },
     { passive: false },
