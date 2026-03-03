@@ -216,6 +216,47 @@ function collectTimelineTimes(sampleSets) {
   return Array.from(uniq).sort((a, b) => a - b);
 }
 
+function createTypedStackedEntry(capacity, stacksInYAxis, samples = []) {
+  return {
+    times: new Float64Array(Math.max(0, capacity)),
+    avgValues: new Float64Array(Math.max(0, capacity)),
+    baseValues: new Float64Array(Math.max(0, capacity)),
+    minValues: new Float64Array(Math.max(0, capacity)),
+    maxValues: new Float64Array(Math.max(0, capacity)),
+    valid: new Uint8Array(Math.max(0, capacity)),
+    length: 0,
+    stacksInYAxis,
+    samples,
+  };
+}
+
+function lookupTypedTimeIndex(times, length, t) {
+  if (!times || !Number.isFinite(t) || length <= 0) return -1;
+  let lo = 0;
+  let hi = length - 1;
+  while (lo <= hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    const value = times[mid];
+    if (value < t) lo = mid + 1;
+    else if (value > t) hi = mid - 1;
+    else return mid;
+  }
+  return -1;
+}
+
+function stackedEntryValueAt(entry, type, t) {
+  if (!entry || !Number.isFinite(t)) return null;
+  const idx = lookupTypedTimeIndex(entry.times, Number(entry.length) || 0, t);
+  if (idx < 0 || entry.valid[idx] !== 1) return null;
+  const values = type === "min"
+    ? entry.minValues
+    : (type === "max"
+      ? entry.maxValues
+      : (type === "base" ? entry.baseValues : entry.avgValues));
+  const value = values[idx];
+  return Number.isFinite(value) ? value : null;
+}
+
 function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const byMetric = new Map();
   const sampleByMetric = new Map();
@@ -240,136 +281,139 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   if (canUseAligned) {
     const from = state.from;
     const to = state.to;
+    let alignedLen = alignedTimes.length;
+    if (clipToVisible) {
+      alignedLen = 0;
+      for (let i = 0; i < alignedTimes.length; i += 1) {
+        const t = alignedTimes[i];
+        if (t >= from && t <= to) alignedLen += 1;
+      }
+    }
     const stackedConfigs = stackedItems.map((item) => ({
       metric: item.metric,
       row: alignedByMetric.get(item.metric.name) || [],
-      avgByTime: new Map(),
-      avgBaseByTime: new Map(),
-      minByTime: new Map(),
-      maxByTime: new Map(),
-      timeline: [],
+      entry: createTypedStackedEntry(alignedLen, true),
     }));
+    let write = 0;
     for (let i = 0; i < alignedTimes.length; i += 1) {
       const t = alignedTimes[i];
       if (clipToVisible && (t < from || t > to)) continue;
-      const hasNullAtT = stackedConfigs.some((cfg) => cfg.row[i] == null);
-      if (hasNullAtT) {
-        for (const cfg of stackedConfigs) cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
+      let hasGapAtT = false;
+      for (const cfg of stackedConfigs) {
+        const raw = cfg.row[i];
+        if (raw == null || !Number.isFinite(Number(raw))) {
+          hasGapAtT = true;
+          break;
+        }
+      }
+      if (hasGapAtT) {
+        for (const cfg of stackedConfigs) {
+          const { entry } = cfg;
+          entry.times[write] = t;
+          entry.avgValues[write] = Number.NaN;
+          entry.baseValues[write] = Number.NaN;
+          entry.minValues[write] = Number.NaN;
+          entry.maxValues[write] = Number.NaN;
+          entry.valid[write] = 0;
+        }
+        write += 1;
         continue;
       }
       let base = 0;
       for (const cfg of stackedConfigs) {
-        const rawValue = cfg.row[i];
-        const raw = rawValue == null ? 0 : Number(rawValue);
-        if (!Number.isFinite(raw)) {
-          cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
-          continue;
-        }
+        const raw = Number(cfg.row[i]);
         const scaled = raw * cfg.metric.factor;
         const upper = base + scaled;
-        cfg.avgByTime.set(t, upper);
-        cfg.avgBaseByTime.set(t, base);
-        cfg.minByTime.set(t, upper);
-        cfg.maxByTime.set(t, upper);
-        cfg.timeline.push({ t, avg: upper, base });
+        const { entry } = cfg;
+        entry.times[write] = t;
+        entry.avgValues[write] = upper;
+        entry.baseValues[write] = base;
+        entry.minValues[write] = upper;
+        entry.maxValues[write] = upper;
+        entry.valid[write] = 1;
+        base = upper;
+      }
+      write += 1;
+    }
+    for (const cfg of stackedConfigs) {
+      cfg.entry.length = write;
+      byMetric.set(cfg.metric.name, cfg.entry);
+    }
+  } else {
+    const stackedConfigs = stackedItems.map((item) => ({
+      metric: item.metric,
+      samples: sampleByMetric.get(item.metric.name) || [],
+      entry: null,
+    }));
+    const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
+    for (const cfg of stackedConfigs) cfg.entry = createTypedStackedEntry(stackedTimes.length, true, cfg.samples);
+    for (let i = 0; i < stackedTimes.length; i += 1) {
+      const t = stackedTimes[i];
+      const valuesAtT = new Float64Array(stackedConfigs.length);
+      let hasMissingAtT = false;
+      for (let j = 0; j < stackedConfigs.length; j += 1) {
+        const current = sampleLastValue(stackedConfigs[j].samples, t);
+        const avg = current?.avg;
+        if (Number.isFinite(avg)) {
+          valuesAtT[j] = Number(avg);
+        } else {
+          hasMissingAtT = true;
+          break;
+        }
+      }
+
+      if (hasMissingAtT) {
+        for (const cfg of stackedConfigs) {
+          const { entry } = cfg;
+          entry.times[i] = t;
+          entry.avgValues[i] = Number.NaN;
+          entry.baseValues[i] = Number.NaN;
+          entry.minValues[i] = Number.NaN;
+          entry.maxValues[i] = Number.NaN;
+          entry.valid[i] = 0;
+        }
+        continue;
+      }
+
+      let base = 0;
+      for (let j = 0; j < stackedConfigs.length; j += 1) {
+        const cfg = stackedConfigs[j];
+        const avg = valuesAtT[j];
+        const upper = base + avg;
+        const { entry } = cfg;
+        entry.times[i] = t;
+        entry.avgValues[i] = upper;
+        entry.baseValues[i] = base;
+        entry.minValues[i] = upper;
+        entry.maxValues[i] = upper;
+        entry.valid[i] = 1;
         base = upper;
       }
     }
     for (const cfg of stackedConfigs) {
-      byMetric.set(cfg.metric.name, {
-        avgByTime: cfg.avgByTime,
-        avgBaseByTime: cfg.avgBaseByTime,
-        minByTime: cfg.minByTime,
-        maxByTime: cfg.maxByTime,
-        stacksInYAxis: true,
-        timeline: cfg.timeline,
-        samples: [],
-      });
+      cfg.entry.length = stackedTimes.length;
+      byMetric.set(cfg.metric.name, cfg.entry);
     }
-  } else {
-  const stackedConfigs = stackedItems.map((item) => ({
-    metric: item.metric,
-    samples: sampleByMetric.get(item.metric.name) || [],
-    avgByTime: new Map(),
-    avgBaseByTime: new Map(),
-    minByTime: new Map(),
-    maxByTime: new Map(),
-    timeline: [],
-  }));
-  const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
-  for (const t of stackedTimes) {
-    const valuesAtT = new Array(stackedConfigs.length);
-    let hasMissingAtT = false;
-    for (let i = 0; i < stackedConfigs.length; i += 1) {
-      const current = sampleLastValue(stackedConfigs[i].samples, t);
-      const avg = current?.avg;
-      if (Number.isFinite(avg)) {
-        const numeric = Number(avg);
-        valuesAtT[i] = numeric;
-      } else {
-        hasMissingAtT = true;
-        break;
-      }
-    }
-
-    if (hasMissingAtT) {
-      for (const cfg of stackedConfigs) cfg.timeline.push({ t, avg: Number.NaN, base: Number.NaN });
-      continue;
-    }
-
-    let base = 0;
-    for (let i = 0; i < stackedConfigs.length; i += 1) {
-      const cfg = stackedConfigs[i];
-      const avg = valuesAtT[i];
-      const upper = base + avg;
-      cfg.avgByTime.set(t, upper);
-      cfg.avgBaseByTime.set(t, base);
-      cfg.minByTime.set(t, upper);
-      cfg.maxByTime.set(t, upper);
-      cfg.timeline.push({ t, avg: upper, base });
-      base = upper;
-    }
-  }
-  for (const cfg of stackedConfigs) {
-    byMetric.set(cfg.metric.name, {
-      avgByTime: cfg.avgByTime,
-      avgBaseByTime: cfg.avgBaseByTime,
-      minByTime: cfg.minByTime,
-      maxByTime: cfg.maxByTime,
-      stacksInYAxis: true,
-      timeline: cfg.timeline,
-      samples: cfg.samples,
-    });
-  }
   }
 
   for (const item of nonStackedItems) {
     const { metric } = item;
     const samples = sampleByMetric.get(metric.name) || [];
-    const avgByTime = new Map();
-    const avgBaseByTime = new Map();
-    const minByTime = new Map();
-    const maxByTime = new Map();
-    const timeline = [];
     const times = collectTimelineTimes([samples]);
+    const entry = createTypedStackedEntry(times.length, false, samples);
     for (const t of times) {
       const current = sampleLastValue(samples, t);
       if (!current) continue;
-      avgByTime.set(t, current.avg);
-      avgBaseByTime.set(t, 0);
-      minByTime.set(t, current.min);
-      maxByTime.set(t, current.max);
-      timeline.push({ t, avg: current.avg, base: 0 });
+      const write = entry.length;
+      entry.times[write] = t;
+      entry.avgValues[write] = current.avg;
+      entry.baseValues[write] = 0;
+      entry.minValues[write] = current.min;
+      entry.maxValues[write] = current.max;
+      entry.valid[write] = 1;
+      entry.length = write + 1;
     }
-    byMetric.set(metric.name, {
-      avgByTime,
-      avgBaseByTime,
-      minByTime,
-      maxByTime,
-      stacksInYAxis: false,
-      timeline,
-      samples,
-    });
+    byMetric.set(metric.name, entry);
   }
 
   return byMetric;
@@ -378,14 +422,7 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
 function stackedValueAt(metricName, type, t) {
   if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t)) return null;
   const entry = lastStackedByMetric.get(metricName);
-  if (!entry) return null;
-  const map = type === "min"
-    ? entry.minByTime
-    : (type === "max"
-      ? entry.maxByTime
-      : (type === "base" ? entry.avgBaseByTime : entry.avgByTime));
-  const value = map?.get?.(t);
-  return Number.isFinite(value) ? value : null;
+  return stackedEntryValueAt(entry, type, t);
 }
 
 function getDomain(seriesList) {
@@ -548,21 +585,35 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
   }
 }
 
-function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
-  if (!Array.isArray(timeline) || timeline.length < 2) return;
-  const runs = splitValidRuns(
-    timeline,
-    (p) => Number.isFinite(Number(p?.avg)) && Number.isFinite(Number(p?.base)),
-  );
+function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
+  if (!entry || entry.length < 2) return;
   const topAlpha = 0.26;
   const bottomAlpha = 0.02;
-  for (const run of runs) {
-    if (run.length < 2) continue;
+  const total = Number(entry.length) || 0;
+  let start = -1;
+  for (let i = 0; i <= total; i += 1) {
+    const valid = i < total && entry.valid[i] === 1;
+    if (valid) {
+      if (start < 0) start = i;
+      continue;
+    }
+    if (start < 0) continue;
+    const end = i;
+    if (end - start < 2) {
+      start = -1;
+      continue;
+    }
     if (tiMode) {
-      const lineYs = run.map((p) => sy(Number(p?.avg) || 0));
-      const baseYs = run.map((p) => sy(Number(p?.base) || 0));
-      const yTop = Math.min(...lineYs, ...baseYs);
-      const yBottom = Math.max(...lineYs, ...baseYs);
+      let yTop = Number.POSITIVE_INFINITY;
+      let yBottom = Number.NEGATIVE_INFINITY;
+      for (let j = start; j < end; j += 1) {
+        const yLine = sy(entry.avgValues[j]);
+        const yBase = sy(entry.baseValues[j]);
+        if (yLine < yTop) yTop = yLine;
+        if (yBase < yTop) yTop = yBase;
+        if (yLine > yBottom) yBottom = yLine;
+        if (yBase > yBottom) yBottom = yBase;
+      }
       const runGrad = yBottom > yTop + 0.5
         ? ctx.createLinearGradient(0, yTop, 0, yBottom)
         : null;
@@ -570,13 +621,11 @@ function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
         runGrad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
         runGrad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
       }
-      for (let i = 1; i < run.length; i += 1) {
-        const prev = run[i - 1];
-        const curr = run[i];
-        const x0 = sx(prev.t);
-        const x1 = sx(curr.t);
-        const yLine = sy(Number(curr?.avg) || 0);
-        const yBase = sy(Number(curr?.base) || 0);
+      for (let j = start + 1; j < end; j += 1) {
+        const x0 = sx(entry.times[j - 1]);
+        const x1 = sx(entry.times[j]);
+        const yLine = sy(entry.avgValues[j]);
+        const yBase = sy(entry.baseValues[j]);
         if (runGrad) {
           ctx.fillStyle = runGrad;
         } else {
@@ -590,56 +639,80 @@ function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
         ctx.closePath();
         ctx.fill();
       }
-      continue;
-    }
-    const lineYs = run.map((p) => sy(p.avg));
-    const baseYs = run.map((p) => sy(p.base));
-    const yLineTop = Math.min(...lineYs);
-    const yBottom = Math.max(...baseYs);
-    const grad = yBottom > yLineTop + 0.5
-      ? ctx.createLinearGradient(0, yLineTop, 0, yBottom)
-      : null;
-    if (grad) {
-      grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
-      grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
-      ctx.fillStyle = grad;
     } else {
-      ctx.fillStyle = cssColorWithAlpha(color, topAlpha);
+      let yLineTop = Number.POSITIVE_INFINITY;
+      let yBottom = Number.NEGATIVE_INFINITY;
+      for (let j = start; j < end; j += 1) {
+        const yLine = sy(entry.avgValues[j]);
+        const yBase = sy(entry.baseValues[j]);
+        if (yLine < yLineTop) yLineTop = yLine;
+        if (yBase > yBottom) yBottom = yBase;
+      }
+      const grad = yBottom > yLineTop + 0.5
+        ? ctx.createLinearGradient(0, yLineTop, 0, yBottom)
+        : null;
+      if (grad) {
+        grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
+        grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
+        ctx.fillStyle = grad;
+      } else {
+        ctx.fillStyle = cssColorWithAlpha(color, topAlpha);
+      }
+      ctx.beginPath();
+      for (let j = start; j < end; j += 1) {
+        if (j === start) ctx.moveTo(sx(entry.times[j]), sy(entry.avgValues[j]));
+        else ctx.lineTo(sx(entry.times[j]), sy(entry.avgValues[j]));
+      }
+      for (let j = end - 1; j >= start; j -= 1) {
+        ctx.lineTo(sx(entry.times[j]), sy(entry.baseValues[j]));
+      }
+      ctx.closePath();
+      ctx.fill();
     }
-    ctx.beginPath();
-    for (let i = 0; i < run.length; i += 1) {
-      const p = run[i];
-      if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-      else ctx.lineTo(sx(p.t), sy(p.avg));
-    }
-    for (let i = run.length - 1; i >= 0; i -= 1) {
-      const p = run[i];
-      ctx.lineTo(sx(p.t), sy(p.base));
-    }
-    ctx.closePath();
-    ctx.fill();
+    start = -1;
   }
 }
 
-function drawStackedTimelineLine(ctx, timeline, tiMode, sx, sy) {
-  if (!Array.isArray(timeline) || timeline.length < 2) return;
-  const runs = splitValidRuns(
-    timeline,
-    (p) => Number.isFinite(Number(p?.avg)) && Number.isFinite(Number(p?.base)),
-  );
-  for (const run of runs) {
-    if (run.length < 2) continue;
-    if (tiMode) {
-      drawLastSemanticStepLine(ctx, run, (p) => Number(p?.avg) || 0, sx, sy);
+function drawStackedTimelineLine(ctx, entry, tiMode, sx, sy) {
+  if (!entry || entry.length < 2) return;
+  const total = Number(entry.length) || 0;
+  let start = -1;
+  for (let i = 0; i <= total; i += 1) {
+    const valid = i < total && entry.valid[i] === 1;
+    if (valid) {
+      if (start < 0) start = i;
       continue;
     }
-    ctx.beginPath();
-    for (let i = 0; i < run.length; i += 1) {
-      const p = run[i];
-      if (i === 0) ctx.moveTo(sx(p.t), sy(p.avg));
-      else ctx.lineTo(sx(p.t), sy(p.avg));
+    if (start < 0) continue;
+    const end = i;
+    if (end - start < 2) {
+      start = -1;
+      continue;
     }
-    ctx.stroke();
+    if (tiMode) {
+      ctx.beginPath();
+      for (let j = start + 1; j < end; j += 1) {
+        const x0 = sx(entry.times[j - 1]);
+        const x1 = sx(entry.times[j]);
+        const y = sy(entry.avgValues[j]);
+        if (j === start + 1) ctx.moveTo(x0, y);
+        else ctx.lineTo(x0, y);
+        ctx.lineTo(x1, y);
+        if (j < end - 1) {
+          const nextY = sy(entry.avgValues[j + 1]);
+          ctx.lineTo(x1, nextY);
+        }
+      }
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      for (let j = start; j < end; j += 1) {
+        if (j === start) ctx.moveTo(sx(entry.times[j]), sy(entry.avgValues[j]));
+        else ctx.lineTo(sx(entry.times[j]), sy(entry.avgValues[j]));
+      }
+      ctx.stroke();
+    }
+    start = -1;
   }
 }
 
@@ -802,22 +875,21 @@ export function renderChart() {
   for (const item of seriesList) {
     const { metric, series } = item;
     const stackedSeries = lastStackedByMetric?.get(metric.name);
-    const stackedTimeline = Array.isArray(stackedSeries?.timeline) ? stackedSeries.timeline : [];
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
 
     if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
-      if (stackedTimeline.length >= 2) {
-        drawStackedTimelineFill(ctx, stackedTimeline, tiMode, sx, sy, metric.color);
-        drawStackedTimelineLine(ctx, stackedTimeline, tiMode, sx, sy);
+      if (stackedSeries.length >= 2) {
+        drawStackedTimelineFill(ctx, stackedSeries, tiMode, sx, sy, metric.color);
+        drawStackedTimelineLine(ctx, stackedSeries, tiMode, sx, sy);
         continue;
       }
-      if (stackedTimeline.length === 1) {
-        const p = stackedTimeline[0];
-        if (!Number.isFinite(Number(p?.avg))) continue;
+      if (stackedSeries.length === 1 && stackedSeries.valid[0] === 1) {
+        const yValue = stackedSeries.avgValues[0];
+        if (!Number.isFinite(yValue)) continue;
         ctx.beginPath();
-        ctx.arc(sx(p.t), sy(p.avg), 1.8, 0, Math.PI * 2);
+        ctx.arc(sx(stackedSeries.times[0]), sy(yValue), 1.8, 0, Math.PI * 2);
         ctx.fill();
         continue;
       }
@@ -836,7 +908,7 @@ export function renderChart() {
             const p = points[i];
             const tx = p.t;
             const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-              ? stackedSeries?.avgByTime?.get(tx)
+              ? stackedEntryValueAt(stackedSeries, "avg", tx)
               : null;
             const x = sx(tx);
             const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
@@ -851,7 +923,7 @@ export function renderChart() {
             (p) => {
               const tx = p.t;
               const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-                ? stackedSeries?.avgByTime?.get(tx)
+                ? stackedEntryValueAt(stackedSeries, "avg", tx)
                 : null;
               return Number.isFinite(stacked) ? stacked : p.v * metric.factor;
             },
@@ -862,7 +934,7 @@ export function renderChart() {
           const p = points[0];
           const x = sx(p.t);
           const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-            ? stackedSeries?.avgByTime?.get(p.t)
+            ? stackedEntryValueAt(stackedSeries, "avg", p.t)
             : null;
           const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
           ctx.beginPath();
@@ -878,7 +950,7 @@ export function renderChart() {
           const p = points[i];
           const tx = aggregateDisplayTime(points, i, series);
           const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-            ? stackedSeries?.avgByTime?.get(tx)
+            ? stackedEntryValueAt(stackedSeries, "avg", tx)
             : null;
           const x = sx(tx);
           const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
@@ -894,7 +966,7 @@ export function renderChart() {
         const p = points[i];
         const tx = p.t;
         const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-          ? stackedSeries?.avgByTime?.get(tx)
+          ? stackedEntryValueAt(stackedSeries, "avg", tx)
           : null;
         const x = sx(tx);
         const y = sy(Number.isFinite(stacked) ? stacked : p.v * metric.factor);
@@ -954,7 +1026,7 @@ export function renderChart() {
             (p) => {
               const tx = p.t;
               const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-                ? stackedSeries?.avgByTime?.get(tx)
+                ? stackedEntryValueAt(stackedSeries, "avg", tx)
                 : null;
               return Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
             },
@@ -968,7 +1040,7 @@ export function renderChart() {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
             const stacked = state.yAxisStacked && stackedSeries?.stacksInYAxis
-              ? stackedSeries?.avgByTime?.get(tx)
+              ? stackedEntryValueAt(stackedSeries, "avg", tx)
               : null;
             const avg = Number.isFinite(stacked) ? stacked : p.avg * metric.factor;
             if (i === 0) ctx.moveTo(sx(tx), sy(avg));
