@@ -31,15 +31,18 @@ function collectStackedExtents(stackedByMetric) {
   let maxY = Number.NEGATIVE_INFINITY;
 
   for (const entry of stackedByMetric.values()) {
-    const values = entry?.avgValues;
+    const isStacked = entry?.stacksInYAxis === true;
+    const minValues = !isStacked && entry?.minValues ? entry.minValues : entry?.avgValues;
+    const maxValues = !isStacked && entry?.maxValues ? entry.maxValues : entry?.avgValues;
     const valid = entry?.valid;
     const length = Number(entry?.length) || 0;
-    if (values && valid && Number.isFinite(length) && length > 0) {
+    if (minValues && maxValues && valid && Number.isFinite(length) && length > 0) {
       for (let i = 0; i < length; i += 1) {
         if (valid[i] !== 1) continue;
-        const y = values[i];
-        minY = Math.min(minY, y);
-        maxY = Math.max(maxY, y);
+        const lo = minValues[i];
+        const hi = maxValues[i];
+        minY = Math.min(minY, lo);
+        maxY = Math.max(maxY, hi);
       }
       continue;
     }
