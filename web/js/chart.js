@@ -550,6 +550,17 @@ function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
   for (const run of runs) {
     if (run.length < 2) continue;
     if (tiMode) {
+      const lineYs = run.map((p) => sy(Number(p?.avg) || 0));
+      const baseYs = run.map((p) => sy(Number(p?.base) || 0));
+      const yTop = Math.min(...lineYs, ...baseYs);
+      const yBottom = Math.max(...lineYs, ...baseYs);
+      const runGrad = yBottom > yTop + 0.5
+        ? ctx.createLinearGradient(0, yTop, 0, yBottom)
+        : null;
+      if (runGrad) {
+        runGrad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
+        runGrad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
+      }
       for (let i = 1; i < run.length; i += 1) {
         const prev = run[i - 1];
         const curr = run[i];
@@ -557,20 +568,8 @@ function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
         const x1 = sx(curr.t);
         const yLine = sy(Number(curr?.avg) || 0);
         const yBase = sy(Number(curr?.base) || 0);
-        const yTop = Math.min(yLine, yBase);
-        const yBottom = Math.max(yLine, yBase);
-        const grad = yBottom > yTop + 0.5
-          ? ctx.createLinearGradient(0, yTop, 0, yBottom)
-          : null;
-        if (grad) {
-          if (yLine <= yBase) {
-            grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
-            grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
-          } else {
-            grad.addColorStop(0, cssColorWithAlpha(color, bottomAlpha));
-            grad.addColorStop(1, cssColorWithAlpha(color, topAlpha));
-          }
-          ctx.fillStyle = grad;
+        if (runGrad) {
+          ctx.fillStyle = runGrad;
         } else {
           ctx.fillStyle = cssColorWithAlpha(color, topAlpha);
         }
