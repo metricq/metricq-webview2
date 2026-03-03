@@ -4,7 +4,6 @@ import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
 
 const URL_STATE_PARAM = "state";
-const URL_STATE_PARAM_COMPRESSED = "statez";
 const URL_STATE_VERSION = 1;
 const RELATIVE_UNITS = new Set(["m", "h", "d", "w", "M", "y"]);
 
@@ -28,57 +27,6 @@ function encodeStatePayload(payload) {
 
 function decodeStatePayload(encoded) {
   const json = decodeURIComponent(escape(atob(encoded)));
-  return JSON.parse(json);
-}
-
-function bytesToBase64(bytes) {
-  let binary = "";
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
-    binary += String.fromCharCode(...chunk);
-  }
-  return btoa(binary);
-}
-
-function base64ToBytes(base64) {
-  const binary = atob(base64);
-  const out = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) out[i] = binary.charCodeAt(i);
-  return out;
-}
-
-async function gzipBytes(plainBytes) {
-  if (typeof CompressionStream !== "function") {
-    throw new Error("CompressionStream nicht verfügbar");
-  }
-  const input = new Blob([plainBytes]).stream();
-  const compressed = input.pipeThrough(new CompressionStream("gzip"));
-  const ab = await new Response(compressed).arrayBuffer();
-  return new Uint8Array(ab);
-}
-
-async function gunzipBytes(gzipBytesData) {
-  if (typeof DecompressionStream !== "function") {
-    throw new Error("DecompressionStream nicht verfügbar");
-  }
-  const input = new Blob([gzipBytesData]).stream();
-  const decompressed = input.pipeThrough(new DecompressionStream("gzip"));
-  const ab = await new Response(decompressed).arrayBuffer();
-  return new Uint8Array(ab);
-}
-
-async function encodeCompressedStatePayload(payload) {
-  const json = JSON.stringify(payload);
-  const utf8 = new TextEncoder().encode(json);
-  const gz = await gzipBytes(utf8);
-  return bytesToBase64(gz);
-}
-
-async function decodeCompressedStatePayload(encoded) {
-  const gz = base64ToBytes(String(encoded || "").trim());
-  const utf8 = await gunzipBytes(gz);
-  const json = new TextDecoder().decode(utf8);
   return JSON.parse(json);
 }
 
@@ -318,11 +266,10 @@ export async function syncUrlStateNow() {
   }
 
   const payload = buildPayload();
-  const compressedEncoded = await encodeCompressedStatePayload(payload);
+  const encoded = encodeStatePayload(payload);
 
   const url = new URL(window.location.href);
-  url.searchParams.set(URL_STATE_PARAM_COMPRESSED, compressedEncoded);
-  url.searchParams.delete(URL_STATE_PARAM);
+  url.searchParams.set(URL_STATE_PARAM, encoded);
   history.replaceState(null, "", url);
 }
 
@@ -337,16 +284,11 @@ export function scheduleUrlStateSync() {
 export async function applyStateFromUrl() {
   const url = new URL(window.location.href);
   const encoded = url.searchParams.get(URL_STATE_PARAM);
-  const encodedCompressed = url.searchParams.get(URL_STATE_PARAM_COMPRESSED);
-  if (!encoded && !encodedCompressed) return false;
+  if (!encoded) return false;
 
   let payload;
   try {
-    if (encodedCompressed) {
-      payload = await decodeCompressedStatePayload(encodedCompressed);
-    } else {
-      payload = decodeStatePayload(encoded);
-    }
+    payload = decodeStatePayload(encoded);
   } catch (_) {
     throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
   }
@@ -388,15 +330,6 @@ export async function applyStateFromUrl() {
   state.renderMode = renderMode === "ti" ? "ti" : "standard";
 
   applyYAxisConfig(payload?.y);
-
-  // Normalize legacy/plain links to compressed form in the address bar.
-  if (encoded && !encodedCompressed) {
-    try {
-      await syncUrlStateNow();
-    } catch (_) {
-      // Keep loaded state even if recompression is unavailable.
-    }
-  }
 
   return true;
 }
@@ -452,8 +385,7 @@ function statusLine(field, status, detail = "") {
 export async function inspectUrlStateDebug() {
   const url = new URL(window.location.href);
   const encoded = url.searchParams.get(URL_STATE_PARAM);
-  const encodedCompressed = url.searchParams.get(URL_STATE_PARAM_COMPRESSED);
-  if (!encoded && !encodedCompressed) {
+  if (!encoded) {
     return {
       hasStateParam: false,
       encodedLength: 0,
@@ -464,26 +396,17 @@ export async function inspectUrlStateDebug() {
   }
 
   const checks = [];
-  if (encodedCompressed) {
-    checks.push(statusLine("statez", "ok", `Komprimierter Parameter vorhanden (Länge: ${encodedCompressed.length})`));
-  } else {
-    checks.push(statusLine("state", "ok", `Parameter vorhanden (Länge: ${encoded.length})`));
-  }
+  checks.push(statusLine("state", "ok", `Parameter vorhanden (Länge: ${encoded.length})`));
 
   let payload = null;
   try {
-    if (encodedCompressed) {
-      payload = await decodeCompressedStatePayload(encodedCompressed);
-      checks.push(statusLine("decode", "ok", "statez erfolgreich entpackt (gzip) und dekodiert."));
-    } else {
-      payload = decodeStatePayload(encoded);
-      checks.push(statusLine("decode", "ok", "Base64 + JSON erfolgreich dekodiert."));
-    }
+    payload = decodeStatePayload(encoded);
+    checks.push(statusLine("decode", "ok", "Base64 + JSON erfolgreich dekodiert."));
   } catch (err) {
     checks.push(statusLine("decode", "ungültig", err?.message || "Dekodierung fehlgeschlagen."));
     return {
       hasStateParam: true,
-      encodedLength: encodedCompressed ? encodedCompressed.length : encoded.length,
+      encodedLength: encoded.length,
       decodeOk: false,
       payload: null,
       checks,
@@ -569,7 +492,7 @@ export async function inspectUrlStateDebug() {
 
   return {
     hasStateParam: true,
-    encodedLength: encodedCompressed ? encodedCompressed.length : encoded.length,
+    encodedLength: encoded.length,
     decodeOk: true,
     payload,
     checks,
