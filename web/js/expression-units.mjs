@@ -29,11 +29,14 @@ function collectDependencies(expr) {
 
 function expressionSupportsUnitPropagation(expr) {
   // Pure scalar multipliers do not change units and are allowed.
-  // Examples: 100*[a], [a]*0.5, ([a]*2)+([b]*3)
+  // Pure scalar multipliers/divisors on metric terms do not change units and are allowed.
+  // Examples: 100*[a], [a]*0.5, [a]/10, ([a]*2)+([b]/3)
   const withoutScalarMult = String(expr || "")
     .replace(/(^|[+\-/*(,\s])([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)\s*\*/gi, "$1")
     .replace(/\*\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)(?=$|[+\-/*),\s])/gi, "");
-  const text = withoutScalarMult.toLowerCase();
+  const withoutScalarOps = withoutScalarMult
+    .replace(/\/\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)(?=$|[+\-/*),\s])/gi, "");
+  const text = withoutScalarOps.toLowerCase();
   return !text.includes("*") && !text.includes("/") && !/\blog\b/.test(text);
 }
 

@@ -41,6 +41,20 @@ test("keeps unit when expression uses scalar multiplication", () => {
   assert.equal(metrics[2].displayUnit, "W");
 });
 
+test("keeps unit for metric divided by scalar, but not scalar divided by metric", () => {
+  const metrics = [
+    { name: "a", unit: "W", displayUnit: "W", factorMode: "auto", expr: "" },
+    { name: "div_ok", unit: "", displayUnit: "", factorMode: "auto", expr: "[a]/1000" },
+    { name: "div_bad", unit: "W", displayUnit: "W", factorMode: "auto", expr: "1000/[a]" },
+  ];
+
+  deriveExpressionUnits(metrics);
+  assert.equal(metrics[1].unit, "W");
+  assert.equal(metrics[1].displayUnit, "W");
+  assert.equal(metrics[2].unit, "");
+  assert.equal(metrics[2].displayUnit, "");
+});
+
 test("keeps manual expression metric untouched", () => {
   const metrics = [
     { name: "a", unit: "W", displayUnit: "W", factorMode: "auto", expr: "" },
