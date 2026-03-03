@@ -2,6 +2,7 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
+import { startHelpOverlayMinimize } from "./chart.js";
 import { collectExpressionReferences } from "./expression-refs.mjs";
 import { formatFactor, shownMetricFactor } from "./factor-format.mjs";
 import { colors, metricByName, metricDisplayName, state } from "./model.js";
@@ -336,11 +337,7 @@ export function addMetric(name, hooks) {
   });
   renderMetricList(hooks);
   if (hadNoMetrics) {
-    state.helpOverlayForced = false;
-    state.helpOverlayMinimizeDeferred = false;
-    state.helpOverlayMinimizeUntil = Date.now() + 1900;
-    state.helpOverlayMinimizeActive = false;
-    hooks.renderChart();
+    startHelpOverlayMinimize(1900);
   }
   hooks.loadData();
   hooks.onStateChanged?.();

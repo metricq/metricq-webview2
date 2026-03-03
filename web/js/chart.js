@@ -16,6 +16,8 @@ let hoverPointEl = null;
 let hoverCursorLineEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
+let helpMinimizeTimerId = null;
+let helpMinimizeRenderActive = false;
 const rgbaCache = new Map();
 
 function cssColorWithAlpha(color, alpha) {
@@ -806,6 +808,23 @@ function animateEmptyStateToNavbarHelpButton() {
   anim.addEventListener("cancel", () => ghost.remove(), { once: true });
 }
 
+export function startHelpOverlayMinimize(durationMs = 1900) {
+  const overlayVisible = Boolean(dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"));
+  if (!overlayVisible) return;
+  state.helpOverlayForced = false;
+  state.helpOverlayMinimizeDeferred = false;
+  state.helpOverlayMinimizeActive = true;
+  if (helpMinimizeTimerId != null) {
+    window.clearTimeout(helpMinimizeTimerId);
+  }
+  helpMinimizeTimerId = window.setTimeout(() => {
+    helpMinimizeTimerId = null;
+    state.helpOverlayMinimizeActive = false;
+    renderChart();
+  }, Math.max(250, Number(durationMs) || 1900));
+  renderChart();
+}
+
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
@@ -925,36 +944,46 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
-  if (noMetricsSelected) state.helpOverlayForced = false;
-  const now = Date.now();
+  if (noMetricsSelected) {
+    state.helpOverlayForced = false;
+    state.helpOverlayMinimizeDeferred = false;
+    state.helpOverlayMinimizeActive = false;
+    if (helpMinimizeTimerId != null) {
+      window.clearTimeout(helpMinimizeTimerId);
+      helpMinimizeTimerId = null;
+    }
+  }
   const minimizingNow = !noMetricsSelected
     && !state.helpOverlayForced
     && !state.helpOverlayMinimizeDeferred
-    && Number(state.helpOverlayMinimizeUntil) > now;
+    && !!state.helpOverlayMinimizeActive;
   const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced || !!state.helpOverlayMinimizeDeferred || minimizingNow;
   const wasHelpVisible = dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
   if (showHelpOverlay) {
     setChartEmptyStateVisible(true);
     if (minimizingNow) {
-      if (!state.helpOverlayMinimizeActive && wasHelpVisible) {
+      if (!helpMinimizeRenderActive && wasHelpVisible) {
         animateEmptyStateToNavbarHelpButton();
         setNavbarHelpToggleVisible(true, true);
       } else {
         setNavbarHelpToggleVisible(true);
       }
       dom.chartEmptyState?.classList.add("is-minimizing");
-      state.helpOverlayMinimizeActive = true;
+      helpMinimizeRenderActive = true;
     } else {
       dom.chartEmptyState?.classList.remove("is-minimizing");
       setNavbarHelpToggleVisible(false);
-      state.helpOverlayMinimizeActive = false;
-      if (noMetricsSelected) state.helpOverlayMinimizeUntil = 0;
+      helpMinimizeRenderActive = false;
     }
   } else {
     setNavbarHelpToggleVisible(true);
     setChartEmptyStateVisible(false);
+    helpMinimizeRenderActive = false;
+    if (helpMinimizeTimerId != null) {
+      window.clearTimeout(helpMinimizeTimerId);
+      helpMinimizeTimerId = null;
+    }
     state.helpOverlayMinimizeActive = false;
-    state.helpOverlayMinimizeUntil = 0;
   }
   if (noMetricsSelected) {
     lastStackedByMetric = null;

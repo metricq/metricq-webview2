@@ -1,4 +1,5 @@
 import { apiFetch } from "./api.js";
+import { startHelpOverlayMinimize } from "./chart.js";
 import { dom } from "./dom.js";
 import { state } from "./model.js";
 import { addExpressionMetric, searchMetricHints, updateExpressionMetric } from "./metrics.js";
@@ -638,10 +639,7 @@ function saveExpressionMetric(hooks) {
     modal.hide();
   } else if (state.helpOverlayMinimizeDeferred) {
     state.helpOverlayMinimizeDeferred = false;
-    state.helpOverlayForced = false;
-    state.helpOverlayMinimizeUntil = Date.now() + 1900;
-    state.helpOverlayMinimizeActive = false;
-    hooks.renderChart();
+    startHelpOverlayMinimize(1900);
   }
 }
 
@@ -801,10 +799,7 @@ export function wireExpressionModal(hooks) {
     hideHoverInfo();
     clearDropMarker();
     if (shouldReleaseHelpMinimize) {
-      state.helpOverlayForced = false;
-      state.helpOverlayMinimizeUntil = Date.now() + 1900;
-      state.helpOverlayMinimizeActive = false;
-      hooks.renderChart();
+      startHelpOverlayMinimize(1900);
     }
   });
 
