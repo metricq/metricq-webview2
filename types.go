@@ -157,7 +157,8 @@ type apiYRangeGlobalResponse struct {
 }
 
 type apiStackedSeriesResponse struct {
-	Times   []int64      `json:"times"`
-	Metrics []string     `json:"metrics"`
-	Values  [][]*float64 `json:"values"`
+	Duration float64      `json:"duration"`
+	Times    []int64      `json:"times"`
+	Metrics  []string     `json:"metrics"`
+	Values   [][]*float64 `json:"values"`
 }

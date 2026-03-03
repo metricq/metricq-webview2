@@ -355,9 +355,13 @@ func alignStackedSeries(series []apiQuerySeries, fromMS, toMS int64, maxDataPoin
 	pointsByMetric := make([][]stackedValuePoint, 0, len(series))
 	metricHasData := make([]bool, 0, len(series))
 	metricNames := make([]string, 0, len(series))
+	totalDuration := 0.0
 	for _, item := range series {
 		if errText := strings.TrimSpace(item.Error); errText != "" {
 			return apiStackedSeriesResponse{}, fmt.Errorf("metric %q failed: %s", item.Metric, errText)
+		}
+		if item.Duration > 0 && !math.IsNaN(item.Duration) && !math.IsInf(item.Duration, 0) {
+			totalDuration += item.Duration
 		}
 		points := seriesToStackedPoints(item)
 		metricNames = append(metricNames, item.Metric)
@@ -371,18 +375,20 @@ func alignStackedSeries(series []apiQuerySeries, fromMS, toMS int64, maxDataPoin
 	}
 	if len(metricNames) == 0 {
 		return apiStackedSeriesResponse{
-			Times:   []int64{},
-			Metrics: []string{},
-			Values:  [][]*float64{},
+			Duration: totalDuration,
+			Times:    []int64{},
+			Metrics:  []string{},
+			Values:   [][]*float64{},
 		}, nil
 	}
 
 	timeline := buildStackedTimeline(fromMS, toMS, maxDataPoints)
 	if len(timeline) == 0 {
 		return apiStackedSeriesResponse{
-			Times:   []int64{},
-			Metrics: metricNames,
-			Values:  make([][]*float64, len(metricNames)),
+			Duration: totalDuration,
+			Times:    []int64{},
+			Metrics:  metricNames,
+			Values:   make([][]*float64, len(metricNames)),
 		}, nil
 	}
 
@@ -404,9 +410,10 @@ func alignStackedSeries(series []apiQuerySeries, fromMS, toMS int64, maxDataPoin
 	}
 
 	return apiStackedSeriesResponse{
-		Times:   timeline,
-		Metrics: metricNames,
-		Values:  values,
+		Duration: totalDuration,
+		Times:    timeline,
+		Metrics:  metricNames,
+		Values:   values,
 	}, nil
 }
 
