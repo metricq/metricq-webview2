@@ -54,6 +54,12 @@
   transition: opacity 1850ms ease, transform 1850ms ease;
 }
 
+.chart-empty-state.is-ghosting .chart-empty-card {
+  opacity: 0 !important;
+  transform: scale(0.95);
+  transition: none !important;
+}
+
 .chart-empty-card {
   position: relative;
   width: min(640px, 100%);

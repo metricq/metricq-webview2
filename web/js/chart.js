@@ -758,7 +758,10 @@ function drawEmptyChartState(ctx, margin) {
 
 function setChartEmptyStateVisible(visible) {
   if (!dom.chartEmptyState) return;
-  if (!visible) dom.chartEmptyState.classList.remove("is-minimizing");
+  if (!visible) {
+    dom.chartEmptyState.classList.remove("is-minimizing");
+    dom.chartEmptyState.classList.remove("is-ghosting");
+  }
   dom.chartEmptyState.classList.toggle("d-none", !visible);
 }
 
@@ -965,6 +968,7 @@ export function renderChart() {
       if (!helpMinimizeRenderActive && wasHelpVisible) {
         animateEmptyStateToNavbarHelpButton();
         setNavbarHelpToggleVisible(true, true);
+        dom.chartEmptyState?.classList.add("is-ghosting");
       } else {
         setNavbarHelpToggleVisible(true);
       }
@@ -972,6 +976,7 @@ export function renderChart() {
       helpMinimizeRenderActive = true;
     } else {
       dom.chartEmptyState?.classList.remove("is-minimizing");
+      dom.chartEmptyState?.classList.remove("is-ghosting");
       setNavbarHelpToggleVisible(false);
       helpMinimizeRenderActive = false;
     }
