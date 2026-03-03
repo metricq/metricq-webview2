@@ -14,6 +14,33 @@ let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
+let colorSampleCtx = null;
+const rgbaCache = new Map();
+
+function cssColorWithAlpha(color, alpha) {
+  const key = `${String(color || "")}|${Number(alpha)}`;
+  if (rgbaCache.has(key)) return rgbaCache.get(key);
+  if (!colorSampleCtx) {
+    const sampleCanvas = document.createElement("canvas");
+    sampleCanvas.width = 1;
+    sampleCanvas.height = 1;
+    colorSampleCtx = sampleCanvas.getContext("2d");
+  }
+  if (!colorSampleCtx) {
+    const fallback = `rgba(0, 0, 0, ${alpha})`;
+    rgbaCache.set(key, fallback);
+    return fallback;
+  }
+  colorSampleCtx.clearRect(0, 0, 1, 1);
+  colorSampleCtx.fillStyle = "#000000";
+  colorSampleCtx.fillRect(0, 0, 1, 1);
+  colorSampleCtx.fillStyle = String(color || "#000000");
+  colorSampleCtx.fillRect(0, 0, 1, 1);
+  const px = colorSampleCtx.getImageData(0, 0, 1, 1).data;
+  const out = `rgba(${px[0]}, ${px[1]}, ${px[2]}, ${alpha})`;
+  rgbaCache.set(key, out);
+  return out;
+}
 
 function ensureHoverPointEl() {
   if (hoverPointEl) return hoverPointEl;
@@ -512,24 +539,64 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
   }
 }
 
-function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy) {
+function drawStackedTimelineFill(ctx, timeline, tiMode, sx, sy, color) {
   if (!Array.isArray(timeline) || timeline.length < 2) return;
   const runs = splitValidRuns(
     timeline,
     (p) => Number.isFinite(Number(p?.avg)) && Number.isFinite(Number(p?.base)),
   );
+  const topAlpha = 0.26;
+  const bottomAlpha = 0.02;
   for (const run of runs) {
     if (run.length < 2) continue;
     if (tiMode) {
-      drawLastSemanticBand(
-        ctx,
-        run,
-        (p) => Number(p?.base) || 0,
-        (p) => Number(p?.avg) || 0,
-        sx,
-        sy,
-      );
+      for (let i = 1; i < run.length; i += 1) {
+        const prev = run[i - 1];
+        const curr = run[i];
+        const x0 = sx(prev.t);
+        const x1 = sx(curr.t);
+        const yLine = sy(Number(curr?.avg) || 0);
+        const yBase = sy(Number(curr?.base) || 0);
+        const yTop = Math.min(yLine, yBase);
+        const yBottom = Math.max(yLine, yBase);
+        const grad = yBottom > yTop + 0.5
+          ? ctx.createLinearGradient(0, yTop, 0, yBottom)
+          : null;
+        if (grad) {
+          if (yLine <= yBase) {
+            grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
+            grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
+          } else {
+            grad.addColorStop(0, cssColorWithAlpha(color, bottomAlpha));
+            grad.addColorStop(1, cssColorWithAlpha(color, topAlpha));
+          }
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = cssColorWithAlpha(color, topAlpha);
+        }
+        ctx.beginPath();
+        ctx.moveTo(x0, yLine);
+        ctx.lineTo(x1, yLine);
+        ctx.lineTo(x1, yBase);
+        ctx.lineTo(x0, yBase);
+        ctx.closePath();
+        ctx.fill();
+      }
       continue;
+    }
+    const lineYs = run.map((p) => sy(p.avg));
+    const baseYs = run.map((p) => sy(p.base));
+    const yLineTop = Math.min(...lineYs);
+    const yBottom = Math.max(...baseYs);
+    const grad = yBottom > yLineTop + 0.5
+      ? ctx.createLinearGradient(0, yLineTop, 0, yBottom)
+      : null;
+    if (grad) {
+      grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
+      grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
+      ctx.fillStyle = grad;
+    } else {
+      ctx.fillStyle = cssColorWithAlpha(color, topAlpha);
     }
     ctx.beginPath();
     for (let i = 0; i < run.length; i += 1) {
@@ -732,10 +799,7 @@ export function renderChart() {
 
     if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
       if (stackedTimeline.length >= 2) {
-        ctx.save();
-        ctx.globalAlpha = 0.22;
-        drawStackedTimelineFill(ctx, stackedTimeline, tiMode, sx, sy);
-        ctx.restore();
+        drawStackedTimelineFill(ctx, stackedTimeline, tiMode, sx, sy, metric.color);
         drawStackedTimelineLine(ctx, stackedTimeline, tiMode, sx, sy);
         continue;
       }
