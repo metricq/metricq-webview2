@@ -419,6 +419,11 @@ function wireTimeDialogEvents() {
   dom.rangePresets.addEventListener("click", (event) => {
     const button = event.target.closest("button[data-range]");
     if (!button) return;
+    button.classList.remove("time-shortcut-active");
+    // restart animation even when quickly re-clicking same shortcut
+    void button.offsetWidth;
+    button.classList.add("time-shortcut-active");
+    window.setTimeout(() => button.classList.remove("time-shortcut-active"), 460);
     applyPreset(button.dataset.range);
   });
 
