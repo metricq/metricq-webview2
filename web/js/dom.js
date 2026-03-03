@@ -9,6 +9,7 @@ export const dom = {
   btnEmptyFocusSearch: document.getElementById("btnEmptyFocusSearch"),
   btnEmptyOpenExpression: document.getElementById("btnEmptyOpenExpression"),
   btnEmptyOpenTimeRange: document.getElementById("btnEmptyOpenTimeRange"),
+  btnEmptyToggleStacked: document.getElementById("btnEmptyToggleStacked"),
   hoverBox: document.getElementById("hoverBox"),
   dragSelectBox: document.getElementById("dragSelectBox"),
   zoomRangeBadge: document.getElementById("zoomRangeBadge"),
