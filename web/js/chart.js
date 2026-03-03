@@ -947,6 +947,7 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
+  dom.canvas.style.cursor = "default";
   if (noMetricsSelected) {
     state.helpOverlayForced = false;
     state.helpOverlayMinimizeDeferred = false;
@@ -1001,6 +1002,7 @@ export function renderChart() {
     drawEmptyChartState(ctx, margin);
     return;
   }
+  dom.canvas.style.cursor = "crosshair";
 
   const tiMode = state.renderMode === "ti";
   lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode, false) : null;
