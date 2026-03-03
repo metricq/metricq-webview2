@@ -551,9 +551,15 @@ function wireChartEmptyStateEvents() {
     if (!target) return;
     const preset = String(target.dataset.emptyRange || "");
     if (!preset) return;
-    applyPreset(preset);
-    closeTimePopup();
-    dom.btnApplyTimeRange?.click();
+    if (dom.timePopup.classList.contains("d-none")) openTimePopup();
+    const presetButton = dom.rangePresets?.querySelector(`button[data-range="${preset}"]`);
+    const run = async () => {
+      await animateCoachToTarget(target, presetButton);
+      presetButton?.click();
+      closeTimePopup();
+      dom.btnApplyTimeRange?.click();
+    };
+    void run();
   });
 }
 
