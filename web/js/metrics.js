@@ -36,8 +36,13 @@ function renderMetricHintHoverHtml(metricName, details) {
 function showMetricHintHover(clientX, clientY, html) {
   const el = ensureMetricHintHoverElement();
   el.innerHTML = html;
-  positionMetricHintHover(el, clientX, clientY);
   el.classList.remove("d-none");
+  el.style.width = "";
+  const measuredWidth = Math.ceil(el.getBoundingClientRect().width || el.offsetWidth || 0);
+  if (measuredWidth > 0) {
+    el.style.width = `${measuredWidth}px`;
+  }
+  positionMetricHintHover(el, clientX, clientY);
 }
 
 function moveMetricHintHover(clientX, clientY) {
@@ -47,6 +52,7 @@ function moveMetricHintHover(clientX, clientY) {
 
 function hideMetricHintHover() {
   if (!metricHintHoverEl) return;
+  metricHintHoverEl.style.width = "";
   metricHintHoverEl.classList.add("d-none");
 }
 
