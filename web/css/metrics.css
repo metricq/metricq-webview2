@@ -1,3 +1,48 @@
+.metric-search-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.metric-search-wrap .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.metric-search-reset {
+    position: absolute;
+    right: 0.18rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1.35rem;
+    height: 1.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: #6c757d;
+    padding: 0;
+    border-radius: 999px;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.metric-search-reset i {
+    font-size: 0.75rem;
+    line-height: 1;
+}
+
+.metric-search-reset:hover {
+    background: rgba(108, 117, 125, 0.12);
+    color: #495057;
+}
+
+.metric-search-reset.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 .metric-hints {
     max-height: 160px;
     overflow: auto;

@@ -505,9 +505,15 @@ function wireTimeDialogEvents() {
 }
 
 function wireMetricPanelEvents() {
+  const syncMetricSearchReset = () => {
+    const hasValue = String(dom.metricSearch.value || "").trim().length > 0;
+    dom.btnResetMetricSearch.classList.toggle("is-visible", hasValue);
+  };
+
   dom.btnResetMetricSearch.addEventListener("click", () => {
     dom.metricSearch.value = "";
     dom.metricHints.innerHTML = "";
+    syncMetricSearchReset();
     dom.metricSearch.focus();
   });
 
@@ -518,12 +524,15 @@ function wireMetricPanelEvents() {
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
 
   dom.metricSearch.addEventListener("input", () => {
+    syncMetricSearchReset();
     window.clearTimeout(dom.metricSearch._timer);
     dom.metricSearch._timer = window.setTimeout(async () => {
       const hints = await searchMetricHints(dom.metricSearch.value.trim());
       renderHints(hints, hooks);
     }, 220);
   });
+
+  syncMetricSearchReset();
 }
 
 function wireModalEvents() {

@@ -93,10 +93,12 @@
               </div>
               <div class="card-body p-2 d-flex flex-column gap-2 flex-fill min-h-0 overflow-hidden">
                 <div class="input-group input-group-sm">
-                  <input type="text" class="form-control" id="metricSearch" placeholder="Metrik suchen" />
-                  <button class="btn btn-outline-secondary" id="btnResetMetricSearch" title="Suche zurücksetzen">
-                    <i class="bi bi-x-lg"></i>
-                  </button>
+                  <div class="metric-search-wrap">
+                    <input type="text" class="form-control pe-4" id="metricSearch" placeholder="Metrik suchen" />
+                    <button class="btn metric-search-reset" id="btnResetMetricSearch" title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
                   <button class="btn btn-outline-primary" id="btnAddExpressionMetric" title="Berechnete Metrik hinzufügen">
                     +ƒ
                   </button>
