@@ -1,6 +1,6 @@
 import { collectExpressionReferences } from "./expression-refs.mjs";
 import { formatFactor } from "./factor-format.mjs";
-import { SI_PREFIXES, parseSIUnit } from "./si-units.mjs";
+import { SI_PREFIXES, formatSIUnit, parseSIUnit } from "./si-units.mjs";
 
 export function expressionTokenForMetric(name) {
   return `[${String(name || "").trim()}]`;
@@ -13,6 +13,16 @@ const metadataRangeCache = new Map();
 
 function wrapScaledMetric(metricName, factorText) {
   return `([${metricName}]*${factorText})`;
+}
+
+function expressionSupportsUnitPropagation(expr) {
+  const withoutScalarMult = String(expr || "")
+    .replace(/(^|[+\-/*(,\s])([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)\s*\*/gi, "$1")
+    .replace(/\*\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)(?=$|[+\-/*),\s])/gi, "");
+  const withoutScalarOps = withoutScalarMult
+    .replace(/\/\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[+-]?\d+)?)(?=$|[+\-/*),\s])/gi, "");
+  const text = withoutScalarOps.toLowerCase();
+  return !text.includes("*") && !text.includes("/") && !/\blog\b/.test(text);
 }
 
 async function resolveMetricUnit(metricName, fetchMetricUnit) {
@@ -175,6 +185,53 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit, fe
   return factorMap;
 }
 
+async function alignExpressionMetricUnit(metric, metrics, factorMap, fetchMetricUnit) {
+  if (!metric?.expr || metric?.factorMode === "manual") return;
+  if (!expressionSupportsUnitPropagation(metric.expr)) return;
+  if (!(factorMap instanceof Map)) return;
+  if (typeof fetchMetricUnit !== "function") return;
+
+  const refs = collectExpressionReferences(metric.expr);
+  if (refs.length === 0) return;
+  const byName = new Map((metrics || []).map((m) => [m.name, m]));
+
+  let family = "";
+  let resolvedExp = NaN;
+  for (const refName of refs) {
+    const local = byName.get(refName);
+    const sourceUnit = local
+      ? String(local.unit || "").trim() || await resolveMetricUnit(refName, fetchMetricUnit)
+      : await resolveMetricUnit(refName, fetchMetricUnit);
+    const parsed = parseSIUnit(sourceUnit);
+    if (!parsed) return;
+
+    let factor = Number(factorMap.get(refName));
+    if (!Number.isFinite(factor)) factor = 1;
+    if (local?.factorMode === "manual") {
+      const manual = Number(local.manualFactor);
+      if (Number.isFinite(manual) && Math.abs(manual) > 1e-12) factor /= manual;
+    }
+    if (!(factor > 0)) return;
+
+    const shift = Math.log10(factor);
+    const roundedShift = Math.round(shift);
+    if (Math.abs(shift - roundedShift) > 1e-9) return;
+    const nextExp = parsed.exp - roundedShift;
+
+    if (!family) {
+      family = parsed.family;
+      resolvedExp = nextExp;
+      continue;
+    }
+    if (parsed.family !== family || !Number.isFinite(resolvedExp) || Math.abs(nextExp - resolvedExp) > 1e-9) return;
+  }
+
+  if (!family || !Number.isFinite(resolvedExp)) return;
+  const unit = formatSIUnit(family, resolvedExp);
+  metric.unit = unit;
+  metric.displayUnit = unit;
+}
+
 export function buildComputedExpression(expression, metrics, factorMapOverride = null) {
   const text = String(expression || "");
   if (!text) return "";
@@ -241,6 +298,7 @@ export function buildQueryTargets(metrics) {
 
 export async function buildQueryTargetsResolved(metrics, fetchMetricUnit, fetchMetricRange = null) {
   const out = [];
+  const byName = new Map((metrics || []).map((m) => [m?.name, m]));
   for (const metric of metrics || []) {
     const name = String(metric?.name || "").trim();
     const expr = String(metric?.expr || "").trim();
@@ -253,6 +311,8 @@ export async function buildQueryTargetsResolved(metrics, fetchMetricUnit, fetchM
     let factorMap = null;
     if (typeof fetchMetricUnit === "function") {
       factorMap = await buildExpressionFactorMap(expr, metrics, fetchMetricUnit, fetchMetricRange);
+      const localMetric = byName.get(name);
+      await alignExpressionMetricUnit(localMetric, metrics, factorMap, fetchMetricUnit);
     }
     out.push({
       name,

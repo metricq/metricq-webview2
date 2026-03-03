@@ -72,3 +72,20 @@ test("buildQueryTargetsResolved fetches units for local refs when missing", asyn
   const scalesDenominator = /\(\[LZR\.IT\.gesamt\.Wirkleistung\]\*1000\)/.test(pue.expr);
   assert.equal(scalesNumerator || scalesDenominator, true, `unexpected normalized expression: ${pue.expr}`);
 });
+
+test("buildQueryTargetsResolved aligns expression unit with normalized reference scaling", async () => {
+  const metrics = [
+    { name: "base.power", unit: "W", displayUnit: "", factorMode: "auto", expr: "" },
+    { name: "capella.abwaerme", unit: "", displayUnit: "", factorMode: "auto", expr: "[base.power]*0.95" },
+  ];
+  const out = await buildQueryTargetsResolved(
+    metrics,
+    async (name) => (name === "base.power" ? "W" : ""),
+    async () => ({ minimum: 0, maximum: 2000 }),
+  );
+  const exprTarget = out.find((t) => t.name === "capella.abwaerme");
+  assert.ok(exprTarget?.expr, "expected resolved expression target");
+  assert.match(exprTarget.expr, /\(\[base\.power\]\*0\.001\)/);
+  assert.equal(metrics[1].unit, "kW");
+  assert.equal(metrics[1].displayUnit, "kW");
+});
