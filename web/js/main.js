@@ -568,16 +568,19 @@ function renderContextualHelp() {
   actions.push(helpActionButton("focus_metric_search", hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen", "bi-search", "primary"));
   actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
 
+  if (!hasMetrics) {
+    dom.chartHelpSections.innerHTML = actions.join("");
+    return;
+  }
+
   if (sidebarOpen) {
     actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"));
-    if (hasMetrics) {
-      actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
-      actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
-      actions.push(helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles"));
-      actions.push(helpActionButton("recolor_classic", "Klassisch", "bi-brush"));
-      actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
-      actions.push(helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill"));
-    }
+    actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
+    actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
+    actions.push(helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles"));
+    actions.push(helpActionButton("recolor_classic", "Klassisch", "bi-brush"));
+    actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
+    actions.push(helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill"));
   } else {
     actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
     actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical"));
