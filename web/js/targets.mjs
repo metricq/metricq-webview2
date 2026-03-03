@@ -188,11 +188,6 @@ async function buildExpressionFactorMap(expression, metrics, fetchMetricUnit, fe
 
 async function alignExpressionMetricUnit(metric, metrics, factorMap, fetchMetricUnit) {
   if (!metric?.expr) return;
-  if (metric?.factorMode === "manual") {
-    const unit = String(metric?.unit || "").trim();
-    const displayUnit = String(metric?.displayUnit || "").trim();
-    if (unit && displayUnit) return;
-  }
   if (!expressionSupportsUnitPropagation(metric.expr)) return;
   if (!(factorMap instanceof Map)) return;
   if (typeof fetchMetricUnit !== "function") return;
