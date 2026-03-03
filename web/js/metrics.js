@@ -455,10 +455,11 @@ export function renderMetricList(hooks) {
       ? (() => {
         const stacksInYAxis = metric.stackMode !== "normal";
         const stackButtonClass = stacksInYAxis ? "btn-outline-secondary" : "btn-warning";
+        const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers-half";
         const stackTitle = stacksInYAxis
           ? "Im Stack-Modus: gestapelt zeichnen"
           : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";
-        return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi bi-layers"></i></button>`;
+        return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi ${stackButtonIcon}"></i></button>`;
       })()
       : "";
     controls.innerHTML = `
@@ -481,7 +482,7 @@ export function renderMetricList(hooks) {
       } else if (action === "stack-mode") {
         metric.stackMode = metric.stackMode === "normal" ? "stack" : "normal";
         renderMetricList(hooks);
-        hooks.renderChart();
+        hooks.loadData();
         hooks.onStateChanged?.();
       } else if (action === "edit" && metric.expr) {
         document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
