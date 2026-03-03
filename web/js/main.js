@@ -103,6 +103,16 @@ function syncStackedModeButton() {
   dom.btnStackedMode.title = stackedActive
     ? "Stacked-Mode aktiv"
     : "Stacked-Mode inaktiv";
+  if (dom.btnEmptyToggleStacked) {
+    dom.btnEmptyToggleStacked.classList.toggle("btn-primary", stackedActive);
+    dom.btnEmptyToggleStacked.classList.toggle("btn-outline-secondary", !stackedActive);
+    dom.btnEmptyToggleStacked.innerHTML = stackedActive
+      ? '<i class="bi bi-layers-half me-1"></i>Stacking deaktivieren'
+      : '<i class="bi bi-layers me-1"></i>Stacking aktivieren';
+    dom.btnEmptyToggleStacked.title = stackedActive
+      ? "Stacked-Mode ist aktiv"
+      : "Stacked-Mode ist inaktiv";
+  }
 }
 
 function updateSidebarToggleIcon() {
