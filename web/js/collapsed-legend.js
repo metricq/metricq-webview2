@@ -46,9 +46,9 @@ function buildLegendRow(metric) {
   return row;
 }
 
-function appendLegendSection(host, metrics, mode) {
+function appendLegendSection(host, metrics) {
   const section = document.createElement("section");
-  section.className = `collapsed-legend-section collapsed-legend-section--${mode}`;
+  section.className = "collapsed-legend-section";
   for (const metric of metrics) section.appendChild(buildLegendRow(metric));
   host.appendChild(section);
 }
@@ -72,8 +72,8 @@ export function renderCollapsedLegend() {
   if (state.yAxisStacked) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
-    if (nonStacked.length > 0) appendLegendSection(host, nonStacked, "nonstacked");
-    if (stacked.length > 0) appendLegendSection(host, stacked, "stacked");
+    if (nonStacked.length > 0) appendLegendSection(host, nonStacked);
+    if (stacked.length > 0) appendLegendSection(host, stacked);
   } else {
     for (const metric of visible) host.appendChild(buildLegendRow(metric));
   }

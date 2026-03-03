@@ -155,16 +155,6 @@
   margin-top: 0.28rem;
 }
 
-.collapsed-legend-section--nonstacked {
-  border: 0;
-  background: transparent;
-}
-
-.collapsed-legend-section--stacked {
-  border: 0;
-  background: transparent;
-}
-
 .collapsed-legend-color {
   flex: 0 0 auto;
   width: 10px;
