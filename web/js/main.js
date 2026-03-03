@@ -569,7 +569,8 @@ function renderContextualHelp() {
   actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
 
   if (!hasMetrics) {
-    if (!sidebarOpen) actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
+    if (sidebarOpen) actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"));
+    else actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
     dom.chartHelpSections.innerHTML = actions.join("");
     return;
   }
