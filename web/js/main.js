@@ -551,15 +551,6 @@ function helpActionButton(action, label, icon, tone = "outline-secondary", disab
   return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}><i class="bi ${icon} me-1"></i>${label}</button>`;
 }
 
-function helpSection(title, actionsHtml) {
-  return `
-    <section class="chart-help-section">
-      <div class="chart-help-section-title">${title}</div>
-      <div class="chart-help-actions">${actionsHtml}</div>
-    </section>
-  `;
-}
-
 function renderContextualHelp() {
   if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle) return;
   const metricCount = state.metrics.length;
@@ -570,55 +561,31 @@ function renderContextualHelp() {
     ? "Metriken vorhanden: nächste Schritte"
     : "Noch keine Metriken ausgewählt";
   dom.chartHelpSubtitle.textContent = hasMetrics
-    ? "Nutze die passenden Aktionen für Metriken, Sichtbarkeit, Farben und Achsen."
+    ? "Nur die aktuell passenden Aktionen."
     : "Starte mit einer Metrik oder lege eine berechnete Metrik an.";
 
-  const sections = [];
-  sections.push(helpSection(
-    hasMetrics ? "Metriken hinzufügen" : "Erste Metrik",
-    [
-      helpActionButton("focus_metric_search", "Metrik suchen", "bi-search", "primary"),
-      helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"),
-    ].join(""),
-  ));
+  const actions = [];
+  actions.push(helpActionButton("focus_metric_search", hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen", "bi-search", "primary"));
+  actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
 
   if (sidebarOpen) {
-    sections.push(helpSection(
-      "Sidebar",
-      helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"),
-    ));
-    sections.push(helpSection(
-      "Sichtbarkeit",
-      [
-        helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"),
-        helpActionButton("show_all", "Alle zeigen", "bi-eye"),
-        helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles", "outline-secondary", !hasMetrics),
-      ].join(""),
-    ));
-    sections.push(helpSection(
-      "Farben",
-      [
-        helpActionButton("recolor_classic", "Klassisch", "bi-brush"),
-        helpActionButton("recolor_random", "Neu färben", "bi-palette"),
-        helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill", "outline-secondary", !hasMetrics),
-      ].join(""),
-    ));
+    actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"));
+    if (hasMetrics) {
+      actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
+      actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
+      actions.push(helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles"));
+      actions.push(helpActionButton("recolor_classic", "Klassisch", "bi-brush"));
+      actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
+      actions.push(helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill"));
+    }
   } else {
-    sections.push(helpSection(
-      "Achsen und Zeit",
-      [
-        helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical"),
-        helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers"),
-        helpActionButton("open_time_range", "Zeitraum", "bi-clock-history"),
-      ].join(""),
-    ));
-    sections.push(helpSection(
-      "Sidebar",
-      helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"),
-    ));
+    actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
+    actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical"));
+    actions.push(helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers"));
+    actions.push(helpActionButton("open_time_range", "Zeitraum", "bi-clock-history"));
   }
 
-  dom.chartHelpSections.innerHTML = sections.join("");
+  dom.chartHelpSections.innerHTML = actions.join("");
 }
 
 async function runHelpAction(action, sourceEl) {

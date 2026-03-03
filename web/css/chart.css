@@ -112,33 +112,13 @@
 
 .chart-help-sections {
   margin-top: 0.75rem;
-  display: grid;
-  gap: 0.56rem;
-}
-
-.chart-help-section {
-  border: 1px solid #dbe3f0;
-  background: rgba(255, 255, 255, 0.68);
-  border-radius: 0.62rem;
-  padding: 0.5rem 0.55rem;
-  text-align: left;
-}
-
-.chart-help-section-title {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #556276;
-  margin-bottom: 0.35rem;
-  letter-spacing: 0.01em;
-}
-
-.chart-help-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
+  gap: 0.45rem;
+  justify-content: center;
 }
 
-.chart-help-actions .btn {
+.chart-help-sections .btn {
   --bs-btn-padding-y: 0.23rem;
   --bs-btn-padding-x: 0.5rem;
   --bs-btn-font-size: 0.82rem;
