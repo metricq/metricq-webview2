@@ -439,16 +439,19 @@ function wireTimeDialogEvents() {
 
 function wireMetricPanelEvents() {
   const syncMetricSearchReset = () => {
+    if (!dom.btnResetMetricSearch) return;
     const hasValue = String(dom.metricSearch.value || "").trim().length > 0;
     dom.btnResetMetricSearch.classList.toggle("is-visible", hasValue);
   };
 
-  dom.btnResetMetricSearch.addEventListener("click", () => {
-    dom.metricSearch.value = "";
-    dom.metricHints.innerHTML = "";
-    syncMetricSearchReset();
-    dom.metricSearch.focus();
-  });
+  if (dom.btnResetMetricSearch) {
+    dom.btnResetMetricSearch.addEventListener("click", () => {
+      dom.metricSearch.value = "";
+      dom.metricHints.innerHTML = "";
+      syncMetricSearchReset();
+      dom.metricSearch.focus();
+    });
+  }
 
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
