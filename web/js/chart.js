@@ -16,6 +16,7 @@ let hoverPointEl = null;
 let hoverCursorLineEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
+let helpMinimizeTimerId = null;
 const rgbaCache = new Map();
 
 function cssColorWithAlpha(color, alpha) {
@@ -756,6 +757,7 @@ function drawEmptyChartState(ctx, margin) {
 
 function setChartEmptyStateVisible(visible) {
   if (!dom.chartEmptyState) return;
+  if (!visible) dom.chartEmptyState.classList.remove("is-minimizing");
   dom.chartEmptyState.classList.toggle("d-none", !visible);
 }
 
@@ -803,6 +805,19 @@ function animateEmptyStateToNavbarHelpButton() {
   );
   anim.addEventListener("finish", () => ghost.remove(), { once: true });
   anim.addEventListener("cancel", () => ghost.remove(), { once: true });
+}
+
+function scheduleEmptyStateHideAfterMinimize(durationMs) {
+  if (!dom.chartEmptyState) return;
+  if (helpMinimizeTimerId != null) {
+    window.clearTimeout(helpMinimizeTimerId);
+    helpMinimizeTimerId = null;
+  }
+  dom.chartEmptyState.classList.add("is-minimizing");
+  helpMinimizeTimerId = window.setTimeout(() => {
+    helpMinimizeTimerId = null;
+    setChartEmptyStateVisible(false);
+  }, durationMs);
 }
 
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
@@ -925,15 +940,24 @@ export function renderChart() {
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
   if (noMetricsSelected) state.helpOverlayForced = false;
-  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced;
+  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced || !!state.helpOverlayMinimizeDeferred;
   const wasHelpVisible = dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
   if (showHelpOverlay) {
+    if (helpMinimizeTimerId != null) {
+      window.clearTimeout(helpMinimizeTimerId);
+      helpMinimizeTimerId = null;
+    }
+    dom.chartEmptyState?.classList.remove("is-minimizing");
     setChartEmptyStateVisible(true);
     setNavbarHelpToggleVisible(false);
   } else {
     setNavbarHelpToggleVisible(true, wasHelpVisible);
-    if (wasHelpVisible) animateEmptyStateToNavbarHelpButton();
-    setChartEmptyStateVisible(false);
+    if (wasHelpVisible) {
+      animateEmptyStateToNavbarHelpButton();
+      scheduleEmptyStateHideAfterMinimize(1080);
+    } else {
+      setChartEmptyStateVisible(false);
+    }
   }
   if (noMetricsSelected) {
     lastStackedByMetric = null;

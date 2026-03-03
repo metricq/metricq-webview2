@@ -612,6 +612,8 @@ function saveExpressionMetric(hooks) {
   clearValidation();
   const name = dom.expressionMetricName.value.trim();
   const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
+  const isEdit = Boolean(editingMetricName);
+  const helpVisible = Boolean(dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"));
   if (!name) {
     markInvalid(dom.expressionMetricName);
     return;
@@ -630,8 +632,14 @@ function saveExpressionMetric(hooks) {
   }
   editingMetricName = "";
   blockCloseOnInvalidExpression = false;
+  state.helpOverlayMinimizeDeferred = !isEdit && helpVisible;
   const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
-  modal?.hide();
+  if (modal) {
+    modal.hide();
+  } else if (state.helpOverlayMinimizeDeferred) {
+    state.helpOverlayMinimizeDeferred = false;
+    hooks.renderChart();
+  }
 }
 
 function handleExpressionEditorDrop(event) {
@@ -781,12 +789,15 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionMetricModal.addEventListener("hidden.bs.modal", () => {
+    const shouldReleaseHelpMinimize = state.helpOverlayMinimizeDeferred;
+    state.helpOverlayMinimizeDeferred = false;
     editingMetricName = "";
     blockCloseOnInvalidExpression = false;
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     hideHoverInfo();
     clearDropMarker();
+    if (shouldReleaseHelpMinimize) hooks.renderChart();
   });
 
   dom.expressionMetricSearch.addEventListener("input", () => {

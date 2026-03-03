@@ -41,6 +41,16 @@
   z-index: 4;
 }
 
+.chart-empty-state.is-minimizing {
+  pointer-events: none;
+}
+
+.chart-empty-state.is-minimizing .chart-empty-card {
+  opacity: 0;
+  transform: scale(0.95);
+  transition: opacity 1050ms ease, transform 1050ms ease;
+}
+
 .chart-empty-card {
   position: relative;
   width: min(640px, 100%);
