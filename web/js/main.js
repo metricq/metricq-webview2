@@ -267,7 +267,7 @@ function scheduleWheelZoomDataLoad() {
   wheelZoomLoadTimer = window.setTimeout(() => {
     wheelZoomLoadTimer = null;
     hooks.loadData();
-  }, 150);
+  }, 50);
 }
 
 function forceAbsoluteTimeModeFromCurrentRange() {
