@@ -35,13 +35,13 @@
 }
 
 .chart-empty-state {
-  position: absolute;
+  position: fixed;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  z-index: 20;
+  z-index: 1060;
 }
 
 .chart-empty-state.is-minimizing {
