@@ -9,6 +9,44 @@ function truncateMiddle(text, maxLen) {
   return `${raw.slice(0, keep)}…${raw.slice(raw.length - keep)}`;
 }
 
+function buildLegendRow(metric) {
+  const row = document.createElement("div");
+  row.className = "collapsed-legend-item";
+
+  const swatch = document.createElement("span");
+  swatch.className = "collapsed-legend-color";
+  swatch.style.background = metric.color;
+
+  const labelWrap = document.createElement("div");
+  labelWrap.className = "collapsed-legend-label";
+  const label = document.createElement("div");
+  label.className = "collapsed-legend-main";
+  const unit = metric.displayUnit || metric.unit || "";
+  const factor = shownMetricFactor(metric);
+  const formulaPrefix = metric.expr ? "ƒ " : "";
+  label.textContent = formulaPrefix + metricDisplayName(metric) + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
+  labelWrap.appendChild(label);
+
+  const description = String(metric.description || "").trim();
+  if (description) {
+    const desc = document.createElement("div");
+    desc.className = "collapsed-legend-desc";
+    desc.textContent = truncateMiddle(description, 84);
+    desc.title = description;
+    labelWrap.appendChild(desc);
+  }
+
+  row.append(swatch, labelWrap);
+  return row;
+}
+
+function appendLegendSection(host, metrics, mode) {
+  const section = document.createElement("section");
+  section.className = `collapsed-legend-section collapsed-legend-section--${mode}`;
+  for (const metric of metrics) section.appendChild(buildLegendRow(metric));
+  host.appendChild(section);
+}
+
 export function renderCollapsedLegend() {
   const host = dom.collapsedLegend;
   if (!host) return;
@@ -25,35 +63,13 @@ export function renderCollapsedLegend() {
     return;
   }
 
-  for (const metric of visible) {
-    const row = document.createElement("div");
-    row.className = "collapsed-legend-item";
-
-    const swatch = document.createElement("span");
-    swatch.className = "collapsed-legend-color";
-    swatch.style.background = metric.color;
-
-    const labelWrap = document.createElement("div");
-    labelWrap.className = "collapsed-legend-label";
-    const label = document.createElement("div");
-    label.className = "collapsed-legend-main";
-    const unit = metric.displayUnit || metric.unit || "";
-    const factor = shownMetricFactor(metric);
-    const formulaPrefix = metric.expr ? "ƒ " : "";
-    label.textContent = formulaPrefix + metricDisplayName(metric) + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
-    labelWrap.appendChild(label);
-
-    const description = String(metric.description || "").trim();
-    if (description) {
-      const desc = document.createElement("div");
-      desc.className = "collapsed-legend-desc";
-      desc.textContent = truncateMiddle(description, 84);
-      desc.title = description;
-      labelWrap.appendChild(desc);
-    }
-
-    row.append(swatch, labelWrap);
-    host.appendChild(row);
+  if (state.yAxisStacked) {
+    const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
+    const stacked = visible.filter((metric) => metric.stackMode !== "normal");
+    if (nonStacked.length > 0) appendLegendSection(host, nonStacked, "nonstacked");
+    if (stacked.length > 0) appendLegendSection(host, stacked, "stacked");
+  } else {
+    for (const metric of visible) host.appendChild(buildLegendRow(metric));
   }
 
   host.classList.remove("d-none");

@@ -146,6 +146,25 @@
   min-width: 0;
 }
 
+.collapsed-legend-section {
+  border-radius: 0.35rem;
+  padding: 0.2rem 0.3rem;
+}
+
+.collapsed-legend-section + .collapsed-legend-section {
+  margin-top: 0.28rem;
+}
+
+.collapsed-legend-section--nonstacked {
+  border: 1px solid rgba(90, 102, 120, 0.18);
+  background: rgba(90, 102, 120, 0.05);
+}
+
+.collapsed-legend-section--stacked {
+  border: 1px dashed rgba(13, 110, 253, 0.35);
+  background: rgba(13, 110, 253, 0.06);
+}
+
 .collapsed-legend-color {
   flex: 0 0 auto;
   width: 10px;
