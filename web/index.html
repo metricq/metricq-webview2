@@ -19,11 +19,14 @@
   <body>
     <div class="app-shell">
       <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
-        <div class="container-fluid px-3">
+        <div class="container-fluid px-3 navbar-top-container">
           <a class="navbar-brand d-flex align-items-center gap-2" href="/">
             <img src="/img/metricq-logo.png" width="34" height="34" alt="MetricQ" class="rounded-2" />
             <span class="fw-semibold">MetricQ Codex</span>
           </a>
+          <button class="btn btn-outline-primary btn-sm navbar-help-toggle" id="btnHelpOverlayToggle" type="button" title="Hilfe anzeigen" aria-label="Hilfe anzeigen">
+            ?
+          </button>
           <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
             <span class="navbar-toggler-icon"></span>
           </button>
@@ -70,6 +73,9 @@
                 <canvas id="chartCanvas"></canvas>
                 <div id="chartEmptyState" class="chart-empty-state d-none" aria-live="polite">
                   <div class="chart-empty-card">
+                    <button class="btn btn-light btn-sm chart-empty-close" id="btnEmptyHideHelp" type="button" title="Hilfe ausblenden" aria-label="Hilfe ausblenden">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
                     <div class="chart-empty-icon"><i class="bi bi-graph-up"></i></div>
                     <h3>Noch keine Metriken ausgewählt</h3>
                     <p>Füge eine existierende Metrik hinzu oder starte mit einer berechneten Metrik.</p>

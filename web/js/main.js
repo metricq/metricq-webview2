@@ -542,6 +542,14 @@ function animateCoachToTarget(fromEl, targetEl) {
 }
 
 function wireChartEmptyStateEvents() {
+  dom.btnHelpOverlayToggle?.addEventListener("click", () => {
+    state.helpOverlayForced = true;
+    renderChart();
+  });
+  dom.btnEmptyHideHelp?.addEventListener("click", () => {
+    state.helpOverlayForced = false;
+    renderChart();
+  });
   dom.btnEmptyFocusSearch?.addEventListener("click", async (event) => {
     if (state.sidebarCollapsed) setSidebarCollapsed(false);
     await animateCoachToTarget(event.currentTarget, dom.metricSearch);

@@ -1,6 +1,7 @@
 export const dom = {
   appContent: document.getElementById("appContent"),
   chartWrap: document.getElementById("chartWrap"),
+  btnHelpOverlayToggle: document.getElementById("btnHelpOverlayToggle"),
   chartCol: document.getElementById("chartCol"),
   metricsCol: document.getElementById("metricsCol"),
   btnSidebarToggle: document.getElementById("btnSidebarToggle"),
@@ -11,6 +12,7 @@ export const dom = {
   btnEmptyOpenTimeRange: document.getElementById("btnEmptyOpenTimeRange"),
   btnEmptyOpenYAxis: document.getElementById("btnEmptyOpenYAxis"),
   btnEmptyToggleStacked: document.getElementById("btnEmptyToggleStacked"),
+  btnEmptyHideHelp: document.getElementById("btnEmptyHideHelp"),
   hoverBox: document.getElementById("hoverBox"),
   dragSelectBox: document.getElementById("dragSelectBox"),
   zoomRangeBadge: document.getElementById("zoomRangeBadge"),

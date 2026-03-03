@@ -34,6 +34,49 @@ body {
   flex: 0 0 auto;
 }
 
+.navbar-top-container {
+  position: relative;
+}
+
+.navbar-help-toggle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.72);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 1050;
+}
+
+.navbar-help-toggle.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.navbar-help-toggle.is-pop {
+  animation: navbarHelpPop 340ms ease-out;
+}
+
+@keyframes navbarHelpPop {
+  0% {
+    transform: translate(-50%, -50%) scale(0.86);
+  }
+  55% {
+    transform: translate(-50%, -50%) scale(1.12);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .app-main {
   flex: 1 1 auto;
   min-height: 0;

@@ -22,6 +22,7 @@ export const state = {
   maxPoints: 3000,
   sidebarCollapsed: false,
   compactSidebarMode: false,
+  helpOverlayForced: false,
   interactionMode: "",
   isPanning: false,
   panStartX: 0,

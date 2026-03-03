@@ -42,6 +42,7 @@
 }
 
 .chart-empty-card {
+  position: relative;
   width: min(640px, 100%);
   background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.96));
   border: 1px solid #d4dceb;
@@ -49,6 +50,19 @@
   box-shadow: 0 0.4rem 1.1rem rgba(16, 24, 40, 0.12);
   padding: 1.1rem 1rem 1rem;
   text-align: center;
+}
+
+.chart-empty-close {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  border-radius: 999px;
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chart-empty-icon {
@@ -100,6 +114,17 @@
 
 .chart-empty-tip:hover {
   text-decoration: underline;
+}
+
+.chart-empty-minimize-ghost {
+  position: fixed;
+  border: 1px solid #d4dceb;
+  border-radius: 0.9rem;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.94), rgba(244, 248, 255, 0.96));
+  box-shadow: 0 0.4rem 1.1rem rgba(16, 24, 40, 0.12);
+  pointer-events: none;
+  z-index: 1202;
+  transform-origin: center center;
 }
 
 .coach-highlight-target {

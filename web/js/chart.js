@@ -759,6 +759,52 @@ function setChartEmptyStateVisible(visible) {
   dom.chartEmptyState.classList.toggle("d-none", !visible);
 }
 
+function setNavbarHelpToggleVisible(visible, withPop = false) {
+  if (!dom.btnHelpOverlayToggle) return;
+  dom.btnHelpOverlayToggle.classList.toggle("is-visible", !!visible);
+  if (visible && withPop) {
+    dom.btnHelpOverlayToggle.classList.remove("is-pop");
+    void dom.btnHelpOverlayToggle.offsetWidth;
+    dom.btnHelpOverlayToggle.classList.add("is-pop");
+    window.setTimeout(() => dom.btnHelpOverlayToggle?.classList.remove("is-pop"), 360);
+  }
+}
+
+function animateEmptyStateToNavbarHelpButton() {
+  if (!dom.chartEmptyState || !dom.btnHelpOverlayToggle) return;
+  const card = dom.chartEmptyState.querySelector(".chart-empty-card");
+  if (!card) return;
+  const from = card.getBoundingClientRect();
+  const to = dom.btnHelpOverlayToggle.getBoundingClientRect();
+  if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return;
+
+  const ghost = document.createElement("div");
+  ghost.className = "chart-empty-minimize-ghost";
+  ghost.style.left = `${Math.round(from.left)}px`;
+  ghost.style.top = `${Math.round(from.top)}px`;
+  ghost.style.width = `${Math.round(from.width)}px`;
+  ghost.style.height = `${Math.round(from.height)}px`;
+  document.body.appendChild(ghost);
+
+  const fromCx = from.left + from.width / 2;
+  const fromCy = from.top + from.height / 2;
+  const toCx = to.left + to.width / 2;
+  const toCy = to.top + to.height / 2;
+  const dx = Math.round(toCx - fromCx);
+  const dy = Math.round(toCy - fromCy);
+  const sxFactor = Math.max(0.1, to.width / from.width);
+  const syFactor = Math.max(0.1, to.height / from.height);
+  const anim = ghost.animate(
+    [
+      { transform: "translate(0px, 0px) scale(1, 1)", opacity: 0.95 },
+      { transform: `translate(${dx}px, ${dy}px) scale(${sxFactor}, ${syFactor})`, opacity: 0.1 },
+    ],
+    { duration: 280, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" },
+  );
+  anim.addEventListener("finish", () => ghost.remove(), { once: true });
+  anim.addEventListener("cancel", () => ghost.remove(), { once: true });
+}
+
 function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
@@ -878,7 +924,17 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
-  setChartEmptyStateVisible(noMetricsSelected);
+  if (noMetricsSelected) state.helpOverlayForced = false;
+  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced;
+  const wasHelpVisible = dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
+  if (showHelpOverlay) {
+    setChartEmptyStateVisible(true);
+    setNavbarHelpToggleVisible(false);
+  } else {
+    setNavbarHelpToggleVisible(true, wasHelpVisible);
+    if (wasHelpVisible) animateEmptyStateToNavbarHelpButton();
+    setChartEmptyStateVisible(false);
+  }
   if (noMetricsSelected) {
     lastStackedByMetric = null;
     lastLayout = null;
