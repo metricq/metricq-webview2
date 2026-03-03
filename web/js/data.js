@@ -19,6 +19,26 @@ function computeMaxDataPoints() {
   return Math.min(widthBased, hardCap);
 }
 
+function stackedAlignedDisplayTimes(rawTimes) {
+  const numericTimes = (rawTimes || []).map((t) => Number(t));
+  if (state.renderMode === "ti") return numericTimes;
+  const out = [];
+  for (let i = 0; i < numericTimes.length; i += 1) {
+    const curr = numericTimes[i];
+    if (!Number.isFinite(curr)) {
+      out.push(Number.NaN);
+      continue;
+    }
+    if (i === 0) {
+      out.push(curr);
+      continue;
+    }
+    const prev = numericTimes[i - 1];
+    out.push(Number.isFinite(prev) ? Math.round((prev + curr) / 2) : curr);
+  }
+  return out;
+}
+
 function seriesDisplayTime(points, index, series) {
   const point = points?.[index];
   if (!point) return NaN;
@@ -125,7 +145,17 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     return { minimum: body?.minimum, maximum: body?.maximum };
   });
   if (requestSeq !== latestLoadRequestSeq) return;
-  const metricsKey = JSON.stringify(targets);
+  const stackModes = state.metrics.map((metric) => ({
+    name: metric.name,
+    stackMode: metric.stackMode === "normal" ? "normal" : "stack",
+    draw: !!metric.draw,
+  }));
+  const metricsKey = JSON.stringify({
+    targets,
+    yAxisStacked: !!state.yAxisStacked,
+    renderMode: state.renderMode,
+    stackModes,
+  });
   const coveredByLoadedWindow =
     state.loadedMetricsKey === metricsKey &&
     Number.isFinite(state.loadedFrom) &&
@@ -192,7 +222,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   }
   state.stackedAligned = stackedBody
     ? {
-      times: Array.isArray(stackedBody.times) ? stackedBody.times : [],
+      times: stackedAlignedDisplayTimes(Array.isArray(stackedBody.times) ? stackedBody.times : []),
       metrics: Array.isArray(stackedBody.metrics) ? stackedBody.metrics : [],
       values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
     }
