@@ -12,6 +12,95 @@ import { normalizeSIUnit } from "./units.mjs";
 let factorMetricName = "";
 let draggingMetricName = "";
 const externalScaleCache = new Map();
+const metricHintMetadataCache = new Map();
+let metricHintHoverEl = null;
+let hoveredHintMetricName = "";
+
+function ensureMetricHintHoverElement() {
+  if (metricHintHoverEl) return metricHintHoverEl;
+  metricHintHoverEl = document.createElement("div");
+  metricHintHoverEl.className = "expression-token-hover d-none";
+  document.body.appendChild(metricHintHoverEl);
+  return metricHintHoverEl;
+}
+
+function renderMetricHintHoverHtml(metricName, details) {
+  const unitPart = details?.unit ? ` [${details.unit}]` : "";
+  const desc = details?.description || "-";
+  return `
+    <div class="expression-token-hover-name">${metricName}${unitPart}</div>
+    <div class="expression-token-hover-desc">${desc}</div>
+  `;
+}
+
+function showMetricHintHover(clientX, clientY, html) {
+  const el = ensureMetricHintHoverElement();
+  el.innerHTML = html;
+  el.style.left = `${Math.round(clientX + 12)}px`;
+  el.style.top = `${Math.round(clientY + 14)}px`;
+  el.classList.remove("d-none");
+}
+
+function moveMetricHintHover(clientX, clientY) {
+  if (!metricHintHoverEl || metricHintHoverEl.classList.contains("d-none")) return;
+  metricHintHoverEl.style.left = `${Math.round(clientX + 12)}px`;
+  metricHintHoverEl.style.top = `${Math.round(clientY + 14)}px`;
+}
+
+function hideMetricHintHover() {
+  if (!metricHintHoverEl) return;
+  metricHintHoverEl.classList.add("d-none");
+}
+
+function metricDetailsFromState(metricName) {
+  const metric = metricByName(metricName);
+  if (!metric) return null;
+  return {
+    unit: String(metric.displayUnit || metric.unit || "").trim(),
+    description: String(metric.description || "").trim(),
+  };
+}
+
+async function fetchMetricHintDetails(metricName) {
+  const cached = metricHintMetadataCache.get(metricName);
+  if (cached) return cached;
+  const local = metricDetailsFromState(metricName);
+  if (local && (local.unit || local.description)) {
+    metricHintMetadataCache.set(metricName, local);
+    return local;
+  }
+  try {
+    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    const details = {
+      unit: normalizeSIUnit(body?.metadata?.unit),
+      description: String(body?.metadata?.description || "").trim(),
+    };
+    metricHintMetadataCache.set(metricName, details);
+    return details;
+  } catch (_) {
+    const empty = { unit: "", description: "" };
+    metricHintMetadataCache.set(metricName, empty);
+    return empty;
+  }
+}
+
+function bindMetricHintHover(element, metricName) {
+  const show = async (event) => {
+    const x = event.clientX || 0;
+    const y = event.clientY || 0;
+    hoveredHintMetricName = metricName;
+    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, null));
+    const details = await fetchMetricHintDetails(metricName);
+    if (hoveredHintMetricName !== metricName) return;
+    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, details));
+  };
+  element.addEventListener("mouseenter", show);
+  element.addEventListener("mousemove", (event) => moveMetricHintHover(event.clientX, event.clientY));
+  element.addEventListener("mouseleave", () => {
+    if (hoveredHintMetricName === metricName) hoveredHintMetricName = "";
+    hideMetricHintHover();
+  });
+}
 
 function chooseDisplayExpFromRepresentative(repBase) {
   if (!Number.isFinite(repBase) || repBase <= 0) return null;
@@ -328,6 +417,7 @@ export function renderHints(hints, hooks) {
     chip.type = "button";
     chip.className = "metric-chip";
     chip.textContent = name;
+    bindMetricHintHover(chip, name);
     chip.addEventListener("click", () => addMetric(name, hooks));
     dom.metricHints.appendChild(chip);
   }
