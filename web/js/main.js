@@ -308,18 +308,23 @@ function updateYAxisUnitOptions() {
   if (!dom.yAxisUnitGroup || !dom.yAxisUnitList) return;
   const visibleMetrics = state.metrics.filter((metric) => metric.draw);
   const groups = new Map();
+  const configuredOverrides = state.yAxisUnitOverrides && typeof state.yAxisUnitOverrides === "object"
+    ? state.yAxisUnitOverrides
+    : {};
   for (const metric of visibleMetrics) {
     const unitParsed = parseSIUnit(metric.unit);
     if (!unitParsed) continue;
     const displayParsed = parseSIUnit(metric.displayUnit || metric.unit);
-    if (!displayParsed || displayParsed.family !== unitParsed.family || displayParsed.exp === unitParsed.exp) continue;
-    groups.set(unitParsed.family, true);
+    const family = unitParsed.family;
+    const hasOverride = String(configuredOverrides[family] || "").trim() !== "";
+    const normalized = displayParsed && displayParsed.family === family && displayParsed.exp !== unitParsed.exp;
+    if (!normalized && !hasOverride) continue;
+    groups.set(family, true);
   }
 
   if (groups.size === 0) {
     dom.yAxisUnitGroup.classList.add("d-none");
     dom.yAxisUnitList.innerHTML = "";
-    state.yAxisUnitOverrides = {};
     return;
   }
 
