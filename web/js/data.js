@@ -10,6 +10,22 @@ import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 
 let latestLoadRequestSeq = 0;
+const metadataUnitCache = new Map();
+
+async function fetchMetricUnitCached(metricName) {
+  const key = String(metricName || "").trim();
+  if (!key) return "";
+  if (metadataUnitCache.has(key)) return metadataUnitCache.get(key);
+  let unit = "";
+  try {
+    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(key)}`);
+    unit = String(body?.metadata?.unit || "").trim();
+  } catch (_) {
+    unit = "";
+  }
+  metadataUnitCache.set(key, unit);
+  return unit;
+}
 
 function computeMaxDataPoints() {
   const width = Math.max(320, dom.chartWrap.clientWidth || window.innerWidth || 320);
@@ -103,17 +119,11 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   const extendedFrom = state.from - visibleRange;
   const extendedTo = state.to + visibleRange;
   const requestSeq = ++latestLoadRequestSeq;
-  await deriveExpressionUnitsResolved(state.metrics, async (metricName) => {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
-    return body?.metadata?.unit || "";
-  });
+  await deriveExpressionUnitsResolved(state.metrics, fetchMetricUnitCached);
   if (requestSeq !== latestLoadRequestSeq) return;
   const now = Date.now();
   const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-  const targets = await buildQueryTargetsResolved(state.metrics, async (metricName) => {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
-    return body?.metadata?.unit || "";
-  }, async (metricName) => {
+  const targets = await buildQueryTargetsResolved(state.metrics, fetchMetricUnitCached, async (metricName) => {
     const body = await apiFetch("/api/query/range", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
