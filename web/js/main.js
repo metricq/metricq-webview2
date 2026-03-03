@@ -305,42 +305,53 @@ function updateYAxisManualInputsEnabled() {
 }
 
 function updateYAxisUnitOptions() {
-  if (!dom.yAxisUnitGroup || !dom.yAxisUnitSelect) return;
+  if (!dom.yAxisUnitGroup || !dom.yAxisUnitList) return;
   const visibleMetrics = state.metrics.filter((metric) => metric.draw);
-  let family = "";
-  let hasSiMetric = false;
-  let normalized = false;
+  const groups = new Map();
   for (const metric of visibleMetrics) {
     const unitParsed = parseSIUnit(metric.unit);
     if (!unitParsed) continue;
-    hasSiMetric = true;
-    if (!family) family = unitParsed.family;
-    if (family !== unitParsed.family) {
-      family = "";
-      break;
-    }
     const displayParsed = parseSIUnit(metric.displayUnit || metric.unit);
-    if (displayParsed && displayParsed.family === unitParsed.family && displayParsed.exp !== unitParsed.exp) {
-      normalized = true;
-    }
+    if (!displayParsed || displayParsed.family !== unitParsed.family || displayParsed.exp === unitParsed.exp) continue;
+    groups.set(unitParsed.family, true);
   }
 
-  if (!hasSiMetric || !family || !normalized) {
+  if (groups.size === 0) {
     dom.yAxisUnitGroup.classList.add("d-none");
-    dom.yAxisUnitSelect.innerHTML = "";
+    dom.yAxisUnitList.innerHTML = "";
+    state.yAxisUnitOverrides = {};
     return;
   }
 
-  const options = ['<option value="">Auto (Normalisierung)</option>'];
-  for (const prefix of SI_PREFIXES) {
-    const unit = formatSIUnit(family, prefix.exp);
-    options.push(`<option value="${unit}">${unit}</option>`);
+  const overrides = {};
+  const families = Array.from(groups.keys()).sort();
+  const rows = [];
+  for (const family of families) {
+    const options = ['<option value="">Auto</option>'];
+    for (const prefix of SI_PREFIXES) {
+      const unit = formatSIUnit(family, prefix.exp);
+      options.push(`<option value="${unit}">${unit}</option>`);
+    }
+    const selectId = `yAxisUnitSelect-${family}`;
+    rows.push(`
+      <div class="row g-2 align-items-center">
+        <div class="col-4"><label for="${selectId}" class="col-form-label-sm">${family}</label></div>
+        <div class="col-8"><select id="${selectId}" class="form-select form-select-sm" data-family="${family}">${options.join("")}</select></div>
+      </div>
+    `);
   }
-  dom.yAxisUnitSelect.innerHTML = options.join("");
-  const override = String(state.yAxisUnitOverride || "").trim();
-  const hasOverride = override && SI_PREFIXES.some((p) => formatSIUnit(family, p.exp) === override);
-  dom.yAxisUnitSelect.value = hasOverride ? override : "";
-  if (override && !hasOverride) state.yAxisUnitOverride = "";
+  dom.yAxisUnitList.innerHTML = rows.join("");
+  const legacyUnit = String(state.yAxisUnitOverrides?.__legacy__ || "").trim();
+  const legacyParsed = parseSIUnit(legacyUnit);
+  for (const select of dom.yAxisUnitList.querySelectorAll("select[data-family]")) {
+    const family = String(select.dataset.family || "");
+    const directOverride = String(state.yAxisUnitOverrides?.[family] || "").trim();
+    const override = directOverride || ((legacyParsed && legacyParsed.family === family) ? legacyUnit : "");
+    const valid = override && SI_PREFIXES.some((p) => formatSIUnit(family, p.exp) === override);
+    select.value = valid ? override : "";
+    if (valid) overrides[family] = override;
+  }
+  state.yAxisUnitOverrides = overrides;
   dom.yAxisUnitGroup.classList.remove("d-none");
 }
 
@@ -543,8 +554,16 @@ function wireYAxisEvents() {
     const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
     state.yAxisManualMax = Number.isFinite(manualMax) ? manualMax : null;
-    state.yAxisUnitOverride = String(dom.yAxisUnitSelect?.value || "").trim();
-    applyAutoScaling(state.metrics, state.series, { preferredDisplayUnit: state.yAxisUnitOverride });
+    const nextOverrides = {};
+    if (dom.yAxisUnitList) {
+      for (const select of dom.yAxisUnitList.querySelectorAll("select[data-family]")) {
+        const family = String(select.dataset.family || "");
+        const unit = String(select.value || "").trim();
+        if (family && unit) nextOverrides[family] = unit;
+      }
+    }
+    state.yAxisUnitOverrides = nextOverrides;
+    applyAutoScaling(state.metrics, state.series, { preferredDisplayUnits: state.yAxisUnitOverrides });
     renderMetricList(hooks);
     if (state.yAxisMode === "global") {
       try {

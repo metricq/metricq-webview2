@@ -60,8 +60,22 @@ function chooseTargetExp(candidates) {
 }
 
 export function applyAutoScaling(metrics, seriesMap, options = {}) {
-  const preferredDisplayUnit = String(options?.preferredDisplayUnit || "").trim();
-  const preferredParsed = parseSIUnit(preferredDisplayUnit);
+  const preferredDisplayUnits = options?.preferredDisplayUnits || {};
+  const preferredByFamily = new Map();
+  if (preferredDisplayUnits && typeof preferredDisplayUnits === "object") {
+    for (const unit of Object.values(preferredDisplayUnits)) {
+      const parsed = parseSIUnit(unit);
+      if (!parsed) continue;
+      preferredByFamily.set(parsed.family, parsed);
+    }
+  }
+  const legacyPreferredDisplayUnit = String(options?.preferredDisplayUnit || "").trim();
+  if (legacyPreferredDisplayUnit) {
+    const parsed = parseSIUnit(legacyPreferredDisplayUnit);
+    if (parsed && !preferredByFamily.has(parsed.family)) {
+      preferredByFamily.set(parsed.family, parsed);
+    }
+  }
   const manualFactors = new Map();
   for (const metric of metrics) {
     if (metric.factorMode === "manual") {
@@ -83,7 +97,8 @@ export function applyAutoScaling(metrics, seriesMap, options = {}) {
   }
 
   for (const [family, group] of groups.entries()) {
-    const targetExp = preferredParsed && preferredParsed.family === family
+    const preferredParsed = preferredByFamily.get(family);
+    const targetExp = preferredParsed
       ? preferredParsed.exp
       : chooseTargetExp(group);
     const targetUnit = formatSIUnit(family, targetExp);

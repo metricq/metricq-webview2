@@ -29,7 +29,7 @@ export const dom = {
   yAxisManualMin: document.getElementById("yAxisManualMin"),
   yAxisManualMax: document.getElementById("yAxisManualMax"),
   yAxisUnitGroup: document.getElementById("yAxisUnitGroup"),
-  yAxisUnitSelect: document.getElementById("yAxisUnitSelect"),
+  yAxisUnitList: document.getElementById("yAxisUnitList"),
   btnApplyYAxis: document.getElementById("btnApplyYAxis"),
   btnTimeRange: document.getElementById("btnTimeRange"),
   btnShiftBack: document.getElementById("btnShiftBack"),
