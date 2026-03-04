@@ -718,6 +718,12 @@ function maybePlaceCaretOutsideEdgeToken(event) {
   if (event.target !== dom.expressionInput) return;
   const tokens = dom.expressionInput.querySelectorAll(".expression-token");
   if (tokens.length === 0) return;
+  const clickRange = rangeFromPoint(event.clientX, event.clientY);
+  const clickHitsTextNode = Boolean(
+    clickRange
+      && dom.expressionInput.contains(clickRange.startContainer)
+      && clickRange.startContainer.nodeType === Node.TEXT_NODE,
+  );
   const first = tokens[0].getBoundingClientRect();
   const last = tokens[tokens.length - 1].getBoundingClientRect();
   const trailingContentAfterLastToken = (() => {
@@ -738,6 +744,7 @@ function maybePlaceCaretOutsideEdgeToken(event) {
     placeCaretBeforeNode(tokens[0]);
     return;
   }
+  if (clickHitsTextNode) return;
   if (event.clientX >= last.right + 2) {
     event.preventDefault();
     if (trailingContentAfterLastToken) placeCaretAtEnd(dom.expressionInput);
