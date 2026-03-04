@@ -17,6 +17,16 @@ let dropMarkerEl = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
+const DECIMAL_DOT_BETWEEN_DIGITS = /(\d)\.(\d)/g;
+const DECIMAL_COMMA_BETWEEN_DIGITS = /(\d),(\d)/g;
+
+function localizeExpressionText(text) {
+  return String(text || "").replace(DECIMAL_DOT_BETWEEN_DIGITS, "$1,$2");
+}
+
+function canonicalizeExpressionText(text) {
+  return String(text || "").replace(DECIMAL_COMMA_BETWEEN_DIGITS, "$1.$2");
+}
 
 function ensureHoverInfoElement() {
   if (hoverInfoEl) return hoverInfoEl;
@@ -161,7 +171,7 @@ function parseBracketMetric(text) {
 
 function parseExpressionParts(expression) {
   const parts = [];
-  const text = String(expression || "");
+  const text = canonicalizeExpressionText(expression);
   let cursor = 0;
   const regex = /\[([^\]]+)\]/g;
   let match = regex.exec(text);
@@ -200,7 +210,7 @@ function serializeExpressionEditor() {
     }
     out += node.textContent || "";
   }
-  return out;
+  return localizeExpressionText(out);
 }
 
 const caretOffsetMapper = {
@@ -469,7 +479,7 @@ function renderExpressionEditor(expression) {
     if (part.type === "metric") {
       dom.expressionInput.appendChild(makeMetricTokenNode(part.value));
     } else {
-      dom.expressionInput.appendChild(document.createTextNode(part.value));
+      dom.expressionInput.appendChild(document.createTextNode(localizeExpressionText(part.value)));
     }
   }
   ensureEditorBoundaries();
@@ -596,8 +606,12 @@ function expressionFromEditor() {
   return serializeExpressionEditor().trim();
 }
 
+function canonicalExpressionFromEditor() {
+  return canonicalizeExpressionText(expressionFromEditor());
+}
+
 function expressionDraftIsValid() {
-  const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
+  const expr = expandExpressionAliases(canonicalExpressionFromEditor(), state.metrics);
   return Boolean(expr);
 }
 
@@ -612,7 +626,7 @@ function refreshExpressionValidationState() {
 function saveExpressionMetric(hooks) {
   clearValidation();
   const name = dom.expressionMetricName.value.trim();
-  const expr = expandExpressionAliases(expressionFromEditor(), state.metrics);
+  const expr = expandExpressionAliases(canonicalExpressionFromEditor(), state.metrics);
   const isEdit = Boolean(editingMetricName);
   const helpVisible = Boolean(dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"));
   if (!name) {
