@@ -9,12 +9,12 @@ function truncateMiddle(text, maxLen) {
   return `${raw.slice(0, keep)}…${raw.slice(raw.length - keep)}`;
 }
 
-function buildLegendRow(metric) {
+function buildLegendRow(metric, {forceNormalIndicator = false} = {}) {
   const row = document.createElement("div");
   row.className = "collapsed-legend-item";
 
   const indicator = document.createElement("span");
-  if (metric.stackMode !== "normal") {
+  if (!forceNormalIndicator && metric.stackMode !== "normal") {
     indicator.className = "collapsed-legend-icon";
     indicator.style.color = metric.color;
     indicator.innerHTML = '<i class="bi bi-layers-fill" aria-hidden="true"></i>';
@@ -75,7 +75,7 @@ export function renderCollapsedLegend() {
     if (nonStacked.length > 0) appendLegendSection(host, nonStacked);
     if (stacked.length > 0) appendLegendSection(host, stacked);
   } else {
-    for (const metric of visible) host.appendChild(buildLegendRow(metric));
+    for (const metric of visible) host.appendChild(buildLegendRow(metric, {forceNormalIndicator: true}));
   }
 
   host.classList.remove("d-none");
