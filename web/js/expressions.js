@@ -17,6 +17,7 @@ let dropMarkerEl = null;
 let draggingTokenId = "";
 let draggingMetricName = "";
 let expressionErrorMarkerEl = null;
+let expressionErrorTokenEl = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -62,13 +63,16 @@ function ensureExpressionErrorMarker() {
   expressionErrorMarkerEl = document.createElement("span");
   expressionErrorMarkerEl.className = "expression-error-marker d-none";
   expressionErrorMarkerEl.setAttribute("aria-hidden", "true");
-  dom.expressionInput.appendChild(expressionErrorMarkerEl);
   return expressionErrorMarkerEl;
 }
 
 function hideExpressionErrorMarker() {
-  if (!expressionErrorMarkerEl) return;
-  expressionErrorMarkerEl.classList.add("d-none");
+  if (expressionErrorMarkerEl?.parentNode) expressionErrorMarkerEl.remove();
+  if (expressionErrorMarkerEl) expressionErrorMarkerEl.classList.add("d-none");
+  if (expressionErrorTokenEl) {
+    expressionErrorTokenEl.classList.remove("expression-token-error");
+    expressionErrorTokenEl = null;
+  }
 }
 
 function editorStartRange() {
@@ -349,33 +353,36 @@ const caretOffsetMapper = {
 
 function placeExpressionErrorMarker(position, end) {
   const marker = ensureExpressionErrorMarker();
+  hideExpressionErrorMarker();
   const startOffset = Math.max(0, Number(position) || 0);
-  const endOffset = Math.max(startOffset + 1, Number(end) || startOffset + 1);
   const start = caretOffsetMapper.domPositionFromExpressionOffset(startOffset);
-  const finish = caretOffsetMapper.domPositionFromExpressionOffset(endOffset);
   const range = document.createRange();
   try {
-    if (start?.node) range.setStart(start.node, start.offset);
-    else if (start?.beforeNode) range.setStartBefore(start.beforeNode);
-    else if (start?.afterNode) range.setStartAfter(start.afterNode);
-    else range.selectNodeContents(dom.expressionInput);
-
-    if (finish?.node) range.setEnd(finish.node, finish.offset);
-    else if (finish?.beforeNode) range.setEndBefore(finish.beforeNode);
-    else if (finish?.afterNode) range.setEndAfter(finish.afterNode);
-    else range.setEnd(range.startContainer, range.startOffset);
+    if (start?.node) {
+      range.setStart(start.node, start.offset);
+      range.collapse(true);
+    } else if (start?.beforeNode) {
+      range.setStartBefore(start.beforeNode);
+      range.collapse(true);
+      if (start.beforeNode.classList?.contains("expression-token")) {
+        expressionErrorTokenEl = start.beforeNode;
+      }
+    } else if (start?.afterNode) {
+      range.setStartAfter(start.afterNode);
+      range.collapse(true);
+      if (start.afterNode.classList?.contains("expression-token")) {
+        expressionErrorTokenEl = start.afterNode;
+      }
+    } else {
+      range.selectNodeContents(dom.expressionInput);
+      range.collapse(false);
+    }
   } catch (_) {
     hideExpressionErrorMarker();
     return;
   }
-
-  const rect = range.getBoundingClientRect();
-  const hostRect = dom.expressionInput.getBoundingClientRect();
-  const left = Math.max(0, rect.left - hostRect.left + dom.expressionInput.scrollLeft);
-  const width = Math.max(2, rect.width || 2);
-  marker.style.left = `${Math.round(left)}px`;
-  marker.style.top = "calc(100% - 4px)";
-  marker.style.width = `${Math.round(width)}px`;
+  range.insertNode(marker);
+  if (expressionErrorTokenEl) expressionErrorTokenEl.classList.add("expression-token-error");
   marker.classList.remove("d-none");
 }
 

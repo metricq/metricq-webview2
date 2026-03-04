@@ -342,11 +342,19 @@
 }
 
 .expression-error-marker {
-    position: absolute;
-    height: 0;
-    border-bottom: 2px solid #dc3545;
+    display: inline-block;
+    width: 0;
+    height: 1.05em;
+    margin: 0 1px;
+    border-left: 2px solid #dc3545;
+    vertical-align: text-bottom;
     pointer-events: none;
-    z-index: 4;
+}
+
+.expression-token.expression-token-error {
+    border-color: #dc3545;
+    background: #fde7ea;
+    color: #842029;
 }
 
 .expression-palette {
