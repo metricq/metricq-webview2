@@ -295,7 +295,8 @@
     font-size: 0.8em;
     line-height: 1.2;
     cursor: grab;
-    user-select: none;
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 .expression-token:active {

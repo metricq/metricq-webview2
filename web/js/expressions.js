@@ -247,6 +247,50 @@ function parseExpressionParts(expression) {
 function serializeExpressionEditor() {
   let out = "";
   for (const node of dom.expressionInput.childNodes) {
+    out += serializeExpressionNode(node);
+  }
+  return localizeExpressionText(out);
+}
+
+function serializeExpressionNode(node) {
+  if (!node) return "";
+  if (node.nodeType === Node.TEXT_NODE) {
+    return (node.textContent || "").split(CARET_SENTINEL).join("");
+  }
+  if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
+    const metricName = String(node.dataset.metricName || "").trim();
+    return metricName ? `[${metricName}]` : "";
+  }
+  let out = "";
+  for (const child of node.childNodes || []) {
+    out += serializeExpressionNode(child);
+  }
+  return out;
+}
+
+function serializeSelectionInEditor() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return "";
+  const range = selection.getRangeAt(0);
+  if (!dom.expressionInput.contains(range.commonAncestorContainer)) return "";
+  const fragment = range.cloneContents();
+  let out = "";
+  for (const node of fragment.childNodes || []) {
+    out += serializeExpressionNode(node);
+  }
+  return localizeExpressionText(out);
+}
+
+function copyExpressionSelectionToClipboard(event) {
+  const selectionText = serializeSelectionInEditor();
+  if (!selectionText) return;
+  event.preventDefault();
+  event.clipboardData?.setData("text/plain", selectionText);
+}
+
+function serializeFullExpressionEditor() {
+  let out = "";
+  for (const node of dom.expressionInput.childNodes) {
     if (node.nodeType === Node.TEXT_NODE) {
       out += (node.textContent || "").split(CARET_SENTINEL).join("");
       continue;
@@ -776,7 +820,7 @@ async function updateMetricSearchHints() {
 }
 
 function expressionFromEditor() {
-  return serializeExpressionEditor().trim();
+  return serializeFullExpressionEditor().trim();
 }
 
 function canonicalExpressionFromEditor() {
@@ -1045,6 +1089,7 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
   dom.expressionInput.addEventListener("input", refreshExpressionValidationState);
+  dom.expressionInput.addEventListener("copy", copyExpressionSelectionToClipboard);
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
