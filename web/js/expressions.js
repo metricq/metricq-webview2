@@ -23,6 +23,7 @@ const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
 const DECIMAL_DOT_BETWEEN_DIGITS = /(\d)\.(\d)/g;
 const DECIMAL_COMMA_BETWEEN_DIGITS = /(\d),(\d)/g;
+const metricExistenceCache = new Map();
 
 function localizeExpressionText(text) {
   return String(text || "").replace(DECIMAL_DOT_BETWEEN_DIGITS, "$1,$2");
@@ -273,12 +274,10 @@ function serializeSelectionInEditor() {
   if (!selection || selection.rangeCount === 0) return "";
   const range = selection.getRangeAt(0);
   if (!dom.expressionInput.contains(range.commonAncestorContainer)) return "";
-  const fragment = range.cloneContents();
-  let out = "";
-  for (const node of fragment.childNodes || []) {
-    out += serializeExpressionNode(node);
-  }
-  return localizeExpressionText(out);
+  const offsets = selectionOffsetsInEditor(range);
+  if (!offsets || offsets.end <= offsets.start) return "";
+  const full = serializeFullExpressionEditor();
+  return full.slice(offsets.start, offsets.end);
 }
 
 function copyExpressionSelectionToClipboard(event) {
@@ -286,6 +285,35 @@ function copyExpressionSelectionToClipboard(event) {
   if (!selectionText) return;
   event.preventDefault();
   event.clipboardData?.setData("text/plain", selectionText);
+}
+
+function cutExpressionSelectionToClipboard(event) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const range = selection.getRangeAt(0);
+  if (!dom.expressionInput.contains(range.commonAncestorContainer)) return;
+  const selectionText = serializeSelectionInEditor();
+  if (!selectionText) return;
+  event.preventDefault();
+  event.clipboardData?.setData("text/plain", selectionText);
+
+  const boundaries = normalizedSelectionBoundaries(range);
+  if (!boundaries) return;
+  const deleteRange = document.createRange();
+  deleteRange.setStart(boundaries.start.container, boundaries.start.offset);
+  deleteRange.setEnd(boundaries.end.container, boundaries.end.offset);
+  deleteRange.deleteContents();
+  ensureEditorBoundaries();
+  try {
+    const caret = document.createRange();
+    caret.setStart(boundaries.start.container, boundaries.start.offset);
+    caret.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(caret);
+  } catch (_) {
+    placeCaretAtEnd(dom.expressionInput);
+  }
+  refreshExpressionValidationState();
 }
 
 function serializeFullExpressionEditor() {
@@ -542,6 +570,46 @@ function getSelectionRangeInEditor() {
   return range;
 }
 
+function normalizeBoundaryToToken(container, offset, snapToStart) {
+  const token = closestTokenElement(container);
+  if (!token) return { container, offset };
+  const parent = token.parentNode;
+  if (!parent) return { container, offset };
+  const index = Array.prototype.indexOf.call(parent.childNodes, token);
+  if (index < 0) return { container, offset };
+  return snapToStart
+    ? { container: parent, offset: index }
+    : { container: parent, offset: index + 1 };
+}
+
+function normalizedSelectionBoundaries(range) {
+  if (!range) return null;
+  const start = normalizeBoundaryToToken(range.startContainer, range.startOffset, true);
+  const end = normalizeBoundaryToToken(range.endContainer, range.endOffset, false);
+  if (!dom.expressionInput.contains(start.container) && start.container !== dom.expressionInput) return null;
+  if (!dom.expressionInput.contains(end.container) && end.container !== dom.expressionInput) return null;
+  return { start, end };
+}
+
+function expressionOffsetFromBoundary(boundary) {
+  const before = document.createRange();
+  before.selectNodeContents(dom.expressionInput);
+  before.setEnd(boundary.container, boundary.offset);
+  return caretOffsetMapper.lengthOfFragment(before.cloneContents());
+}
+
+function selectionOffsetsInEditor(range) {
+  const boundaries = normalizedSelectionBoundaries(range);
+  if (!boundaries) return null;
+  const start = expressionOffsetFromBoundary(boundaries.start);
+  const end = expressionOffsetFromBoundary(boundaries.end);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null;
+  return {
+    start: Math.max(0, Math.min(start, end)),
+    end: Math.max(0, Math.max(start, end)),
+  };
+}
+
 function insertNodeAtRange(node, range) {
   if (!range || !dom.expressionInput.contains(range.startContainer)) {
     dom.expressionInput.appendChild(node);
@@ -656,6 +724,81 @@ function renderExpressionEditor(expression) {
     }
   }
   ensureEditorBoundaries();
+}
+
+function parseExpressionPartsRaw(expression) {
+  const parts = [];
+  const text = String(expression || "");
+  let cursor = 0;
+  const regex = /\[([^\]]+)\]/g;
+  let match = regex.exec(text);
+  while (match) {
+    const start = match.index;
+    const end = start + match[0].length;
+    if (start > cursor) parts.push({ type: "text", value: text.slice(cursor, start) });
+    const metricName = String(match[1] || "").trim();
+    if (metricName) parts.push({ type: "metric", value: metricName });
+    else parts.push({ type: "text", value: match[0] });
+    cursor = end;
+    match = regex.exec(text);
+  }
+  if (cursor < text.length) parts.push({ type: "text", value: text.slice(cursor) });
+  return parts;
+}
+
+function insertExpressionPartsAtCursor(parts) {
+  const range = getSelectionRangeInEditor() || editorEndRange();
+  const fragment = document.createDocumentFragment();
+  const caretAnchor = document.createTextNode(CARET_SENTINEL);
+  for (const part of parts || []) {
+    if (part.type === "metric") fragment.appendChild(makeMetricTokenNode(part.value));
+    else fragment.appendChild(document.createTextNode(String(part.value || "")));
+  }
+  fragment.appendChild(caretAnchor);
+  range.deleteContents();
+  range.insertNode(fragment);
+  ensureEditorBoundaries();
+  const caret = document.createRange();
+  caret.setStart(caretAnchor, caretAnchor.textContent?.length || 0);
+  caret.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(caret);
+}
+
+async function metricExistsForToken(metricName) {
+  const name = String(metricName || "").trim();
+  if (!name) return false;
+  if (state.metrics.some((m) => m.name === name)) return true;
+  if (metricExistenceCache.has(name)) return metricExistenceCache.get(name);
+  try {
+    await apiFetch(`/api/metadata?metric=${encodeURIComponent(name)}`);
+    metricExistenceCache.set(name, true);
+    return true;
+  } catch (_) {
+    metricExistenceCache.set(name, false);
+    return false;
+  }
+}
+
+async function pasteExpressionSelectionFromClipboard(event) {
+  const raw = String(event.clipboardData?.getData("text/plain") || "");
+  if (!raw) return;
+  event.preventDefault();
+  const normalized = localizeExpressionText(raw.replace(/\r\n/g, "\n"));
+  const parsed = parseExpressionPartsRaw(normalized);
+  const resolved = [];
+  for (const part of parsed) {
+    if (part.type !== "metric") {
+      resolved.push(part);
+      continue;
+    }
+    const exists = await metricExistsForToken(part.value);
+    if (exists) resolved.push(part);
+    else resolved.push({ type: "text", value: `[${part.value}]` });
+  }
+  insertExpressionPartsAtCursor(resolved);
+  refreshExpressionValidationState();
 }
 
 function insertMetricTokenAtCursor(metricName) {
@@ -1090,6 +1233,10 @@ export function wireExpressionModal(hooks) {
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
   dom.expressionInput.addEventListener("input", refreshExpressionValidationState);
   dom.expressionInput.addEventListener("copy", copyExpressionSelectionToClipboard);
+  dom.expressionInput.addEventListener("cut", cutExpressionSelectionToClipboard);
+  dom.expressionInput.addEventListener("paste", (event) => {
+    void pasteExpressionSelectionFromClipboard(event);
+  });
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
