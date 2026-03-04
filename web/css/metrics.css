@@ -341,16 +341,6 @@
     pointer-events: none;
 }
 
-.expression-error-marker {
-    display: inline-block;
-    width: 0;
-    height: 1.05em;
-    margin: 0 1px;
-    border-left: 2px solid #dc3545;
-    vertical-align: text-bottom;
-    pointer-events: none;
-}
-
 .expression-token.expression-token-error {
     border-color: #dc3545;
     background: #fde7ea;
