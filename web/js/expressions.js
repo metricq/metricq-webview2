@@ -884,6 +884,8 @@ function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
       return "Fehlende schließende eckige Klammer ] im Ausdruck.";
     case "empty_metric_reference":
       return "Leere Metrik-Referenz [] ist nicht erlaubt.";
+    case "empty_expression":
+      return "Der Ausdruck ist leer.";
     case "invalid_number":
       return "Ungültige Zahl im Ausdruck.";
     case "unexpected_character":
@@ -978,24 +980,19 @@ function expressionDraftIsValid() {
 
 async function validateExpressionViaBackend(expr) {
   const text = String(expr || "").trim();
-  if (!text) return { ok: false, message: "Der Ausdruck ist leer." };
-  const now = Date.now();
+  if (!text) return { ok: false, message: "Der Ausdruck ist leer.", info: { type: "empty_expression" } };
   try {
-    const body = await apiFetch("/api/query", {
+    const body = await apiFetch("/api/expression/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        targets: [{ name: "__expr_validation__", expr: text }],
-        from: now - 60_000,
-        to: now,
-        maxDataPoints: 2,
+        expr: text,
       }),
     });
-    const series = Array.isArray(body?.series) ? body.series : [];
-    const first = series[0] || null;
-    const errorText = String(first?.error || "").trim();
-    const errorInfo = first?.errorInfo || null;
-    if (errorText || errorInfo) {
+    const valid = Boolean(body?.valid);
+    const errorText = String(body?.error || "").trim();
+    const errorInfo = body?.errorInfo || null;
+    if (!valid || errorText || errorInfo) {
       return { ok: false, message: errorText || String(errorInfo?.message || ""), info: errorInfo };
     }
     return { ok: true, message: "", info: null };

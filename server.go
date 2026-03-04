@@ -32,6 +32,7 @@ func main() {
 	})
 	mux.HandleFunc("/api/metrics", svc.handleAPIMetrics)
 	mux.HandleFunc("/api/metadata", svc.handleAPIMetadata)
+	mux.HandleFunc("/api/expression/validate", svc.handleAPIExpressionValidate)
 	mux.HandleFunc("/api/query", svc.handleAPIQuery)
 	mux.HandleFunc("/api/query/stacked", svc.handleAPIQueryStacked)
 	mux.HandleFunc("/api/query/range", svc.handleAPIYRangeGlobal)

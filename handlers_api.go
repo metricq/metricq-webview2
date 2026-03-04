@@ -141,6 +141,43 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"series": results})
 }
 
+func (s *service) handleAPIExpressionValidate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req apiExpressionValidateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	expr := strings.TrimSpace(req.Expr)
+	if expr == "" {
+		pos := 0
+		writeJSON(w, http.StatusOK, apiExpressionValidateResponse{
+			Valid: false,
+			Error: "empty expression",
+			ErrorInfo: &apiExprError{
+				Type:     "empty_expression",
+				Message:  "empty expression",
+				Position: &pos,
+				End:      &pos,
+			},
+		})
+		return
+	}
+	if _, err := parseExpression(expr); err != nil {
+		writeJSON(w, http.StatusOK, apiExpressionValidateResponse{
+			Valid:     false,
+			Error:     err.Error(),
+			ErrorInfo: buildExprErrorInfo(err),
+		})
+		return
+	}
+	writeJSON(w, http.StatusOK, apiExpressionValidateResponse{Valid: true})
+}
+
 func (s *service) handleAPIQueryStacked(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

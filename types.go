@@ -142,6 +142,16 @@ type apiAnalyzeRequest struct {
 	ToUnixMS   int64            `json:"to"`
 }
 
+type apiExpressionValidateRequest struct {
+	Expr string `json:"expr"`
+}
+
+type apiExpressionValidateResponse struct {
+	Valid     bool          `json:"valid"`
+	Error     string        `json:"error,omitempty"`
+	ErrorInfo *apiExprError `json:"errorInfo,omitempty"`
+}
+
 type apiAnalyzeEntry struct {
 	Metric    string        `json:"metric"`
 	Minimum   float64       `json:"minimum"`
