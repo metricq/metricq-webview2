@@ -106,9 +106,17 @@ type apiQuerySeries struct {
 	Points    []apiPoint     `json:"points,omitempty"`
 	AggPoints []apiAggPoint  `json:"aggregatePoints,omitempty"`
 	Error     string         `json:"error,omitempty"`
+	ErrorInfo *apiExprError  `json:"errorInfo,omitempty"`
 	RawCount  float64        `json:"rawCount"`
 	Stats     map[string]any `json:"stats,omitempty"`
 	Meta      map[string]any `json:"meta,omitempty"`
+}
+
+type apiExprError struct {
+	Type     string `json:"type,omitempty"`
+	Message  string `json:"message"`
+	Position *int   `json:"position,omitempty"`
+	End      *int   `json:"end,omitempty"`
 }
 
 type apiPoint struct {
@@ -134,14 +142,15 @@ type apiAnalyzeRequest struct {
 }
 
 type apiAnalyzeEntry struct {
-	Metric   string  `json:"metric"`
-	Minimum  float64 `json:"minimum"`
-	Maximum  float64 `json:"maximum"`
-	Sum      float64 `json:"sum"`
-	Count    uint64  `json:"count"`
-	Mean     float64 `json:"mean"`
-	Duration float64 `json:"duration"`
-	Error    string  `json:"error,omitempty"`
+	Metric    string        `json:"metric"`
+	Minimum   float64       `json:"minimum"`
+	Maximum   float64       `json:"maximum"`
+	Sum       float64       `json:"sum"`
+	Count     uint64        `json:"count"`
+	Mean      float64       `json:"mean"`
+	Duration  float64       `json:"duration"`
+	Error     string        `json:"error,omitempty"`
+	ErrorInfo *apiExprError `json:"errorInfo,omitempty"`
 }
 
 type apiYRangeGlobalRequest struct {

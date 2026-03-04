@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"net/http"
@@ -12,6 +13,31 @@ import (
 	"sync"
 	"time"
 )
+
+func buildExprErrorInfo(err error) *apiExprError {
+	if err == nil {
+		return nil
+	}
+	info := &apiExprError{
+		Type:    "expression_error",
+		Message: strings.TrimSpace(err.Error()),
+	}
+	var parseErr *exprParseError
+	if errors.As(err, &parseErr) {
+		info.Type = strings.TrimSpace(parseErr.Code)
+		if info.Type == "" {
+			info.Type = "expression_parse_error"
+		}
+		if msg := strings.TrimSpace(parseErr.Message); msg != "" {
+			info.Message = msg
+		}
+		pos := parseErr.Pos
+		end := parseErr.End
+		info.Position = &pos
+		info.End = &end
+	}
+	return info
+}
 
 func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -228,8 +254,9 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 		}
 		if target.parseErr != nil {
 			results[i] = apiQuerySeries{
-				Metric: target.name,
-				Error:  fmt.Sprintf("invalid expression: %v", target.parseErr),
+				Metric:    target.name,
+				Error:     fmt.Sprintf("invalid expression: %v", target.parseErr),
+				ErrorInfo: buildExprErrorInfo(target.parseErr),
 			}
 			continue
 		}
@@ -586,6 +613,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 
 		if target.parseErr != nil {
 			entry.Error = fmt.Sprintf("invalid expression: %v", target.parseErr)
+			entry.ErrorInfo = buildExprErrorInfo(target.parseErr)
 			out[i] = entry
 			continue
 		}

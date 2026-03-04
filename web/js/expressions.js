@@ -16,6 +16,7 @@ let hoveredMetricName = "";
 let dropMarkerEl = null;
 let draggingTokenId = "";
 let draggingMetricName = "";
+let expressionErrorMarkerEl = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -54,6 +55,20 @@ function clearDropMarker() {
 function clearDragState() {
   draggingTokenId = "";
   draggingMetricName = "";
+}
+
+function ensureExpressionErrorMarker() {
+  if (expressionErrorMarkerEl) return expressionErrorMarkerEl;
+  expressionErrorMarkerEl = document.createElement("span");
+  expressionErrorMarkerEl.className = "expression-error-marker d-none";
+  expressionErrorMarkerEl.setAttribute("aria-hidden", "true");
+  dom.expressionInput.appendChild(expressionErrorMarkerEl);
+  return expressionErrorMarkerEl;
+}
+
+function hideExpressionErrorMarker() {
+  if (!expressionErrorMarkerEl) return;
+  expressionErrorMarkerEl.classList.add("d-none");
 }
 
 function editorStartRange() {
@@ -258,6 +273,36 @@ const caretOffsetMapper = {
     }
     return raw.length;
   },
+  domPositionFromExpressionOffset(expressionOffset) {
+    const targetOffset = Math.max(0, Number(expressionOffset) || 0);
+    let remaining = targetOffset;
+    const children = Array.from(dom.expressionInput.childNodes || []);
+    for (const node of children) {
+      if (node === expressionErrorMarkerEl) continue;
+      if (node.nodeType === Node.TEXT_NODE) {
+        const textLen = this.lengthOfNode(node);
+        if (remaining <= textLen) {
+          const domOffset = this.textNodeOffsetFromExpressionOffset(node.textContent, remaining);
+          return { node, offset: domOffset };
+        }
+        remaining -= textLen;
+        continue;
+      }
+      if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
+        const tokenLen = this.lengthOfNode(node);
+        if (remaining <= tokenLen) {
+          if (remaining <= tokenLen / 2) return { beforeNode: node };
+          return { afterNode: node };
+        }
+        remaining -= tokenLen;
+        continue;
+      }
+      const otherLen = this.lengthOfNode(node);
+      if (remaining <= otherLen) break;
+      remaining -= otherLen;
+    }
+    return { atEnd: true };
+  },
   setCaretByExpressionOffset(expressionOffset) {
     const targetOffset = Math.max(0, Number(expressionOffset) || 0);
     let remaining = targetOffset;
@@ -301,6 +346,38 @@ const caretOffsetMapper = {
     placeCaretAtEnd(dom.expressionInput);
   },
 };
+
+function placeExpressionErrorMarker(position, end) {
+  const marker = ensureExpressionErrorMarker();
+  const startOffset = Math.max(0, Number(position) || 0);
+  const endOffset = Math.max(startOffset + 1, Number(end) || startOffset + 1);
+  const start = caretOffsetMapper.domPositionFromExpressionOffset(startOffset);
+  const finish = caretOffsetMapper.domPositionFromExpressionOffset(endOffset);
+  const range = document.createRange();
+  try {
+    if (start?.node) range.setStart(start.node, start.offset);
+    else if (start?.beforeNode) range.setStartBefore(start.beforeNode);
+    else if (start?.afterNode) range.setStartAfter(start.afterNode);
+    else range.selectNodeContents(dom.expressionInput);
+
+    if (finish?.node) range.setEnd(finish.node, finish.offset);
+    else if (finish?.beforeNode) range.setEndBefore(finish.beforeNode);
+    else if (finish?.afterNode) range.setEndAfter(finish.afterNode);
+    else range.setEnd(range.startContainer, range.startOffset);
+  } catch (_) {
+    hideExpressionErrorMarker();
+    return;
+  }
+
+  const rect = range.getBoundingClientRect();
+  const hostRect = dom.expressionInput.getBoundingClientRect();
+  const left = Math.max(0, rect.left - hostRect.left + dom.expressionInput.scrollLeft);
+  const width = Math.max(2, rect.width || 2);
+  marker.style.left = `${Math.round(left)}px`;
+  marker.style.top = "calc(100% - 4px)";
+  marker.style.width = `${Math.round(width)}px`;
+  marker.classList.remove("d-none");
+}
 
 function placeCaretAfterNode(node) {
   const next = node.nextSibling;
@@ -557,12 +634,40 @@ function clearValidation() {
     dom.expressionValidationError.textContent = "";
     dom.expressionValidationError.classList.add("d-none");
   }
+  hideExpressionErrorMarker();
 }
 
 function showExpressionValidationError(message) {
   if (!dom.expressionValidationError) return;
   dom.expressionValidationError.textContent = String(message || "").trim();
   dom.expressionValidationError.classList.remove("d-none");
+}
+
+function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
+  const info = errorInfo || {};
+  const code = String(info.type || "").trim();
+  switch (code) {
+    case "missing_closing_bracket":
+      return "Fehlende schließende eckige Klammer ] im Ausdruck.";
+    case "empty_metric_reference":
+      return "Leere Metrik-Referenz [] ist nicht erlaubt.";
+    case "invalid_number":
+      return "Ungültige Zahl im Ausdruck.";
+    case "unexpected_character":
+      return "Ungültiges Zeichen im Ausdruck.";
+    case "unexpected_token":
+      return "Unerwartetes Token im Ausdruck.";
+    case "missing_closing_parenthesis":
+      return "Fehlende schließende Klammer ) im Ausdruck.";
+    case "unsupported_function":
+      return "Nicht unterstützte Funktion im Ausdruck.";
+    case "missing_function_opening_parenthesis":
+      return "Fehlende öffnende Klammer bei Funktionsaufruf.";
+    case "function_requires_argument":
+      return "Funktion benötigt mindestens ein Argument.";
+    default:
+      return String(fallbackMessage || info.message || "Ungültiger Ausdruck.");
+  }
 }
 
 function markInvalid(target) {
@@ -652,12 +757,16 @@ async function validateExpressionViaBackend(expr) {
     const series = Array.isArray(body?.series) ? body.series : [];
     const first = series[0] || null;
     const errorText = String(first?.error || "").trim();
-    if (errorText) return { ok: false, message: errorText };
-    return { ok: true, message: "" };
+    const errorInfo = first?.errorInfo || null;
+    if (errorText || errorInfo) {
+      return { ok: false, message: errorText || String(errorInfo?.message || ""), info: errorInfo };
+    }
+    return { ok: true, message: "", info: null };
   } catch (err) {
     return {
       ok: false,
       message: String(err?.message || "Ausdruck konnte nicht validiert werden."),
+      info: null,
     };
   }
 }
@@ -693,7 +802,15 @@ async function saveExpressionMetric(hooks) {
   }
   const remoteValidation = await validateExpressionViaBackend(expr);
   if (!remoteValidation.ok) {
-    showExpressionValidationError(`Ungültiger Ausdruck: ${remoteValidation.message}`);
+    const message = localizedExpressionErrorMessage(remoteValidation.info, remoteValidation.message);
+    showExpressionValidationError(`Ungültiger Ausdruck: ${message}`);
+    const position = Number(remoteValidation.info?.position);
+    const end = Number(remoteValidation.info?.end);
+    if (Number.isFinite(position)) {
+      placeExpressionErrorMarker(position, Number.isFinite(end) ? end : position + 1);
+    } else {
+      hideExpressionErrorMarker();
+    }
     markInvalid(dom.expressionInput);
     blockCloseOnInvalidExpression = true;
     return;
@@ -905,6 +1022,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     hideHoverInfo();
+    hideExpressionErrorMarker();
     clearDropMarker();
     if (shouldReleaseHelpMinimize) {
       startHelpOverlayMinimize(1900);

@@ -305,6 +305,37 @@ func (n funcNode) collectMetrics(dst map[string]struct{}) {
 type exprToken struct {
 	kind string
 	val  string
+	pos  int
+	end  int
+}
+
+type exprParseError struct {
+	Code    string
+	Message string
+	Pos     int
+	End     int
+}
+
+func (e *exprParseError) Error() string {
+	if e == nil {
+		return "invalid expression"
+	}
+	return e.Message
+}
+
+func newExprParseError(code, message string, pos, end int) error {
+	if pos < 0 {
+		pos = 0
+	}
+	if end < pos {
+		end = pos
+	}
+	return &exprParseError{
+		Code:    strings.TrimSpace(code),
+		Message: strings.TrimSpace(message),
+		Pos:     pos,
+		End:     end,
+	}
 }
 
 func isNumericToken(word string) bool {
@@ -341,23 +372,24 @@ func tokenizeExpr(input string) ([]exprToken, error) {
 
 		switch r {
 		case '+', '-', '*', '/', '(', ')', ',':
-			out = append(out, exprToken{kind: string(r), val: string(r)})
+			out = append(out, exprToken{kind: string(r), val: string(r), pos: i, end: i + 1})
 			i++
 			continue
 		case '[':
 			start := i + 1
+			tokStart := i
 			i++
 			for i < len(runes) && runes[i] != ']' {
 				i++
 			}
 			if i >= len(runes) {
-				return nil, fmt.Errorf("missing closing ]")
+				return nil, newExprParseError("missing_closing_bracket", "missing closing ]", tokStart, len(runes))
 			}
 			name := strings.TrimSpace(string(runes[start:i]))
 			if name == "" {
-				return nil, fmt.Errorf("empty metric reference []")
+				return nil, newExprParseError("empty_metric_reference", "empty metric reference []", tokStart, i+1)
 			}
-			out = append(out, exprToken{kind: "metric", val: name})
+			out = append(out, exprToken{kind: "metric", val: name, pos: tokStart, end: i + 1})
 			i++
 			continue
 		default:
@@ -394,9 +426,9 @@ func tokenizeExpr(input string) ([]exprToken, error) {
 			}
 			word := string(runes[start:i])
 			if !isNumericToken(word) {
-				return nil, fmt.Errorf("invalid number %q", word)
+				return nil, newExprParseError("invalid_number", fmt.Sprintf("invalid number %q", word), start, i)
 			}
-			out = append(out, exprToken{kind: "number", val: word})
+			out = append(out, exprToken{kind: "number", val: word, pos: start, end: i})
 			continue
 		}
 
@@ -411,12 +443,12 @@ func tokenizeExpr(input string) ([]exprToken, error) {
 				break
 			}
 			word := string(runes[start:i])
-			out = append(out, exprToken{kind: "ident", val: word})
+			out = append(out, exprToken{kind: "ident", val: word, pos: start, end: i})
 			continue
 		}
-		return nil, fmt.Errorf("unexpected character %q", string(r))
+		return nil, newExprParseError("unexpected_character", fmt.Sprintf("unexpected character %q", string(r)), i, i+1)
 	}
-	out = append(out, exprToken{kind: "eof"})
+	out = append(out, exprToken{kind: "eof", pos: len(runes), end: len(runes)})
 	return out, nil
 }
 
@@ -436,7 +468,8 @@ func parseExpression(input string) (exprNode, error) {
 		return nil, err
 	}
 	if p.peek().kind != "eof" {
-		return nil, fmt.Errorf("unexpected token %q", p.peek().val)
+		tok := p.peek()
+		return nil, newExprParseError("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.pos, tok.end)
 	}
 	return node, nil
 }
@@ -524,7 +557,8 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 			return nil, err
 		}
 		if p.peek().kind != ")" {
-			return nil, fmt.Errorf("missing closing parenthesis")
+			tok := p.peek()
+			return nil, newExprParseError("missing_closing_parenthesis", "missing closing parenthesis", tok.pos, tok.end)
 		}
 		p.take()
 		return node, nil
@@ -533,7 +567,7 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 		p.take()
 		v, err := strconv.ParseFloat(tok.val, 64)
 		if err != nil {
-			return nil, fmt.Errorf("invalid number %q", tok.val)
+			return nil, newExprParseError("invalid_number", fmt.Sprintf("invalid number %q", tok.val), tok.pos, tok.end)
 		}
 		return numberNode{value: v}, nil
 	}
@@ -548,16 +582,18 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 		}
 		return metricNode{name: tok.val}, nil
 	}
-	return nil, fmt.Errorf("unexpected token %q", tok.val)
+	return nil, newExprParseError("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.pos, tok.end)
 }
 
 func (p *exprParser) parseFunctionCall(name string) (exprNode, error) {
 	fn := strings.ToLower(strings.TrimSpace(name))
 	if fn != "min" && fn != "max" && fn != "sum" {
-		return nil, fmt.Errorf("unsupported function %q", name)
+		tok := p.peek()
+		return nil, newExprParseError("unsupported_function", fmt.Sprintf("unsupported function %q", name), tok.pos, tok.end)
 	}
 	if p.peek().kind != "(" {
-		return nil, fmt.Errorf("missing function opening parenthesis")
+		tok := p.peek()
+		return nil, newExprParseError("missing_function_opening_parenthesis", "missing function opening parenthesis", tok.pos, tok.end)
 	}
 	p.take()
 	args := make([]exprNode, 0, 4)
@@ -577,11 +613,13 @@ func (p *exprParser) parseFunctionCall(name string) (exprNode, error) {
 		break
 	}
 	if p.peek().kind != ")" {
-		return nil, fmt.Errorf("missing closing parenthesis in %s", fn)
+		tok := p.peek()
+		return nil, newExprParseError("missing_closing_parenthesis", fmt.Sprintf("missing closing parenthesis in %s", fn), tok.pos, tok.end)
 	}
 	p.take()
 	if len(args) == 0 {
-		return nil, fmt.Errorf("%s requires at least one argument", fn)
+		tok := p.peek()
+		return nil, newExprParseError("function_requires_argument", fmt.Sprintf("%s requires at least one argument", fn), tok.pos, tok.end)
 	}
 	return funcNode{name: fn, args: args}, nil
 }
@@ -847,11 +885,11 @@ func valuesToPointSeries(name string, values map[int64]float64, duration float64
 	}
 
 	return apiQuerySeries{
-		Metric:     name,
-		Mode:       "values",
-		Duration:   duration,
-		Points:     points,
-		RawCount:   float64(len(points)),
+		Metric:   name,
+		Mode:     "values",
+		Duration: duration,
+		Points:   points,
+		RawCount: float64(len(points)),
 		Stats: map[string]any{
 			"type": "computed",
 		},
