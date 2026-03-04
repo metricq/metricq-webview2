@@ -294,9 +294,13 @@ const caretOffsetMapper = {
       }
       if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
         const tokenLen = this.lengthOfNode(node);
-        if (remaining <= tokenLen) {
-          if (remaining <= tokenLen / 2) return { beforeNode: node };
-          return { afterNode: node };
+        // Exact token boundaries must map deterministically:
+        // 0 => before this token, tokenLen => after this token (handled by consume+continue).
+        if (remaining === 0) return { beforeNode: node };
+        if (remaining < tokenLen) return { tokenNode: node };
+        if (remaining === tokenLen) {
+          remaining = 0;
+          continue;
         }
         remaining -= tokenLen;
         continue;
@@ -366,6 +370,12 @@ function placeExpressionErrorMarker(position, end) {
       range.collapse(true);
       if (start.beforeNode.classList?.contains("expression-token")) {
         expressionErrorTokenEl = start.beforeNode;
+      }
+    } else if (start?.tokenNode) {
+      range.setStartBefore(start.tokenNode);
+      range.collapse(true);
+      if (start.tokenNode.classList?.contains("expression-token")) {
+        expressionErrorTokenEl = start.tokenNode;
       }
     } else if (start?.afterNode) {
       range.setStartAfter(start.afterNode);
