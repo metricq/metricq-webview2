@@ -397,11 +397,8 @@ function placeExpressionErrorMarker(position, end, errorInfo = null) {
     if (tokenNode) {
       tokenNode.classList.add("expression-token-error");
       expressionErrorTokenEl = tokenNode;
-      const range = document.createRange();
-      range.setStartAfter(tokenNode);
-      range.collapse(true);
-      range.insertNode(marker);
-      marker.classList.remove("d-none");
+      if (marker.parentNode) marker.remove();
+      marker.classList.add("d-none");
       return;
     }
   }
