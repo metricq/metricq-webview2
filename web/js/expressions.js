@@ -14,6 +14,8 @@ let tokenSequence = 1;
 let hoverInfoEl = null;
 let hoveredMetricName = "";
 let dropMarkerEl = null;
+let draggingTokenId = "";
+let draggingMetricName = "";
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -47,6 +49,11 @@ function ensureDropMarker() {
 function clearDropMarker() {
   if (!dropMarkerEl) return;
   dropMarkerEl.remove();
+}
+
+function clearDragState() {
+  draggingTokenId = "";
+  draggingMetricName = "";
 }
 
 function editorStartRange() {
@@ -463,6 +470,8 @@ function makeMetricTokenNode(metricName) {
   token.textContent = metricName;
   bindMetadataHover(token, metricName);
   token.addEventListener("dragstart", (event) => {
+    draggingTokenId = String(token.dataset.tokenId || "");
+    draggingMetricName = metricName;
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(metricName));
     event.dataTransfer?.setData("application/x-metricq-metric", metricName);
     event.dataTransfer?.setData("application/x-metricq-token-id", String(token.dataset.tokenId || ""));
@@ -679,11 +688,15 @@ function handleExpressionEditorDrop(event) {
   dom.expressionInput.classList.remove("expression-drop-target");
 
   const droppedMetric = event.dataTransfer?.getData("application/x-metricq-metric")
+    || draggingMetricName
     || parseBracketMetric(event.dataTransfer?.getData("application/x-metricq-token"))
     || parseBracketMetric(event.dataTransfer?.getData("text/plain"));
-  if (!droppedMetric) return;
+  if (!droppedMetric) {
+    clearDragState();
+    return;
+  }
 
-  const sourceTokenId = String(event.dataTransfer?.getData("application/x-metricq-token-id") || "");
+  const sourceTokenId = String(event.dataTransfer?.getData("application/x-metricq-token-id") || draggingTokenId);
   if (sourceTokenId) {
     const existing = dom.expressionInput.querySelector(`.expression-token[data-token-id="${CSS.escape(sourceTokenId)}"]`);
     existing?.remove();
@@ -699,6 +712,7 @@ function handleExpressionEditorDrop(event) {
   const range = normalizedDropRange(event.clientX, event.clientY);
   insertNodeAtRange(token, range);
   clearDropMarker();
+  clearDragState();
 }
 
 function maybeConvertTypedBracketExpression(event) {
@@ -803,7 +817,8 @@ export function wireExpressionModal(hooks) {
 
   dom.expressionInput.addEventListener("dragover", (event) => {
     event.preventDefault();
-    event.dataTransfer.dropEffect = "copy";
+    const sourceTokenId = String(event.dataTransfer?.getData("application/x-metricq-token-id") || draggingTokenId);
+    event.dataTransfer.dropEffect = sourceTokenId ? "move" : "copy";
     dom.expressionInput.classList.add("expression-drop-target");
     setDropMarkerAtPoint(event.clientX, event.clientY);
   });
@@ -814,7 +829,10 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("drop", handleExpressionEditorDrop);
-  dom.expressionInput.addEventListener("dragend", clearDropMarker);
+  dom.expressionInput.addEventListener("dragend", () => {
+    clearDropMarker();
+    clearDragState();
+  });
 
   dom.expressionInput.addEventListener("keydown", (event) => {
     if (event.ctrlKey || event.metaKey || event.altKey) return;
