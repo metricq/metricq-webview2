@@ -75,6 +75,26 @@ function hideExpressionErrorMarker() {
   }
 }
 
+function findExpressionTokenNodeByNameAndOffset(tokenName, position) {
+  const wanted = String(tokenName || "").trim();
+  if (!wanted) return null;
+  const targetOffset = Math.max(0, Number(position) || 0);
+  let offset = 0;
+  for (const node of Array.from(dom.expressionInput.childNodes || [])) {
+    if (node === expressionErrorMarkerEl) continue;
+    const len = caretOffsetMapper.lengthOfNode(node);
+    if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
+      const name = String(node.dataset.metricName || "").trim();
+      const start = offset;
+      const end = offset + len;
+      if (name === wanted && targetOffset >= start && targetOffset <= end) return node;
+      if (name === wanted && targetOffset < start) return node;
+    }
+    offset += len;
+  }
+  return null;
+}
+
 function editorStartRange() {
   const range = document.createRange();
   range.selectNodeContents(dom.expressionInput);
@@ -355,9 +375,25 @@ const caretOffsetMapper = {
   },
 };
 
-function placeExpressionErrorMarker(position, end) {
+function placeExpressionErrorMarker(position, end, errorInfo = null) {
   const marker = ensureExpressionErrorMarker();
   hideExpressionErrorMarker();
+  const unexpectedTokenName = String(errorInfo?.type || "") === "unexpected_token"
+    ? String(errorInfo?.token || "").trim()
+    : "";
+  if (unexpectedTokenName) {
+    const tokenNode = findExpressionTokenNodeByNameAndOffset(unexpectedTokenName, position);
+    if (tokenNode) {
+      tokenNode.classList.add("expression-token-error");
+      expressionErrorTokenEl = tokenNode;
+      const range = document.createRange();
+      range.setStartAfter(tokenNode);
+      range.collapse(true);
+      range.insertNode(marker);
+      marker.classList.remove("d-none");
+      return;
+    }
+  }
   const startOffset = Math.max(0, Number(position) || 0);
   const start = caretOffsetMapper.domPositionFromExpressionOffset(startOffset);
   const range = document.createRange();
@@ -830,7 +866,7 @@ async function saveExpressionMetric(hooks) {
     const position = Number(remoteValidation.info?.position);
     const end = Number(remoteValidation.info?.end);
     if (Number.isFinite(position)) {
-      placeExpressionErrorMarker(position, Number.isFinite(end) ? end : position + 1);
+      placeExpressionErrorMarker(position, Number.isFinite(end) ? end : position + 1, remoteValidation.info);
     } else {
       hideExpressionErrorMarker();
     }
