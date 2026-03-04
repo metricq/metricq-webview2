@@ -4,9 +4,10 @@ import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { startHelpOverlayMinimize } from "./chart.js";
 import { collectExpressionReferences } from "./expression-refs.mjs";
-import { formatFactor, shownMetricFactor } from "./factor-format.mjs";
+import { formatFactorDisplay, shownMetricFactor } from "./factor-format.mjs";
 import { colors, metricByName, metricDisplayName, state } from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
+import { formatDecimalInput } from "./number-format.mjs";
 import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 
@@ -708,7 +709,7 @@ async function openFactorModal(metricName) {
   if (!metric) return;
   factorMetricName = metricName;
   dom.factorMetricName.textContent = metricName;
-  dom.factorInput.value = String(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
+  dom.factorInput.value = formatDecimalInput(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
   if (dom.factorAliasInput) {
     dom.factorAliasInput.value = String(metric.alias || "");
     dom.factorAliasInput.disabled = Boolean(metric.expr);
@@ -719,7 +720,7 @@ async function openFactorModal(metricName) {
   const manual = metric.factorMode === "manual" ? sanitizeFactor(metric.manualFactor, 1) : 1;
   const effective = sanitizeFactor(metric.factor, 1);
   const normalization = sanitizeFactor(effective / manual, 1);
-  const shownNorm = formatFactor(normalization) || "1";
+  const shownNorm = formatFactorDisplay(normalization) || "1";
 
   const normInfo = dom.factorNormalizationInfo;
   const normFactor = dom.factorNormalizationFactor;
@@ -752,7 +753,7 @@ async function openFactorModal(metricName) {
           exprNormList.appendChild(row);
           continue;
         }
-        const shownNorm = formatFactor(refInfo.normalization) || "1";
+        const shownNorm = formatFactorDisplay(refInfo.normalization) || "1";
         const unitPart = refInfo.unit && refInfo.displayUnit && refInfo.unit !== refInfo.displayUnit
           ? ` [${refInfo.unit}] -> [${refInfo.displayUnit}]`
           : refInfo.unit

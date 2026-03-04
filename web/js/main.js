@@ -6,6 +6,7 @@ import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { wireExpressionModal } from "./expressions.js";
 import { createHelpModule } from "./help.js";
+import { formatDecimalInput, formatFixed, formatInteger, parseLocalizedNumber } from "./number-format.mjs";
 import {
   clearMetrics,
   fetchMetadata,
@@ -225,8 +226,8 @@ function formatDurationHuman(ms) {
   if (abs < 60_000) {
     const sec = abs / 1000;
     const text = sec < 10
-      ? sec.toLocaleString("de-DE", { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-      : Math.round(sec).toLocaleString("de-DE");
+      ? formatFixed(sec, 1)
+      : formatInteger(Math.round(sec));
     return `${text} s`;
   }
   if (abs < 3_600_000) {
@@ -322,8 +323,8 @@ function syncYAxisModalFromState() {
   syncStackedModeButton();
   const fillMin = Number.isFinite(state.yAxisManualMin) ? state.yAxisManualMin : state.yAxisCurrentMin;
   const fillMax = Number.isFinite(state.yAxisManualMax) ? state.yAxisManualMax : state.yAxisCurrentMax;
-  dom.yAxisManualMin.value = Number.isFinite(fillMin) ? String(fillMin) : "";
-  dom.yAxisManualMax.value = Number.isFinite(fillMax) ? String(fillMax) : "";
+  dom.yAxisManualMin.value = Number.isFinite(fillMin) ? formatDecimalInput(fillMin) : "";
+  dom.yAxisManualMax.value = Number.isFinite(fillMax) ? formatDecimalInput(fillMax) : "";
   updateYAxisManualInputsEnabled();
 }
 
@@ -514,8 +515,8 @@ function wireYAxisEvents() {
   dom.yAxisModeManual.addEventListener("change", updateYAxisManualInputsEnabled);
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
-    const manualMin = Number.parseFloat(dom.yAxisManualMin.value);
-    const manualMax = Number.parseFloat(dom.yAxisManualMax.value);
+    const manualMin = parseLocalizedNumber(dom.yAxisManualMin.value);
+    const manualMax = parseLocalizedNumber(dom.yAxisManualMax.value);
     state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
     state.yAxisManualMax = Number.isFinite(manualMax) ? manualMax : null;
     if (state.yAxisMode === "global") {

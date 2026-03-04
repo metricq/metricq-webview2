@@ -1,6 +1,7 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import { metricDisplayName, state } from "./model.js";
+import { formatFixed, formatNumber } from "./number-format.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
 import { buildXTicks, formatAbsoluteTime, formatAxisTime, pickTimeTickStep } from "./time-axis.mjs";
 import { resolveYAxisDomain } from "./y-axis.mjs";
@@ -521,10 +522,10 @@ function formatYTickLabels(ticks) {
   if (!Array.isArray(ticks) || ticks.length === 0) return [];
   const maxDecimals = 8;
   for (let decimals = 0; decimals <= maxDecimals; decimals += 1) {
-    const labels = ticks.map((value) => value.toFixed(decimals));
+    const labels = ticks.map((value) => formatFixed(value, decimals));
     if (new Set(labels).size === labels.length) return labels;
   }
-  return ticks.map((value) => value.toPrecision(10));
+  return ticks.map((value) => formatNumber(value, { maximumSignificantDigits: 10 }));
 }
 
 function yAxisUnitsLabel(seriesList) {
@@ -1504,8 +1505,8 @@ function renderHoverAt(clientX, clientY) {
     const rowsHtml = rows.map((row, idx) => {
       const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
       const valuesHtml = state.yAxisStacked
-        ? `avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText}`
-        : `min <strong>${row.sampled.min.toFixed(3)}</strong>${row.unitText} | avg <strong>${row.sampled.avg.toFixed(3)}</strong>${row.unitText} | max <strong>${row.sampled.max.toFixed(3)}</strong>${row.unitText}`;
+        ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
+        : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
       return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
     }).join("");
     dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`;
@@ -1606,7 +1607,7 @@ function renderHoverAt(clientX, clientY) {
     const shownUnit = row.metric.displayUnit || row.metric.unit;
     const factor = shownMetricFactor(row.metric);
     const factorText = factor ? ` x${factor}` : "";
-    return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${row.sampled.value.toFixed(3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+    return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
   }).join("");
   dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
   dom.hoverBox.classList.remove("d-none");

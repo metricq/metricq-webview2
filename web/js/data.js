@@ -5,6 +5,7 @@ import { dom } from "./dom.js";
 import { deriveExpressionUnits, deriveExpressionUnitsResolved } from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
+import { formatInteger } from "./number-format.mjs";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
@@ -93,12 +94,12 @@ function updateVisibleState(
     onStateChanged,
   });
 
-  if (Number.isFinite(aggPoints)) dom.aggPointsEl.textContent = String(aggPoints);
-  if (Number.isFinite(rawPoints)) dom.rawPointsEl.textContent = String(rawPoints);
+  if (Number.isFinite(aggPoints)) dom.aggPointsEl.textContent = formatInteger(aggPoints);
+  if (Number.isFinite(rawPoints)) dom.rawPointsEl.textContent = formatInteger(rawPoints);
   if (startedAt != null && Number.isFinite(totalDbMs)) {
     const totalHttpMs = Math.round(performance.now() - startedAt);
     const totalDbRoundedMs = Math.round(totalDbMs);
-    dom.perfBadge.textContent = `HTTP: ${totalHttpMs} ms | DB: ${totalDbRoundedMs} ms`;
+    dom.perfBadge.textContent = `HTTP: ${formatInteger(totalHttpMs)} ms | DB: ${formatInteger(totalDbRoundedMs)} ms`;
   }
 
 }

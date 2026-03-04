@@ -1,6 +1,7 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
 import { metricByName, metricDisplayName, state } from "./model.js";
+import { formatFixed, formatInteger } from "./number-format.mjs";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
 
@@ -112,10 +113,10 @@ export async function runAnalyze() {
     } else {
       const factor = Number(metric?.factor);
       const scaled = scaledAnalyzeStats(entry, Number.isFinite(factor) ? factor : 1);
-      tr.appendChild(createCell(scaled.minimum.toFixed(3), "text-end"));
-      tr.appendChild(createCell(scaled.mean.toFixed(3), "text-end"));
-      tr.appendChild(createCell(scaled.maximum.toFixed(3), "text-end"));
-      tr.appendChild(createCell(String(scaled.count), "text-end"));
+      tr.appendChild(createCell(formatFixed(scaled.minimum, 3), "text-end"));
+      tr.appendChild(createCell(formatFixed(scaled.mean, 3), "text-end"));
+      tr.appendChild(createCell(formatFixed(scaled.maximum, 3), "text-end"));
+      tr.appendChild(createCell(formatInteger(scaled.count), "text-end"));
     }
     dom.analyzeTableBody.appendChild(tr);
   }
