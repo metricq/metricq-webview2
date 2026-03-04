@@ -798,9 +798,9 @@ async function metricExistsForToken(metricName) {
 }
 
 async function pasteExpressionSelectionFromClipboard(event) {
+  event.preventDefault();
   const raw = String(event.clipboardData?.getData("text/plain") || "");
   if (!raw) return;
-  event.preventDefault();
   const normalized = localizeExpressionText(raw.replace(/\r\n/g, "\n"));
   const parsed = parseExpressionPartsRaw(normalized);
   const resolved = [];
