@@ -1029,7 +1029,7 @@ async function saveExpressionMetric(hooks) {
     return;
   }
   if (!expr) {
-    showExpressionValidationError("Der Ausdruck ist ungültig. Bitte prüfe Syntax und referenzierte Metriken.");
+    showExpressionValidationError("Der Ausdruck ist leer.");
     markInvalid(dom.expressionInput);
     blockCloseOnInvalidExpression = true;
     return;
