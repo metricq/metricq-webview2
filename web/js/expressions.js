@@ -84,18 +84,19 @@ function findExpressionTokenNodeByNameAndOffset(tokenName, position) {
   if (!wanted) return null;
   const targetOffset = Math.max(0, Number(position) || 0);
   let offset = 0;
+  let firstFutureMatch = null;
   for (const node of Array.from(dom.expressionInput.childNodes || [])) {
     const len = caretOffsetMapper.lengthOfNode(node);
     if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
       const name = String(node.dataset.metricName || "").trim();
       const start = offset;
       const end = offset + len;
-      if (name === wanted && targetOffset >= start && targetOffset <= end) return node;
-      if (name === wanted && targetOffset < start) return node;
+      if (name === wanted && targetOffset >= start && targetOffset < end) return node;
+      if (name === wanted && targetOffset < start && !firstFutureMatch) firstFutureMatch = node;
     }
     offset += len;
   }
-  return null;
+  return firstFutureMatch;
 }
 
 function editorStartRange() {
