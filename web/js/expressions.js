@@ -544,6 +544,16 @@ function handleArrowAroundTokens(event) {
 function clearValidation() {
   dom.expressionMetricName.classList.remove("is-invalid");
   dom.expressionInput.classList.remove("is-invalid");
+  if (dom.expressionValidationError) {
+    dom.expressionValidationError.textContent = "";
+    dom.expressionValidationError.classList.add("d-none");
+  }
+}
+
+function showExpressionValidationError(message) {
+  if (!dom.expressionValidationError) return;
+  dom.expressionValidationError.textContent = String(message || "").trim();
+  dom.expressionValidationError.classList.remove("d-none");
 }
 
 function markInvalid(target) {
@@ -620,6 +630,10 @@ function refreshExpressionValidationState() {
   if (expressionDraftIsValid()) {
     dom.expressionInput.classList.remove("is-invalid");
     blockCloseOnInvalidExpression = false;
+    if (dom.expressionValidationError) {
+      dom.expressionValidationError.textContent = "";
+      dom.expressionValidationError.classList.add("d-none");
+    }
   }
 }
 
@@ -630,10 +644,12 @@ function saveExpressionMetric(hooks) {
   const isEdit = Boolean(editingMetricName);
   const helpVisible = Boolean(dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"));
   if (!name) {
+    showExpressionValidationError("Bitte einen Namen für die berechnete Metrik angeben.");
     markInvalid(dom.expressionMetricName);
     return;
   }
   if (!expr) {
+    showExpressionValidationError("Der Ausdruck ist ungültig. Bitte prüfe Syntax und referenzierte Metriken.");
     markInvalid(dom.expressionInput);
     blockCloseOnInvalidExpression = true;
     return;
@@ -642,6 +658,7 @@ function saveExpressionMetric(hooks) {
     ? updateExpressionMetric(editingMetricName, name, expr, hooks)
     : addExpressionMetric(name, expr, hooks);
   if (!ok) {
+    showExpressionValidationError("Metrik konnte nicht gespeichert werden. Name bereits vergeben oder ungültig.");
     markInvalid(dom.expressionMetricName);
     return;
   }
@@ -799,6 +816,7 @@ export function wireExpressionModal(hooks) {
       blockCloseOnInvalidExpression = false;
       return;
     }
+    showExpressionValidationError("Der Ausdruck ist ungültig und muss korrigiert werden, bevor der Dialog geschlossen werden kann.");
     markInvalid(dom.expressionInput);
     event.preventDefault();
   });

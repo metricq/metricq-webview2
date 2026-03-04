@@ -75,6 +75,7 @@ export const dom = {
   expressionMetricModalTitle: document.getElementById("expressionMetricModalTitle"),
   expressionMetricName: document.getElementById("expressionMetricName"),
   expressionInput: document.getElementById("expressionInput"),
+  expressionValidationError: document.getElementById("expressionValidationError"),
   expressionMetricSearch: document.getElementById("expressionMetricSearch"),
   expressionMetricHints: document.getElementById("expressionMetricHints"),
   expressionMetricPalette: document.getElementById("expressionMetricPalette"),
