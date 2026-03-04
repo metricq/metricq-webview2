@@ -705,11 +705,14 @@ function bindMetadataHover(element, metricName) {
   });
 }
 
-function makeMetricTokenNode(metricName) {
+function makeMetricTokenNode(metricName, options = {}) {
   const token = document.createElement("span");
   token.className = "expression-token";
   token.dataset.metricName = metricName;
   token.dataset.tokenId = `tok-${tokenSequence++}`;
+  const known = options.known !== false;
+  token.dataset.metricKnown = known ? "1" : "0";
+  if (!known) token.classList.add("expression-token-unknown");
   token.draggable = true;
   token.contentEditable = "false";
   token.textContent = metricName;
@@ -764,7 +767,7 @@ function insertExpressionPartsAtCursor(parts) {
   const fragment = document.createDocumentFragment();
   const caretAnchor = document.createTextNode(CARET_SENTINEL);
   for (const part of parts || []) {
-    if (part.type === "metric") fragment.appendChild(makeMetricTokenNode(part.value));
+    if (part.type === "metric") fragment.appendChild(makeMetricTokenNode(part.value, { known: part.known !== false }));
     else fragment.appendChild(document.createTextNode(String(part.value || "")));
   }
   fragment.appendChild(caretAnchor);
@@ -801,16 +804,24 @@ async function pasteExpressionSelectionFromClipboard(event) {
   const normalized = localizeExpressionText(raw.replace(/\r\n/g, "\n"));
   const parsed = parseExpressionPartsRaw(normalized);
   const resolved = [];
+  const unknownMetrics = [];
   for (const part of parsed) {
     if (part.type !== "metric") {
       resolved.push(part);
       continue;
     }
     const exists = await metricExistsForToken(part.value);
-    if (exists) resolved.push(part);
-    else resolved.push({ type: "text", value: `[${part.value}]` });
+    if (exists) resolved.push({ type: "metric", value: part.value, known: true });
+    else {
+      resolved.push({ type: "metric", value: part.value, known: false });
+      unknownMetrics.push(part.value);
+    }
   }
   insertExpressionPartsAtCursor(resolved);
+  if (unknownMetrics.length > 0) {
+    const listed = unknownMetrics.map((name) => `[${name}]`).join(", ");
+    showExpressionValidationWarning(`Warnung: Unbekannte Metrik-Referenz(en): ${listed}`);
+  }
   refreshExpressionValidationState();
 }
 
@@ -875,6 +886,8 @@ function clearValidation() {
   dom.expressionInput.classList.remove("is-invalid");
   if (dom.expressionValidationError) {
     dom.expressionValidationError.textContent = "";
+    dom.expressionValidationError.classList.remove("text-warning");
+    dom.expressionValidationError.classList.add("text-danger");
     dom.expressionValidationError.classList.add("d-none");
   }
   hideExpressionErrorMarker();
@@ -882,6 +895,16 @@ function clearValidation() {
 
 function showExpressionValidationError(message) {
   if (!dom.expressionValidationError) return;
+  dom.expressionValidationError.classList.remove("text-warning");
+  dom.expressionValidationError.classList.add("text-danger");
+  dom.expressionValidationError.textContent = String(message || "").trim();
+  dom.expressionValidationError.classList.remove("d-none");
+}
+
+function showExpressionValidationWarning(message) {
+  if (!dom.expressionValidationError) return;
+  dom.expressionValidationError.classList.remove("text-danger");
+  dom.expressionValidationError.classList.add("text-warning");
   dom.expressionValidationError.textContent = String(message || "").trim();
   dom.expressionValidationError.classList.remove("d-none");
 }
@@ -1018,6 +1041,12 @@ async function validateExpressionViaBackend(expr) {
 }
 
 function refreshExpressionValidationState() {
+  if (dom.expressionValidationError?.classList.contains("text-warning")) {
+    dom.expressionValidationError.textContent = "";
+    dom.expressionValidationError.classList.remove("text-warning");
+    dom.expressionValidationError.classList.add("text-danger");
+    dom.expressionValidationError.classList.add("d-none");
+  }
   if (!dom.expressionInput.classList.contains("is-invalid")) return;
   if (expressionDraftIsValid()) {
     dom.expressionInput.classList.remove("is-invalid");

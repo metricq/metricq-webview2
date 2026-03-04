@@ -348,6 +348,12 @@
     color: #842029;
 }
 
+.expression-token.expression-token-unknown {
+    border-color: #fd7e14;
+    background: #fff4e8;
+    color: #8a4b08;
+}
+
 .expression-error-fragment {
     background: #fde7ea;
     color: #842029;
