@@ -653,6 +653,8 @@ function showExpressionValidationError(message) {
 function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
   const info = errorInfo || {};
   const code = String(info.type || "").trim();
+  const token = String(info.token || "").trim();
+  const quotedToken = token ? `"${token}"` : "";
   switch (code) {
     case "missing_closing_bracket":
       return "Fehlende schließende eckige Klammer ] im Ausdruck.";
@@ -661,9 +663,13 @@ function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
     case "invalid_number":
       return "Ungültige Zahl im Ausdruck.";
     case "unexpected_character":
-      return "Ungültiges Zeichen im Ausdruck.";
+      return quotedToken
+        ? `Ungültiges Zeichen ${quotedToken} im Ausdruck.`
+        : "Ungültiges Zeichen im Ausdruck.";
     case "unexpected_token":
-      return "Unerwartetes Token im Ausdruck.";
+      return quotedToken
+        ? `Unerwartetes Token ${quotedToken}.`
+        : "Unerwartetes Token im Ausdruck.";
     case "missing_closing_parenthesis":
       return "Fehlende schließende Klammer ) im Ausdruck.";
     case "unsupported_function":
@@ -810,7 +816,7 @@ async function saveExpressionMetric(hooks) {
   const remoteValidation = await validateExpressionViaBackend(expr);
   if (!remoteValidation.ok) {
     const message = localizedExpressionErrorMessage(remoteValidation.info, remoteValidation.message);
-    showExpressionValidationError(`Ungültiger Ausdruck: ${message}`);
+    showExpressionValidationError(message);
     const position = Number(remoteValidation.info?.position);
     const end = Number(remoteValidation.info?.end);
     if (Number.isFinite(position)) {

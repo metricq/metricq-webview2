@@ -31,6 +31,9 @@ func buildExprErrorInfo(err error) *apiExprError {
 		if msg := strings.TrimSpace(parseErr.Message); msg != "" {
 			info.Message = msg
 		}
+		if tok := strings.TrimSpace(parseErr.Token); tok != "" {
+			info.Token = tok
+		}
 		pos := parseErr.Pos
 		end := parseErr.End
 		info.Position = &pos

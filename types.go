@@ -115,6 +115,7 @@ type apiQuerySeries struct {
 type apiExprError struct {
 	Type     string `json:"type,omitempty"`
 	Message  string `json:"message"`
+	Token    string `json:"token,omitempty"`
 	Position *int   `json:"position,omitempty"`
 	End      *int   `json:"end,omitempty"`
 }

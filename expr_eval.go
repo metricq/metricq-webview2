@@ -312,6 +312,7 @@ type exprToken struct {
 type exprParseError struct {
 	Code    string
 	Message string
+	Token   string
 	Pos     int
 	End     int
 }
@@ -324,6 +325,10 @@ func (e *exprParseError) Error() string {
 }
 
 func newExprParseError(code, message string, pos, end int) error {
+	return newExprParseErrorWithToken(code, message, "", pos, end)
+}
+
+func newExprParseErrorWithToken(code, message, token string, pos, end int) error {
 	if pos < 0 {
 		pos = 0
 	}
@@ -333,6 +338,7 @@ func newExprParseError(code, message string, pos, end int) error {
 	return &exprParseError{
 		Code:    strings.TrimSpace(code),
 		Message: strings.TrimSpace(message),
+		Token:   token,
 		Pos:     pos,
 		End:     end,
 	}
@@ -362,7 +368,7 @@ func isNumericToken(word string) bool {
 
 func tokenizeExpr(input string) ([]exprToken, error) {
 	out := make([]exprToken, 0, len(input)+1)
-	runes := []rune(strings.TrimSpace(input))
+	runes := []rune(input)
 	for i := 0; i < len(runes); {
 		r := runes[i]
 		if unicode.IsSpace(r) {
@@ -446,7 +452,7 @@ func tokenizeExpr(input string) ([]exprToken, error) {
 			out = append(out, exprToken{kind: "ident", val: word, pos: start, end: i})
 			continue
 		}
-		return nil, newExprParseError("unexpected_character", fmt.Sprintf("unexpected character %q", string(r)), i, i+1)
+		return nil, newExprParseErrorWithToken("unexpected_character", fmt.Sprintf("unexpected character %q", string(r)), string(r), i, i+1)
 	}
 	out = append(out, exprToken{kind: "eof", pos: len(runes), end: len(runes)})
 	return out, nil
@@ -469,7 +475,7 @@ func parseExpression(input string) (exprNode, error) {
 	}
 	if p.peek().kind != "eof" {
 		tok := p.peek()
-		return nil, newExprParseError("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.pos, tok.end)
+		return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 	}
 	return node, nil
 }
@@ -582,7 +588,7 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 		}
 		return metricNode{name: tok.val}, nil
 	}
-	return nil, newExprParseError("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.pos, tok.end)
+	return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 }
 
 func (p *exprParser) parseFunctionCall(name string) (exprNode, error) {
