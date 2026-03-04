@@ -634,6 +634,34 @@ function expressionDraftIsValid() {
   return Boolean(expr);
 }
 
+async function validateExpressionViaBackend(expr) {
+  const text = String(expr || "").trim();
+  if (!text) return { ok: false, message: "Der Ausdruck ist leer." };
+  const now = Date.now();
+  try {
+    const body = await apiFetch("/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targets: [{ name: "__expr_validation__", expr: text }],
+        from: now - 60_000,
+        to: now,
+        maxDataPoints: 2,
+      }),
+    });
+    const series = Array.isArray(body?.series) ? body.series : [];
+    const first = series[0] || null;
+    const errorText = String(first?.error || "").trim();
+    if (errorText) return { ok: false, message: errorText };
+    return { ok: true, message: "" };
+  } catch (err) {
+    return {
+      ok: false,
+      message: String(err?.message || "Ausdruck konnte nicht validiert werden."),
+    };
+  }
+}
+
 function refreshExpressionValidationState() {
   if (!dom.expressionInput.classList.contains("is-invalid")) return;
   if (expressionDraftIsValid()) {
@@ -646,7 +674,7 @@ function refreshExpressionValidationState() {
   }
 }
 
-function saveExpressionMetric(hooks) {
+async function saveExpressionMetric(hooks) {
   clearValidation();
   const name = dom.expressionMetricName.value.trim();
   const expr = expandExpressionAliases(canonicalExpressionFromEditor(), state.metrics);
@@ -659,6 +687,13 @@ function saveExpressionMetric(hooks) {
   }
   if (!expr) {
     showExpressionValidationError("Der Ausdruck ist ungültig. Bitte prüfe Syntax und referenzierte Metriken.");
+    markInvalid(dom.expressionInput);
+    blockCloseOnInvalidExpression = true;
+    return;
+  }
+  const remoteValidation = await validateExpressionViaBackend(expr);
+  if (!remoteValidation.ok) {
+    showExpressionValidationError(`Ungültiger Ausdruck: ${remoteValidation.message}`);
     markInvalid(dom.expressionInput);
     blockCloseOnInvalidExpression = true;
     return;
@@ -847,7 +882,9 @@ export function wireExpressionModal(hooks) {
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
 
-  dom.btnSaveExpressionMetric.addEventListener("click", () => saveExpressionMetric(hooks));
+  dom.btnSaveExpressionMetric.addEventListener("click", () => {
+    void saveExpressionMetric(hooks);
+  });
 
   dom.expressionMetricModal.addEventListener("hide.bs.modal", (event) => {
     if (!blockCloseOnInvalidExpression) return;
