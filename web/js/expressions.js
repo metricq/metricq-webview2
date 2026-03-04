@@ -818,11 +818,11 @@ async function pasteExpressionSelectionFromClipboard(event) {
     }
   }
   insertExpressionPartsAtCursor(resolved);
-  if (unknownMetrics.length > 0) {
+  refreshExpressionValidationState();
+  if (unknownMetrics.length > 0 && !dom.expressionInput.classList.contains("is-invalid")) {
     const listed = unknownMetrics.map((name) => `[${name}]`).join(", ");
     showExpressionValidationWarning(`Warnung: Unbekannte Metrik-Referenz(en): ${listed}`);
   }
-  refreshExpressionValidationState();
 }
 
 function insertMetricTokenAtCursor(metricName) {
@@ -893,6 +893,15 @@ function clearValidation() {
   hideExpressionErrorMarker();
 }
 
+function clearExpressionValidationWarning() {
+  if (!dom.expressionValidationError) return;
+  if (!dom.expressionValidationError.classList.contains("text-warning")) return;
+  dom.expressionValidationError.textContent = "";
+  dom.expressionValidationError.classList.remove("text-warning");
+  dom.expressionValidationError.classList.add("text-danger");
+  dom.expressionValidationError.classList.add("d-none");
+}
+
 function showExpressionValidationError(message) {
   if (!dom.expressionValidationError) return;
   dom.expressionValidationError.classList.remove("text-warning");
@@ -903,6 +912,7 @@ function showExpressionValidationError(message) {
 
 function showExpressionValidationWarning(message) {
   if (!dom.expressionValidationError) return;
+  if (dom.expressionInput.classList.contains("is-invalid")) return;
   dom.expressionValidationError.classList.remove("text-danger");
   dom.expressionValidationError.classList.add("text-warning");
   dom.expressionValidationError.textContent = String(message || "").trim();
@@ -1041,12 +1051,6 @@ async function validateExpressionViaBackend(expr) {
 }
 
 function refreshExpressionValidationState() {
-  if (dom.expressionValidationError?.classList.contains("text-warning")) {
-    dom.expressionValidationError.textContent = "";
-    dom.expressionValidationError.classList.remove("text-warning");
-    dom.expressionValidationError.classList.add("text-danger");
-    dom.expressionValidationError.classList.add("d-none");
-  }
   if (!dom.expressionInput.classList.contains("is-invalid")) return;
   if (expressionDraftIsValid()) {
     dom.expressionInput.classList.remove("is-invalid");
@@ -1055,6 +1059,32 @@ function refreshExpressionValidationState() {
       dom.expressionValidationError.textContent = "";
       dom.expressionValidationError.classList.add("d-none");
     }
+  }
+}
+
+async function refreshUnknownMetricWarnings() {
+  const tokens = Array.from(dom.expressionInput.querySelectorAll(".expression-token"));
+  if (tokens.length === 0) {
+    clearExpressionValidationWarning();
+    return;
+  }
+  const names = [...new Set(tokens.map((el) => String(el.dataset.metricName || "").trim()).filter(Boolean))];
+  const unknown = [];
+  for (const name of names) {
+    const exists = await metricExistsForToken(name);
+    if (!exists) unknown.push(name);
+  }
+  for (const tokenEl of tokens) {
+    const name = String(tokenEl.dataset.metricName || "").trim();
+    const isUnknown = unknown.includes(name);
+    tokenEl.dataset.metricKnown = isUnknown ? "0" : "1";
+    tokenEl.classList.toggle("expression-token-unknown", isUnknown);
+  }
+  if (unknown.length > 0) {
+    const listed = unknown.map((name) => `[${name}]`).join(", ");
+    showExpressionValidationWarning(`Warnung: Unbekannte Metrik-Referenz(en): ${listed}`);
+  } else {
+    clearExpressionValidationWarning();
   }
 }
 
@@ -1152,6 +1182,7 @@ function maybeConvertTypedBracketExpression(event) {
     return;
   }
   caretOffsetMapper.setCaretByExpressionOffset(caretOffset);
+  void refreshUnknownMetricWarnings();
 }
 
 function maybePlaceCaretOutsideEdgeToken(event) {
@@ -1213,6 +1244,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
+    void refreshUnknownMetricWarnings();
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -1229,6 +1261,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricSearch.value = "";
     renderMetricSearchHints([]);
     renderMetricPalette();
+    void refreshUnknownMetricWarnings();
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -1270,7 +1303,10 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
-  dom.expressionInput.addEventListener("input", refreshExpressionValidationState);
+  dom.expressionInput.addEventListener("input", () => {
+    refreshExpressionValidationState();
+    void refreshUnknownMetricWarnings();
+  });
   dom.expressionInput.addEventListener("copy", copyExpressionSelectionToClipboard);
   dom.expressionInput.addEventListener("cut", cutExpressionSelectionToClipboard);
   dom.expressionInput.addEventListener("paste", (event) => {
