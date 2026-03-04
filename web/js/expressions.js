@@ -720,6 +720,19 @@ function maybePlaceCaretOutsideEdgeToken(event) {
   if (tokens.length === 0) return;
   const first = tokens[0].getBoundingClientRect();
   const last = tokens[tokens.length - 1].getBoundingClientRect();
+  const trailingContentAfterLastToken = (() => {
+    let node = tokens[tokens.length - 1]?.nextSibling || null;
+    while (node) {
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = String(node.textContent || "").split(CARET_SENTINEL).join("");
+        if (text.trim().length > 0) return true;
+      } else if (node.nodeType === Node.ELEMENT_NODE) {
+        if (!node.classList.contains("expression-drop-marker")) return true;
+      }
+      node = node.nextSibling;
+    }
+    return false;
+  })();
   if (event.clientX <= first.left - 2) {
     event.preventDefault();
     placeCaretBeforeNode(tokens[0]);
@@ -727,7 +740,8 @@ function maybePlaceCaretOutsideEdgeToken(event) {
   }
   if (event.clientX >= last.right + 2) {
     event.preventDefault();
-    placeCaretAfterNode(tokens[tokens.length - 1]);
+    if (trailingContentAfterLastToken) placeCaretAtEnd(dom.expressionInput);
+    else placeCaretAfterNode(tokens[tokens.length - 1]);
   }
 }
 
