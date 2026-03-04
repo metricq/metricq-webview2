@@ -357,6 +357,12 @@
     color: #842029;
 }
 
+.expression-error-fragment {
+    background: #fde7ea;
+    color: #842029;
+    border-bottom: 2px solid #dc3545;
+}
+
 .expression-palette {
     display: flex;
     flex-wrap: wrap;

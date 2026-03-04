@@ -18,6 +18,7 @@ let draggingTokenId = "";
 let draggingMetricName = "";
 let expressionErrorMarkerEl = null;
 let expressionErrorTokenEl = null;
+let expressionErrorFragmentEl = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -72,6 +73,14 @@ function hideExpressionErrorMarker() {
   if (expressionErrorTokenEl) {
     expressionErrorTokenEl.classList.remove("expression-token-error");
     expressionErrorTokenEl = null;
+  }
+  if (expressionErrorFragmentEl) {
+    const frag = expressionErrorFragmentEl;
+    while (frag.firstChild) {
+      frag.parentNode?.insertBefore(frag.firstChild, frag);
+    }
+    frag.remove();
+    expressionErrorFragmentEl = null;
   }
 }
 
@@ -381,6 +390,8 @@ function placeExpressionErrorMarker(position, end, errorInfo = null) {
   const unexpectedTokenName = String(errorInfo?.type || "") === "unexpected_token"
     ? String(errorInfo?.token || "").trim()
     : "";
+  const startOffset = Math.max(0, Number(position) || 0);
+  const endOffset = Math.max(startOffset + 1, Number(end) || startOffset + 1);
   if (unexpectedTokenName) {
     const tokenNode = findExpressionTokenNodeByNameAndOffset(unexpectedTokenName, position);
     if (tokenNode) {
@@ -394,8 +405,27 @@ function placeExpressionErrorMarker(position, end, errorInfo = null) {
       return;
     }
   }
-  const startOffset = Math.max(0, Number(position) || 0);
+
   const start = caretOffsetMapper.domPositionFromExpressionOffset(startOffset);
+  const finish = caretOffsetMapper.domPositionFromExpressionOffset(endOffset);
+  if (start?.node && finish?.node && start.node === finish.node && start.offset < finish.offset) {
+    try {
+      const highlightRange = document.createRange();
+      highlightRange.setStart(start.node, start.offset);
+      highlightRange.setEnd(finish.node, finish.offset);
+      const fragment = document.createElement("span");
+      fragment.className = "expression-error-fragment";
+      highlightRange.surroundContents(fragment);
+      expressionErrorFragmentEl = fragment;
+      const caretRange = document.createRange();
+      caretRange.setStartAfter(fragment);
+      caretRange.collapse(true);
+      caretRange.insertNode(marker);
+      marker.classList.remove("d-none");
+      return;
+    } catch (_) {}
+  }
+
   const range = document.createRange();
   try {
     if (start?.node) {
