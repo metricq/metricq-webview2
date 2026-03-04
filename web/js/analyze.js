@@ -1,6 +1,5 @@
 import { apiFetch } from "./api.js";
 import { dom } from "./dom.js";
-import { formatFactor } from "./factor-format.mjs";
 import { metricByName, metricDisplayName, state } from "./model.js";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./utils.js";
@@ -28,7 +27,7 @@ async function buildAnalyzeTargets() {
   const visibleMetrics = state.metrics.filter((metric) => metric.draw);
   const now = Date.now();
   const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-  const resolved = await buildQueryTargetsResolved(visibleMetrics, async (metricName) => {
+  return buildQueryTargetsResolved(visibleMetrics, async (metricName) => {
     const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
     return body?.metadata?.unit || "";
   }, async (metricName) => {
@@ -43,14 +42,24 @@ async function buildAnalyzeTargets() {
     });
     return { minimum: body?.minimum, maximum: body?.maximum };
   });
+}
 
-  return resolved.map((target) => {
-    const metric = metricByName(target.name);
-    const factorText = formatFactor(metric?.factor, 12);
-    if (!factorText) return target;
-    if (target.expr) return { name: target.name, expr: `(${target.expr})*${factorText}` };
-    return { name: target.name, expr: `([${target.name}]*${factorText})` };
-  });
+function scaleAnalyzeValue(value, factor) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return num;
+  return num * factor;
+}
+
+function scaledAnalyzeStats(entry, factor) {
+  const minimum = scaleAnalyzeValue(entry.minimum, factor);
+  const maximum = scaleAnalyzeValue(entry.maximum, factor);
+  return {
+    minimum: Math.min(minimum, maximum),
+    mean: scaleAnalyzeValue(entry.mean, factor),
+    maximum: Math.max(minimum, maximum),
+    sum: scaleAnalyzeValue(entry.sum, factor),
+    count: entry.count,
+  };
 }
 
 async function ensureDescriptions() {
@@ -101,10 +110,12 @@ export async function runAnalyze() {
       err.colSpan = 4;
       tr.appendChild(err);
     } else {
-      tr.appendChild(createCell(entry.minimum.toFixed(3), "text-end"));
-      tr.appendChild(createCell(entry.mean.toFixed(3), "text-end"));
-      tr.appendChild(createCell(entry.maximum.toFixed(3), "text-end"));
-      tr.appendChild(createCell(String(entry.count), "text-end"));
+      const factor = Number(metric?.factor);
+      const scaled = scaledAnalyzeStats(entry, Number.isFinite(factor) ? factor : 1);
+      tr.appendChild(createCell(scaled.minimum.toFixed(3), "text-end"));
+      tr.appendChild(createCell(scaled.mean.toFixed(3), "text-end"));
+      tr.appendChild(createCell(scaled.maximum.toFixed(3), "text-end"));
+      tr.appendChild(createCell(String(scaled.count), "text-end"));
     }
     dom.analyzeTableBody.appendChild(tr);
   }
