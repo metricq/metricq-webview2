@@ -467,18 +467,30 @@ function placeExpressionErrorMarker(position, end, errorInfo = null) {
 
   const start = caretOffsetMapper.domPositionFromExpressionOffset(startOffset);
   const finish = caretOffsetMapper.domPositionFromExpressionOffset(endOffset);
-  if (start?.node && finish?.node && start.node === finish.node && start.offset < finish.offset) {
-    try {
-      const highlightRange = document.createRange();
-      highlightRange.setStart(start.node, start.offset);
-      highlightRange.setEnd(finish.node, finish.offset);
+  try {
+    const highlightRange = document.createRange();
+    if (start?.node) highlightRange.setStart(start.node, start.offset);
+    else if (start?.beforeNode) highlightRange.setStartBefore(start.beforeNode);
+    else if (start?.tokenNode) highlightRange.setStartBefore(start.tokenNode);
+    else if (start?.afterNode) highlightRange.setStartAfter(start.afterNode);
+    else highlightRange.selectNodeContents(dom.expressionInput);
+
+    if (finish?.node) highlightRange.setEnd(finish.node, finish.offset);
+    else if (finish?.beforeNode) highlightRange.setEndBefore(finish.beforeNode);
+    else if (finish?.tokenNode) highlightRange.setEndAfter(finish.tokenNode);
+    else if (finish?.afterNode) highlightRange.setEndAfter(finish.afterNode);
+    else highlightRange.collapse(false);
+
+    if (!highlightRange.collapsed) {
       const fragment = document.createElement("span");
       fragment.className = "expression-error-fragment";
-      highlightRange.surroundContents(fragment);
+      const contents = highlightRange.extractContents();
+      fragment.appendChild(contents);
+      highlightRange.insertNode(fragment);
       expressionErrorFragmentEl = fragment;
       return;
-    } catch (_) {}
-  }
+    }
+  } catch (_) {}
   if (start?.beforeNode?.classList?.contains("expression-token")) {
     start.beforeNode.classList.add("expression-token-error");
     expressionErrorTokenEl = start.beforeNode;
