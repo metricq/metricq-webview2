@@ -634,12 +634,12 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 			if reqErr != nil {
 				entry.Error = reqErr.Error()
 				out[i] = entry
-				return
+				continue
 			}
 			if len(hr.Agg) != 1 {
 				entry.Error = "unexpected response"
 				out[i] = entry
-				return
+				continue
 			}
 			agg := hr.Agg[0]
 			entry.Minimum = agg.Minimum
