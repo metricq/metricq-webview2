@@ -1,11 +1,10 @@
 package main
 
 import (
-	"sync"
 	"time"
 
 	metricq "github.com/metricq/metricq-go"
-	amqp "github.com/rabbitmq/amqp091-go"
+	"sync"
 )
 
 type config struct {
@@ -16,64 +15,25 @@ type config struct {
 	WebDir        string
 }
 
-type historyRegisterResponse struct {
-	DataServerAddress string `json:"dataServerAddress"`
-	HistoryExchange   string `json:"historyExchange"`
-	HistoryQueue      string `json:"historyQueue"`
-}
-
-type pendingResponse struct {
-	body     []byte
-	duration float64
-}
-
 type service struct {
-	agent *metricq.Agent
-	cfg   config
-
-	historyConn  *amqp.Connection
-	historyCh    *amqp.Channel
-	historyQueue string
-	historyEx    string
-
-	pendingMu sync.Mutex
-	pending   map[string]chan pendingResponse
+	agent   *metricq.Agent
+	history *metricq.HistoryClient
+	cfg     config
 
 	closeOnce sync.Once
 }
 
-type historyRequest struct {
-	Metric      string
-	StartTimeNS int64
-	EndTimeNS   int64
-	IntervalMax int64
-	RequestType int64
-	Timeout     time.Duration
-}
+type historyRequest = metricq.HistoryRequest
 
 const (
-	historyRequestTypeAggregateTimeline int64 = 0
-	historyRequestTypeAggregate         int64 = 1
-	historyRequestTypeLastValue         int64 = 2
-	historyRequestTypeFlexTimeline      int64 = 3
+	historyRequestTypeAggregateTimeline = metricq.HistoryRequestTypeAggregateTimeline
+	historyRequestTypeAggregate         = metricq.HistoryRequestTypeAggregate
+	historyRequestTypeLastValue         = metricq.HistoryRequestTypeLastValue
+	historyRequestTypeFlexTimeline      = metricq.HistoryRequestTypeFlexTimeline
 )
 
-type historyAggregate struct {
-	Minimum    float64
-	Maximum    float64
-	Sum        float64
-	Count      uint64
-	Integral   float64
-	ActiveTime int64
-}
-
-type historyResponse struct {
-	Metric    string
-	TimeDelta []int64
-	Values    []float64
-	Agg       []historyAggregate
-	Error     string
-}
+type historyAggregate = metricq.HistoryAggregate
+type historyResponse = metricq.HistoryResponse
 
 type metricLookupRequest struct {
 	Function string `json:"function"`

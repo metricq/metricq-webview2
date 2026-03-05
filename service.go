@@ -5,15 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
 	"sort"
-	"strconv"
 	"sync"
 	"time"
 
-	"github.com/google/uuid"
 	metricq "github.com/metricq/metricq-go"
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 func newService(ctx context.Context, cfg config) (*service, error) {
@@ -25,147 +21,23 @@ func newService(ctx context.Context, cfg config) (*service, error) {
 		return nil, fmt.Errorf("connect metricq management: %w", err)
 	}
 
-	respBytes, err := agent.Rpc(ctx, "metricq.management", "history.register", metricq.RpcMessage{Function: "history.register"})
+	history, err := metricq.NewHistoryClient(ctx, agent)
 	if err != nil {
 		agent.Close()
-		return nil, fmt.Errorf("rpc history.register: %w", err)
+		return nil, fmt.Errorf("init history client: %w", err)
 	}
 
-	var reg historyRegisterResponse
-	if err := json.Unmarshal(respBytes, &reg); err != nil {
-		agent.Close()
-		return nil, fmt.Errorf("parse history.register response: %w", err)
-	}
-	if reg.DataServerAddress == "" || reg.HistoryExchange == "" || reg.HistoryQueue == "" {
-		agent.Close()
-		return nil, fmt.Errorf("invalid history.register response")
-	}
-
-	historyURL, err := deriveDataURL(cfg.MetricQServer, reg.DataServerAddress)
-	if err != nil {
-		agent.Close()
-		return nil, err
-	}
-
-	historyConn, err := amqp.Dial(historyURL)
-	if err != nil {
-		agent.Close()
-		return nil, fmt.Errorf("connect history amqp: %w", err)
-	}
-	historyCh, err := historyConn.Channel()
-	if err != nil {
-		_ = historyConn.Close()
-		agent.Close()
-		return nil, fmt.Errorf("open history channel: %w", err)
-	}
-
-	if _, err := historyCh.QueueDeclarePassive(reg.HistoryQueue, false, false, false, false, nil); err != nil {
-		_ = historyCh.Close()
-		_ = historyConn.Close()
-		agent.Close()
-		return nil, fmt.Errorf("declare passive history queue: %w", err)
-	}
-
-	svc := &service{
-		agent:        agent,
-		cfg:          cfg,
-		historyConn:  historyConn,
-		historyCh:    historyCh,
-		historyQueue: reg.HistoryQueue,
-		historyEx:    reg.HistoryExchange,
-		pending:      make(map[string]chan pendingResponse),
-	}
-	if err := svc.startConsumer(ctx); err != nil {
-		svc.Close()
-		return nil, err
-	}
-	return svc, nil
-}
-
-func deriveDataURL(baseURL, dataServerAddress string) (string, error) {
-	base, err := url.Parse(baseURL)
-	if err != nil {
-		return "", err
-	}
-	dataURL, err := url.Parse(dataServerAddress)
-	if err != nil {
-		return "", err
-	}
-	if dataURL.Scheme == "vhost" {
-		dataURL.Scheme = base.Scheme
-		dataURL.Host = base.Host
-	}
-	if dataURL.User == nil && base.User != nil {
-		dataURL.User = base.User
-	}
-	return dataURL.String(), nil
-}
-
-func (s *service) startConsumer(ctx context.Context) error {
-	msgs, err := s.historyCh.Consume(s.historyQueue, "", false, true, false, false, nil)
-	if err != nil {
-		return fmt.Errorf("consume history queue: %w", err)
-	}
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg, ok := <-msgs:
-				if !ok {
-					return
-				}
-				s.handleHistoryMessage(msg)
-			}
-		}
-	}()
-	return nil
-}
-
-func (s *service) handleHistoryMessage(msg amqp.Delivery) {
-	defer func() {
-		_ = msg.Ack(false)
-	}()
-	if msg.CorrelationId == "" {
-		return
-	}
-
-	s.pendingMu.Lock()
-	ch, ok := s.pending[msg.CorrelationId]
-	s.pendingMu.Unlock()
-	if !ok {
-		return
-	}
-
-	duration := -1.0
-	if raw, ok := msg.Headers["x-request-duration"]; ok {
-		switch v := raw.(type) {
-		case string:
-			if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-				duration = parsed
-			}
-		case float64:
-			duration = v
-		case int64:
-			duration = float64(v)
-		case int32:
-			duration = float64(v)
-		}
-	}
-
-	select {
-	case ch <- pendingResponse{body: msg.Body, duration: duration}:
-	default:
-	}
+	return &service{
+		agent:   agent,
+		history: history,
+		cfg:     cfg,
+	}, nil
 }
 
 func (s *service) Close() {
 	s.closeOnce.Do(func() {
-		if s.historyCh != nil {
-			_ = s.historyCh.Close()
-		}
-		if s.historyConn != nil {
-			_ = s.historyConn.Close()
+		if s.history != nil {
+			_ = s.history.Close()
 		}
 		if s.agent != nil {
 			s.agent.Close()
@@ -174,49 +46,10 @@ func (s *service) Close() {
 }
 
 func (s *service) requestHistory(ctx context.Context, req historyRequest) (historyResponse, float64, error) {
-	correlationID := "mq-history-go-" + uuid.NewString()
-	payload := encodeHistoryRequest(req)
-
-	ch := make(chan pendingResponse, 1)
-	s.pendingMu.Lock()
-	s.pending[correlationID] = ch
-	s.pendingMu.Unlock()
-	defer func() {
-		s.pendingMu.Lock()
-		delete(s.pending, correlationID)
-		s.pendingMu.Unlock()
-	}()
-
-	msg := amqp.Publishing{
-		Body:          payload,
-		MessageId:     correlationID,
-		CorrelationId: correlationID,
-		ReplyTo:       s.historyQueue,
-		AppId:         s.cfg.MetricQToken,
+	if req.Timeout <= 0 {
+		req.Timeout = s.cfg.QueryTimeout
 	}
-	if err := s.historyCh.PublishWithContext(ctx, s.historyEx, req.Metric, true, false, msg); err != nil {
-		return historyResponse{}, 0, fmt.Errorf("publish history request: %w", err)
-	}
-
-	timeout := req.Timeout
-	if timeout <= 0 {
-		timeout = s.cfg.QueryTimeout
-	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-
-	select {
-	case <-ctx.Done():
-		return historyResponse{}, 0, ctx.Err()
-	case <-timer.C:
-		return historyResponse{}, 0, fmt.Errorf("history request timeout")
-	case response := <-ch:
-		decoded, err := decodeHistoryResponse(response.body)
-		if err != nil {
-			return historyResponse{}, 0, err
-		}
-		return decoded, response.duration, nil
-	}
+	return s.history.Request(ctx, req)
 }
 
 func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool, limit int) (map[string]map[string]any, []string, error) {

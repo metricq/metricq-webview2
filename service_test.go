@@ -2,17 +2,6 @@ package main
 
 import "testing"
 
-func TestDeriveDataURLWithVHost(t *testing.T) {
-	got, err := deriveDataURL("amqp://user:pass@rabbitmq:5672/", "vhost:/")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	want := "amqp://user:pass@rabbitmq:5672/"
-	if got != want {
-		t.Fatalf("unexpected url: got %q want %q", got, want)
-	}
-}
-
 func TestScaleValueByFunction(t *testing.T) {
 	agg := historyAggregate{Minimum: 1.5, Maximum: 9.5, Sum: 30, Count: 10}
 	scale := 2.0
