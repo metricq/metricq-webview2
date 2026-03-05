@@ -2,8 +2,13 @@ import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import { metricDisplayName, state } from "./model.js";
 import { formatFixed, formatNumber } from "./number-format.mjs";
-import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
-import { buildXTicks, formatAbsoluteTime, formatAxisTime, pickTimeTickStep } from "./time-axis.mjs";
+import {
+  buildXTicks,
+  formatAbsoluteTime,
+  formatAxisTime,
+  pickTimeTickStep,
+} from "./time-axis.mjs";
+import { toLocalInput, updateRangeButtonLabel } from "./time-range-ui.mjs";
 import { resolveYAxisDomain } from "./y-axis.mjs";
 
 export const MIN_ZOOM_RANGE_MS = 1000;
@@ -145,8 +150,11 @@ function seriesSampleTime(points, index, series, tiMode) {
   if (tiMode) return points?.[index]?.t;
   if (state.yAxisStacked) return points?.[index]?.t;
   const isAggregateSeries = series?.mode === "aggregates";
-  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
-  if (isAggregateSeries || isComputedValuesSeries) return aggregateDisplayTime(points, index, series);
+  const isComputedValuesSeries =
+    series?.mode === "values" &&
+    String(series?.stats?.type || "") === "computed";
+  if (isAggregateSeries || isComputedValuesSeries)
+    return aggregateDisplayTime(points, index, series);
   return points?.[index]?.t;
 }
 
@@ -181,7 +189,8 @@ function buildSemanticSamples(metric, series, tiMode) {
 }
 
 function sampleLastValue(samples, t) {
-  if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t)) return null;
+  if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t))
+    return null;
   if (samples.length === 1) {
     return t === samples[0].t ? samples[0] : null;
   }
@@ -294,11 +303,19 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
   const byMetric = new Map();
   const sampleByMetric = new Map();
   for (const item of seriesList) {
-    sampleByMetric.set(item.metric.name, buildSemanticSamples(item.metric, item.series, tiMode));
+    sampleByMetric.set(
+      item.metric.name,
+      buildSemanticSamples(item.metric, item.series, tiMode),
+    );
   }
 
-  const stackedItems = seriesList.filter((item) => item.metric.stackMode !== "normal").slice().reverse();
-  const nonStackedItems = seriesList.filter((item) => item.metric.stackMode === "normal");
+  const stackedItems = seriesList
+    .filter((item) => item.metric.stackMode !== "normal")
+    .slice()
+    .reverse();
+  const nonStackedItems = seriesList.filter(
+    (item) => item.metric.stackMode === "normal",
+  );
   const aligned = state.stackedAligned;
   const alignedTimes = Array.isArray(aligned?.times) ? aligned.times : [];
   const alignedMetrics = Array.isArray(aligned?.metrics) ? aligned.metrics : [];
@@ -310,7 +327,9 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
     if (!name || !Array.isArray(row)) continue;
     alignedByMetric.set(name, row);
   }
-  const canUseAligned = stackedItems.length > 0 && stackedItems.every((item) => alignedByMetric.has(item.metric.name));
+  const canUseAligned =
+    stackedItems.length > 0 &&
+    stackedItems.every((item) => alignedByMetric.has(item.metric.name));
   if (canUseAligned) {
     const from = state.from;
     const to = state.to;
@@ -378,8 +397,15 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
       samples: sampleByMetric.get(item.metric.name) || [],
       entry: null,
     }));
-    const stackedTimes = collectTimelineTimes(stackedConfigs.map((cfg) => cfg.samples));
-    for (const cfg of stackedConfigs) cfg.entry = createTypedStackedEntry(stackedTimes.length, true, cfg.samples);
+    const stackedTimes = collectTimelineTimes(
+      stackedConfigs.map((cfg) => cfg.samples),
+    );
+    for (const cfg of stackedConfigs)
+      cfg.entry = createTypedStackedEntry(
+        stackedTimes.length,
+        true,
+        cfg.samples,
+      );
     for (let i = 0; i < stackedTimes.length; i += 1) {
       const t = stackedTimes[i];
       const valuesAtT = new Float64Array(stackedConfigs.length);
@@ -453,7 +479,8 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
 }
 
 function stackedValueAt(metricName, type, t) {
-  if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t)) return null;
+  if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t))
+    return null;
   const entry = lastStackedByMetric.get(metricName);
   return stackedEntryValueAt(entry, type, t);
 }
@@ -478,7 +505,8 @@ function getDomain(seriesList) {
     }
   }
 
-  if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return { minY: 0, maxY: 1 };
+  if (!Number.isFinite(minY) || !Number.isFinite(maxY))
+    return { minY: 0, maxY: 1 };
   if (minY === maxY) {
     minY -= 1;
     maxY += 1;
@@ -511,7 +539,8 @@ function buildYTicks(minY, maxY, plotH) {
   const ticks = [];
   for (let v = start; v <= end + step * 0.5; v += step) {
     const rounded = Number(v.toPrecision(12));
-    if (rounded >= minY - step * 0.2 && rounded <= maxY + step * 0.2) ticks.push(rounded);
+    if (rounded >= minY - step * 0.2 && rounded <= maxY + step * 0.2)
+      ticks.push(rounded);
     if (ticks.length > 24) break;
   }
   if (ticks.length === 0) return [minY, maxY];
@@ -525,14 +554,18 @@ function formatYTickLabels(ticks) {
     const labels = ticks.map((value) => formatFixed(value, decimals));
     if (new Set(labels).size === labels.length) return labels;
   }
-  return ticks.map((value) => formatNumber(value, { maximumSignificantDigits: 10 }));
+  return ticks.map((value) =>
+    formatNumber(value, { maximumSignificantDigits: 10 }),
+  );
 }
 
 function yAxisUnitsLabel(seriesList) {
   const units = [];
   const seen = new Set();
   for (const item of seriesList || []) {
-    const unit = String(item?.metric?.displayUnit || item?.metric?.unit || "").trim();
+    const unit = String(
+      item?.metric?.displayUnit || item?.metric?.unit || "",
+    ).trim();
     if (!unit || seen.has(unit)) continue;
     seen.add(unit);
     units.push(unit);
@@ -550,9 +583,12 @@ function formatReferenceLabel(ts, rangeMs, tickStepMs) {
   const minute = String(d.getMinutes()).padStart(2, "0");
   const second = String(d.getSeconds()).padStart(2, "0");
   const millis = String(d.getMilliseconds()).padStart(3, "0");
-  if (tickStepMs < 1000) return `${day}.${month}.${year} ${hour}:${minute}:${second}.${millis}`;
-  if (tickStepMs < 60_000) return `${day}.${month}.${year} ${hour}:${minute}:${second}`;
-  if (tickStepMs < 24 * 60 * 60 * 1000) return `${day}.${month}.${year} ${hour}:${minute}`;
+  if (tickStepMs < 1000)
+    return `${day}.${month}.${year} ${hour}:${minute}:${second}.${millis}`;
+  if (tickStepMs < 60_000)
+    return `${day}.${month}.${year} ${hour}:${minute}:${second}`;
+  if (tickStepMs < 24 * 60 * 60 * 1000)
+    return `${day}.${month}.${year} ${hour}:${minute}`;
   return `${day}.${month}.${year}`;
 }
 
@@ -647,9 +683,10 @@ function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
         if (yLine > yBottom) yBottom = yLine;
         if (yBase > yBottom) yBottom = yBase;
       }
-      const runGrad = yBottom > yTop + 0.5
-        ? ctx.createLinearGradient(0, yTop, 0, yBottom)
-        : null;
+      const runGrad =
+        yBottom > yTop + 0.5
+          ? ctx.createLinearGradient(0, yTop, 0, yBottom)
+          : null;
       if (runGrad) {
         runGrad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
         runGrad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
@@ -681,9 +718,10 @@ function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
         if (yLine < yLineTop) yLineTop = yLine;
         if (yBase > yBottom) yBottom = yBase;
       }
-      const grad = yBottom > yLineTop + 0.5
-        ? ctx.createLinearGradient(0, yLineTop, 0, yBottom)
-        : null;
+      const grad =
+        yBottom > yLineTop + 0.5
+          ? ctx.createLinearGradient(0, yLineTop, 0, yBottom)
+          : null;
       if (grad) {
         grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
         grad.addColorStop(1, cssColorWithAlpha(color, bottomAlpha));
@@ -773,7 +811,10 @@ function setNavbarHelpToggleVisible(visible, withPop = false) {
     dom.btnHelpOverlayToggle.classList.remove("is-pop");
     void dom.btnHelpOverlayToggle.offsetWidth;
     dom.btnHelpOverlayToggle.classList.add("is-pop");
-    window.setTimeout(() => dom.btnHelpOverlayToggle?.classList.remove("is-pop"), 980);
+    window.setTimeout(
+      () => dom.btnHelpOverlayToggle?.classList.remove("is-pop"),
+      980,
+    );
   }
 }
 
@@ -783,7 +824,8 @@ function animateEmptyStateToNavbarHelpButton() {
   if (!card) return;
   const from = card.getBoundingClientRect();
   const to = dom.btnHelpOverlayToggle.getBoundingClientRect();
-  if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0) return;
+  if (from.width <= 0 || from.height <= 0 || to.width <= 0 || to.height <= 0)
+    return;
 
   const ghost = document.createElement("div");
   ghost.className = "chart-empty-minimize-ghost";
@@ -804,7 +846,10 @@ function animateEmptyStateToNavbarHelpButton() {
   const anim = ghost.animate(
     [
       { transform: "translate(0px, 0px) scale(1, 1)", opacity: 0.95 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${sxFactor}, ${syFactor})`, opacity: 0.1 },
+      {
+        transform: `translate(${dx}px, ${dy}px) scale(${sxFactor}, ${syFactor})`,
+        opacity: 0.1,
+      },
     ],
     { duration: 1400, easing: "cubic-bezier(.2,.8,.2,1)", fill: "forwards" },
   );
@@ -813,7 +858,9 @@ function animateEmptyStateToNavbarHelpButton() {
 }
 
 export function startHelpOverlayMinimize(durationMs = 1900) {
-  const overlayVisible = Boolean(dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"));
+  const overlayVisible = Boolean(
+    dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none"),
+  );
   if (!overlayVisible) return;
   state.helpOverlayForced = false;
   state.helpOverlayMinimizeDeferred = false;
@@ -821,15 +868,27 @@ export function startHelpOverlayMinimize(durationMs = 1900) {
   if (helpMinimizeTimerId != null) {
     window.clearTimeout(helpMinimizeTimerId);
   }
-  helpMinimizeTimerId = window.setTimeout(() => {
-    helpMinimizeTimerId = null;
-    state.helpOverlayMinimizeActive = false;
-    renderChart();
-  }, Math.max(250, Number(durationMs) || 1900));
+  helpMinimizeTimerId = window.setTimeout(
+    () => {
+      helpMinimizeTimerId = null;
+      state.helpOverlayMinimizeActive = false;
+      renderChart();
+    },
+    Math.max(250, Number(durationMs) || 1900),
+  );
   renderChart();
 }
 
-function drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
+function drawYAxisAndAxes(
+  ctx,
+  width,
+  height,
+  margin,
+  plotH,
+  sy,
+  yTicks,
+  seriesList,
+) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
   ctx.lineWidth = 1;
@@ -885,7 +944,10 @@ function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
   const tickStepMs = pickTimeTickStep(rangeMs, targetTicks);
   const xTicks = buildXTicks(xMin, xMax, tickStepMs);
   const maxVerticalGridLines = Math.max(4, Math.floor(plotW / 95));
-  const gridStride = Math.max(1, Math.ceil(xTicks.length / maxVerticalGridLines));
+  const gridStride = Math.max(
+    1,
+    Math.ceil(xTicks.length / maxVerticalGridLines),
+  );
   const axisY = height - margin.bottom;
   const tickLen = 4;
 
@@ -905,9 +967,10 @@ function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
     ctx.lineTo(x, axisY);
     ctx.stroke();
 
-    const label = i === 0
-      ? formatReferenceLabel(tick, rangeMs, tickStepMs)
-      : formatAxisTime(tick, rangeMs, tickStepMs);
+    const label =
+      i === 0
+        ? formatReferenceLabel(tick, rangeMs, tickStepMs)
+        : formatAxisTime(tick, rangeMs, tickStepMs);
 
     // Small black tick marker for each rendered x-label.
     ctx.save();
@@ -925,7 +988,6 @@ function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
     ctx.fillText(label, labelX, height - 9);
   }
 }
-
 
 export function renderChart() {
   resizeCanvas();
@@ -958,12 +1020,18 @@ export function renderChart() {
       helpMinimizeTimerId = null;
     }
   }
-  const minimizingNow = !noMetricsSelected
-    && !state.helpOverlayForced
-    && !state.helpOverlayMinimizeDeferred
-    && !!state.helpOverlayMinimizeActive;
-  const showHelpOverlay = noMetricsSelected || !!state.helpOverlayForced || !!state.helpOverlayMinimizeDeferred || minimizingNow;
-  const wasHelpVisible = dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
+  const minimizingNow =
+    !noMetricsSelected &&
+    !state.helpOverlayForced &&
+    !state.helpOverlayMinimizeDeferred &&
+    !!state.helpOverlayMinimizeActive;
+  const showHelpOverlay =
+    noMetricsSelected ||
+    !!state.helpOverlayForced ||
+    !!state.helpOverlayMinimizeDeferred ||
+    minimizingNow;
+  const wasHelpVisible =
+    dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
   if (showHelpOverlay) {
     setChartEmptyStateVisible(true);
     if (minimizingNow) {
@@ -1006,17 +1074,30 @@ export function renderChart() {
   dom.canvas.style.cursor = "crosshair";
 
   const tiMode = state.renderMode === "ti";
-  lastStackedByMetric = state.yAxisStacked ? buildStackedSeries(seriesList, tiMode, false) : null;
+  lastStackedByMetric = state.yAxisStacked
+    ? buildStackedSeries(seriesList, tiMode, false)
+    : null;
   const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
-  const domainStacked = state.yAxisStacked ? buildStackedSeries(domainSeries, tiMode, true) : null;
+  const domainStacked = state.yAxisStacked
+    ? buildStackedSeries(domainSeries, tiMode, true)
+    : null;
   const domain = resolveYAxisDomain(domainSeries, domainStacked);
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
   const xMin = state.from;
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
-  const sy = (y) => margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
-  lastLayout = { margin, plotW, plotH, sx, sy, minY: domain.minY, maxY: domain.maxY };
+  const sy = (y) =>
+    margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
+  lastLayout = {
+    margin,
+    plotW,
+    plotH,
+    sx,
+    sy,
+    minY: domain.minY,
+    maxY: domain.maxY,
+  };
 
   const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
   drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax);
@@ -1031,16 +1112,24 @@ export function renderChart() {
   for (const item of seriesList) {
     const { metric, series } = item;
     const stackedSeries = lastStackedByMetric?.get(metric.name);
-    const stackedAvgAt = state.yAxisStacked && stackedSeries?.stacksInYAxis
-      ? createSequentialStackedLookup(stackedSeries, "avg")
-      : null;
+    const stackedAvgAt =
+      state.yAxisStacked && stackedSeries?.stacksInYAxis
+        ? createSequentialStackedLookup(stackedSeries, "avg")
+        : null;
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
 
     if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
       if (stackedSeries.length >= 2) {
-        drawStackedTimelineFill(ctx, stackedSeries, tiMode, sx, sy, metric.color);
+        drawStackedTimelineFill(
+          ctx,
+          stackedSeries,
+          tiMode,
+          sx,
+          sy,
+          metric.color,
+        );
         drawStackedTimelineLine(ctx, stackedSeries, tiMode, sx, sy);
         continue;
       }
@@ -1067,7 +1156,14 @@ export function renderChart() {
             const p = points[i];
             const tx = p.t;
             const x = sx(tx);
-            const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
+            const y = sy(
+              resolveSeriesValueForRender(
+                stackedAvgAt,
+                stackedSeries,
+                tx,
+                p.v * metric.factor,
+              ),
+            );
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.fill();
@@ -1078,7 +1174,12 @@ export function renderChart() {
             points,
             (p) => {
               const tx = p.t;
-              return resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor);
+              return resolveSeriesValueForRender(
+                stackedAvgAt,
+                stackedSeries,
+                tx,
+                p.v * metric.factor,
+              );
             },
             sx,
             sy,
@@ -1086,7 +1187,14 @@ export function renderChart() {
         } else {
           const p = points[0];
           const x = sx(p.t);
-          const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, p.t, p.v * metric.factor));
+          const y = sy(
+            resolveSeriesValueForRender(
+              stackedAvgAt,
+              stackedSeries,
+              p.t,
+              p.v * metric.factor,
+            ),
+          );
           ctx.beginPath();
           ctx.arc(x, y, 1.8, 0, Math.PI * 2);
           ctx.fill();
@@ -1100,7 +1208,14 @@ export function renderChart() {
           const p = points[i];
           const tx = aggregateDisplayTime(points, i, series);
           const x = sx(tx);
-          const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
+          const y = sy(
+            resolveSeriesValueForRender(
+              stackedAvgAt,
+              stackedSeries,
+              tx,
+              p.v * metric.factor,
+            ),
+          );
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -1113,7 +1228,14 @@ export function renderChart() {
         const p = points[i];
         const tx = p.t;
         const x = sx(tx);
-        const y = sy(resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.v * metric.factor));
+        const y = sy(
+          resolveSeriesValueForRender(
+            stackedAvgAt,
+            stackedSeries,
+            tx,
+            p.v * metric.factor,
+          ),
+        );
         ctx.beginPath();
         ctx.arc(x, y, radius, 0, Math.PI * 2);
         ctx.fill();
@@ -1169,7 +1291,12 @@ export function renderChart() {
             segment,
             (p) => {
               const tx = p.t;
-              return resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.avg * metric.factor);
+              return resolveSeriesValueForRender(
+                stackedAvgAt,
+                stackedSeries,
+                tx,
+                p.avg * metric.factor,
+              );
             },
             sx,
             sy,
@@ -1180,7 +1307,12 @@ export function renderChart() {
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            const avg = resolveSeriesValueForRender(stackedAvgAt, stackedSeries, tx, p.avg * metric.factor);
+            const avg = resolveSeriesValueForRender(
+              stackedAvgAt,
+              stackedSeries,
+              tx,
+              p.avg * metric.factor,
+            );
             if (i === 0) ctx.moveTo(sx(tx), sy(avg));
             else ctx.lineTo(sx(tx), sy(avg));
           }
@@ -1221,7 +1353,10 @@ export function isChartInteractive() {
 }
 
 function seriesValueAtTime(metric, series, t) {
-  const points = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+  const points =
+    series.mode === "values"
+      ? series.points || []
+      : series.aggregatePoints || [];
   if (points.length === 0) return null;
 
   let best = null;
@@ -1240,9 +1375,13 @@ function seriesValueAtTime(metric, series, t) {
       bestDiff = d;
     }
   }
-  if (!best || (series.mode !== "values" && Number(best.count) === 0)) return null;
+  if (!best || (series.mode !== "values" && Number(best.count) === 0))
+    return null;
   const stacked = stackedValueAt(metric.name, "avg", bestT);
-  const rawValue = series.mode === "values" ? best.v * metric.factor : best.avg * metric.factor;
+  const rawValue =
+    series.mode === "values"
+      ? best.v * metric.factor
+      : best.avg * metric.factor;
   const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
 
   return {
@@ -1268,7 +1407,10 @@ function weightedHoverDist2(dx, dy) {
 }
 
 function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
-  const points = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+  const points =
+    series.mode === "values"
+      ? series.points || []
+      : series.aggregatePoints || [];
   if (points.length === 0) return null;
 
   // For small series, exact scan is cheap and gives best spatial match.
@@ -1281,7 +1423,9 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
       const sampleT = aggregateDisplayTime(points, i, series);
       const x = sx(sampleT);
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
-      const value = Number.isFinite(stacked) ? stacked : pointValue(series, p, metric.factor);
+      const value = Number.isFinite(stacked)
+        ? stacked
+        : pointValue(series, p, metric.factor);
       if (!Number.isFinite(value)) continue;
       const y = sy(value);
       const dx = x - cursorX;
@@ -1316,7 +1460,9 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     const sampleT = aggregateDisplayTime(points, i, series);
     const x = sx(sampleT);
     const stacked = stackedValueAt(metric.name, "avg", sampleT);
-    const value = Number.isFinite(stacked) ? stacked : pointValue(series, p, metric.factor);
+    const value = Number.isFinite(stacked)
+      ? stacked
+      : pointValue(series, p, metric.factor);
     if (!Number.isFinite(value)) continue;
     const y = sy(value);
     const dx = x - cursorX;
@@ -1346,12 +1492,20 @@ function selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain) {
   const scored = [];
 
   for (const candidate of candidates) {
-    const top = Number(stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t));
-    const base = Number(stackedValueAt(candidate.metric.name, "base", candidate.sampled.t));
+    const top = Number(
+      stackedValueAt(candidate.metric.name, "avg", candidate.sampled.t),
+    );
+    const base = Number(
+      stackedValueAt(candidate.metric.name, "base", candidate.sampled.t),
+    );
     const raw = Number(candidate.sampled.value);
     const snapScale = Math.max(0, Math.min(1, Math.abs(raw) / maxAbsDomain));
     const zeroTolerance = zeroToleranceBase * (0.35 + 0.65 * snapScale);
-    if (!Number.isFinite(top) || !Number.isFinite(base) || !Number.isFinite(raw)) {
+    if (
+      !Number.isFinite(top) ||
+      !Number.isFinite(base) ||
+      !Number.isFinite(raw)
+    ) {
       scored.push({ candidate, bucket: 3, delta: Number.POSITIVE_INFINITY });
       continue;
     }
@@ -1364,25 +1518,36 @@ function selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain) {
     );
     const isNearZero = Math.abs(raw) <= zeroTolerance;
     if (isNearZero) {
-      if (nearBoundary <= zeroTolerance) scored.push({ candidate, bucket: 1, delta: nearBoundary });
+      if (nearBoundary <= zeroTolerance)
+        scored.push({ candidate, bucket: 1, delta: nearBoundary });
       else scored.push({ candidate, bucket: 3, delta: nearBoundary });
       continue;
     }
 
-    const inside = raw >= 0
-      ? (cursorValue >= base && cursorValue < top)
-      : (cursorValue <= base && cursorValue > top);
+    const inside =
+      raw >= 0
+        ? cursorValue >= base && cursorValue < top
+        : cursorValue <= base && cursorValue > top;
     if (inside) {
       scored.push({ candidate, bucket: 0, delta: 0 });
       continue;
     }
-    const outsideDelta = cursorValue < lo ? (lo - cursorValue) : (cursorValue > hi ? (cursorValue - hi) : 0);
+    const outsideDelta =
+      cursorValue < lo
+        ? lo - cursorValue
+        : cursorValue > hi
+          ? cursorValue - hi
+          : 0;
     scored.push({ candidate, bucket: 2, delta: outsideDelta });
   }
 
   scored.sort((a, b) => {
-    const aNorm = a.candidate.dist2 / Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
-    const bNorm = b.candidate.dist2 / Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
+    const aNorm =
+      a.candidate.dist2 /
+      Math.max(1e-9, a.candidate.snapPx * a.candidate.snapPx);
+    const bNorm =
+      b.candidate.dist2 /
+      Math.max(1e-9, b.candidate.snapPx * b.candidate.snapPx);
     // Prioritize the visually nearest point first.
     if (Math.abs(aNorm - bNorm) > 1e-9) return aNorm - bNorm;
     if (a.bucket !== b.bucket) return a.bucket - b.bucket;
@@ -1444,8 +1609,14 @@ function aggregateDisplayTime(points, index, series = null) {
   const p = points?.[index];
   if (!p) return NaN;
   const isAggregateSeries = series?.mode === "aggregates";
-  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
-  if (state.renderMode !== "ti" && index > 0 && (isAggregateSeries || isComputedValuesSeries)) {
+  const isComputedValuesSeries =
+    series?.mode === "values" &&
+    String(series?.stats?.type || "") === "computed";
+  if (
+    state.renderMode !== "ti" &&
+    index > 0 &&
+    (isAggregateSeries || isComputedValuesSeries)
+  ) {
     const prev = points[index - 1];
     return Math.round((prev.t + p.t) / 2);
   }
@@ -1461,7 +1632,8 @@ function renderHoverAt(clientX, clientY) {
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
   const cursorValue = (() => {
-    if (!Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY)) return null;
+    if (!Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY))
+      return null;
     const rel = (cursorY - margin.top) / Math.max(1, lastLayout.plotH);
     return lastLayout.maxY - rel * (lastLayout.maxY - lastLayout.minY);
   })();
@@ -1480,7 +1652,9 @@ function renderHoverAt(clientX, clientY) {
       const factor = shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
       const unitText = shownUnit ? ` ${shownUnit}` : "";
-      const yPx = lastLayout.sy(Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg);
+      const yPx = lastLayout.sy(
+        Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg,
+      );
       const dx = hoverX - cursorX;
       const dy = yPx - cursorY;
       const dist2 = weightedHoverDist2(dx, dy);
@@ -1502,13 +1676,15 @@ function renderHoverAt(clientX, clientY) {
       hideHoverCursorLine();
       return;
     }
-    const rowsHtml = rows.map((row, idx) => {
-      const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
-      const valuesHtml = state.yAxisStacked
-        ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
-        : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
-      return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
-    }).join("");
+    const rowsHtml = rows
+      .map((row, idx) => {
+        const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
+        const valuesHtml = state.yAxisStacked
+          ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
+          : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
+        return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
+      })
+      .join("");
     dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`;
     dom.hoverBox.classList.remove("d-none");
     hideHoverPoint();
@@ -1530,7 +1706,8 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.style.top = `${top}px`;
     return;
   }
-  if (dom.collapsedLegend && state.sidebarCollapsed) dom.collapsedLegend.classList.remove("d-none");
+  if (dom.collapsedLegend && state.sidebarCollapsed)
+    dom.collapsedLegend.classList.remove("d-none");
   hideHoverCursorLine();
   const candidates = [];
   const plotRight = margin.left + lastLayout.plotW;
@@ -1559,17 +1736,27 @@ function renderHoverAt(clientX, clientY) {
     if (nearestRaw) {
       const nearestPoint = nearestRaw.point;
       const nearestIndex = nearestRaw.index;
-      if (series.mode !== "values" && Number(nearestPoint.count) === 0) continue;
-      const samplePoints = series.mode === "values" ? (series.points || []) : (series.aggregatePoints || []);
+      if (series.mode !== "values" && Number(nearestPoint.count) === 0)
+        continue;
+      const samplePoints =
+        series.mode === "values"
+          ? series.points || []
+          : series.aggregatePoints || [];
       const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
-      const rawValue = series.mode === "values"
-        ? nearestPoint.v * metric.factor
-        : nearestPoint.avg * metric.factor;
+      const rawValue =
+        series.mode === "values"
+          ? nearestPoint.v * metric.factor
+          : nearestPoint.avg * metric.factor;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
       const yPx = lastLayout.sy(plotValue);
       const xPx = lastLayout.sx(sampleT);
-      if (xPx >= margin.left && xPx <= plotRight && yPx >= margin.top && yPx <= plotBottom) {
+      if (
+        xPx >= margin.left &&
+        xPx <= plotRight &&
+        yPx >= margin.top &&
+        yPx <= plotBottom
+      ) {
         const dx = xPx - cursorX;
         const dy = yPx - cursorY;
         candidates.push({
@@ -1577,17 +1764,22 @@ function renderHoverAt(clientX, clientY) {
           sampled: { t: sampleT, value: rawValue },
           xPx,
           yPx,
-          snapPx: 12 + (Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18),
+          snapPx:
+            12 +
+            Math.max(0, Math.min(1, Math.abs(rawValue) / maxAbsDomain)) * 18,
           dist2: weightedHoverDist2(dx, dy),
         });
       }
     }
   }
 
-  const selected = (!state.yAxisStacked || !Number.isFinite(cursorValue))
-    ? selectNearestHoverCandidate(candidates)
-    : selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain);
-  const hoverSnapDistancePx = Number.isFinite(selected?.snapPx) ? selected.snapPx : 22;
+  const selected =
+    !state.yAxisStacked || !Number.isFinite(cursorValue)
+      ? selectNearestHoverCandidate(candidates)
+      : selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain);
+  const hoverSnapDistancePx = Number.isFinite(selected?.snapPx)
+    ? selected.snapPx
+    : 22;
   const hoverSnapDistanceSq = hoverSnapDistancePx * hoverSnapDistancePx;
 
   if (!selected || selected.dist2 > hoverSnapDistanceSq) {
@@ -1599,16 +1791,20 @@ function renderHoverAt(clientX, clientY) {
 
   const selectedPixelX = Math.round(selected.xPx);
   const selectedPixelY = Math.round(selected.yPx);
-  const samePixel = candidates.filter((candidate) =>
-    Math.round(candidate.xPx) === selectedPixelX && Math.round(candidate.yPx) === selectedPixelY,
+  const samePixel = candidates.filter(
+    (candidate) =>
+      Math.round(candidate.xPx) === selectedPixelX &&
+      Math.round(candidate.yPx) === selectedPixelY,
   );
   const rows = samePixel.length > 1 ? samePixel : [selected];
-  const rowHtml = rows.map((row) => {
-    const shownUnit = row.metric.displayUnit || row.metric.unit;
-    const factor = shownMetricFactor(row.metric);
-    const factorText = factor ? ` x${factor}` : "";
-    return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
-  }).join("");
+  const rowHtml = rows
+    .map((row) => {
+      const shownUnit = row.metric.displayUnit || row.metric.unit;
+      const factor = shownMetricFactor(row.metric);
+      const factorText = factor ? ` x${factor}` : "";
+      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+    })
+    .join("");
   dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
   dom.hoverBox.classList.remove("d-none");
 

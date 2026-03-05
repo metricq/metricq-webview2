@@ -2,12 +2,15 @@ import { apiFetch } from "./api.js";
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
-import { deriveExpressionUnits, deriveExpressionUnitsResolved } from "./expression-units.mjs";
+import {
+  deriveExpressionUnits,
+  deriveExpressionUnitsResolved,
+} from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
 import { state } from "./model.js";
 import { formatInteger } from "./number-format.mjs";
 import { buildQueryTargetsResolved } from "./targets.mjs";
-import { parseRangeFromInputs } from "./utils.js";
+import { parseRangeFromInputs } from "./time-range-ui.mjs";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 
 let latestLoadRequestSeq = 0;
@@ -19,7 +22,9 @@ async function fetchMetricUnitCached(metricName) {
   if (metadataUnitCache.has(key)) return metadataUnitCache.get(key);
   let unit = "";
   try {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(key)}`);
+    const body = await apiFetch(
+      `/api/metadata?metric=${encodeURIComponent(key)}`,
+    );
     unit = String(body?.metadata?.unit || "").trim();
   } catch (_) {
     unit = "";
@@ -29,7 +34,10 @@ async function fetchMetricUnitCached(metricName) {
 }
 
 function computeMaxDataPoints() {
-  const width = Math.max(320, dom.chartWrap.clientWidth || window.innerWidth || 320);
+  const width = Math.max(
+    320,
+    dom.chartWrap.clientWidth || window.innerWidth || 320,
+  );
   const resolution = Math.max(1, state.resolution || 1);
   const widthBased = Math.max(200, Math.round(width / resolution));
   const hardCap = Math.max(200, state.maxPoints || 200);
@@ -41,8 +49,14 @@ function seriesDisplayTime(points, index, series) {
   if (!point) return NaN;
   if (state.yAxisStacked) return point.t;
   const isAggregateSeries = series?.mode === "aggregates";
-  const isComputedValuesSeries = series?.mode === "values" && String(series?.stats?.type || "") === "computed";
-  if (state.renderMode !== "ti" && index > 0 && (isAggregateSeries || isComputedValuesSeries)) {
+  const isComputedValuesSeries =
+    series?.mode === "values" &&
+    String(series?.stats?.type || "") === "computed";
+  if (
+    state.renderMode !== "ti" &&
+    index > 0 &&
+    (isAggregateSeries || isComputedValuesSeries)
+  ) {
     const prev = points[index - 1];
     return Math.round((prev.t + point.t) / 2);
   }
@@ -94,14 +108,15 @@ function updateVisibleState(
     onStateChanged,
   });
 
-  if (Number.isFinite(aggPoints)) dom.aggPointsEl.textContent = formatInteger(aggPoints);
-  if (Number.isFinite(rawPoints)) dom.rawPointsEl.textContent = formatInteger(rawPoints);
+  if (Number.isFinite(aggPoints))
+    dom.aggPointsEl.textContent = formatInteger(aggPoints);
+  if (Number.isFinite(rawPoints))
+    dom.rawPointsEl.textContent = formatInteger(rawPoints);
   if (startedAt != null && Number.isFinite(totalDbMs)) {
     const totalHttpMs = Math.round(performance.now() - startedAt);
     const totalDbRoundedMs = Math.round(totalDbMs);
     dom.perfBadge.textContent = `HTTP: ${formatInteger(totalHttpMs)} ms | DB: ${formatInteger(totalDbRoundedMs)} ms`;
   }
-
 }
 
 export async function loadData(renderChart, onStateChanged = () => {}) {
@@ -131,18 +146,22 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   if (requestSeq !== latestLoadRequestSeq) return;
   const now = Date.now();
   const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-  const targets = await buildQueryTargetsResolved(state.metrics, fetchMetricUnitCached, async (metricName) => {
-    const body = await apiFetch("/api/query/range", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        metrics: [metricName],
-        from: now - tenYearsMs,
-        to: now,
-      }),
-    });
-    return { minimum: body?.minimum, maximum: body?.maximum };
-  });
+  const targets = await buildQueryTargetsResolved(
+    state.metrics,
+    fetchMetricUnitCached,
+    async (metricName) => {
+      const body = await apiFetch("/api/query/range", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metrics: [metricName],
+          from: now - tenYearsMs,
+          to: now,
+        }),
+      });
+      return { minimum: body?.minimum, maximum: body?.maximum };
+    },
+  );
   if (requestSeq !== latestLoadRequestSeq) return;
   const stackModes = state.metrics.map((metric) => ({
     name: metric.name,
@@ -181,29 +200,31 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   const queryTargets = state.yAxisStacked
     ? targets.filter((target) => !stackedNames.has(target.name))
     : targets;
-  const stackedTargets = targets.filter((target) => stackedNames.has(target.name));
+  const stackedTargets = targets.filter((target) =>
+    stackedNames.has(target.name),
+  );
   req.targets = queryTargets;
 
   const started = performance.now();
   const [body, stackedBody] = await Promise.all([
-    (queryTargets.length > 0)
+    queryTargets.length > 0
       ? apiFetch("/api/query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(req),
-      })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(req),
+        })
       : Promise.resolve({ series: [] }),
-    (state.yAxisStacked && stackedTargets.length > 0)
+    state.yAxisStacked && stackedTargets.length > 0
       ? apiFetch("/api/query/stacked", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          targets: stackedTargets,
-          from: extendedFrom,
-          to: extendedTo,
-          maxDataPoints: computeMaxDataPoints(),
-        }),
-      })
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            targets: stackedTargets,
+            from: extendedFrom,
+            to: extendedTo,
+            maxDataPoints: computeMaxDataPoints(),
+          }),
+        })
       : Promise.resolve(null),
   ]);
 
@@ -215,17 +236,18 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   state.series.clear();
   for (const series of body.series || []) {
     state.series.set(series.metric, series);
-    if (series.mode === "aggregates") aggPoints += (series.aggregatePoints || []).length;
+    if (series.mode === "aggregates")
+      aggPoints += (series.aggregatePoints || []).length;
     rawPoints += Math.round(series.rawCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
   }
   totalDbMs += Number(stackedBody?.duration || 0) * 1000;
   state.stackedAligned = stackedBody
     ? {
-      times: Array.isArray(stackedBody.times) ? stackedBody.times : [],
-      metrics: Array.isArray(stackedBody.metrics) ? stackedBody.metrics : [],
-      values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
-    }
+        times: Array.isArray(stackedBody.times) ? stackedBody.times : [],
+        metrics: Array.isArray(stackedBody.metrics) ? stackedBody.metrics : [],
+        values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
+      }
     : null;
   if (state.yAxisStacked && state.stackedAligned) {
     const times = state.stackedAligned.times || [];
@@ -257,7 +279,14 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   state.loadedTo = extendedTo;
   state.loadedMetricsKey = metricsKey;
 
-  updateVisibleState(renderChart, onStateChanged, started, aggPoints, rawPoints, totalDbMs);
+  updateVisibleState(
+    renderChart,
+    onStateChanged,
+    started,
+    aggPoints,
+    rawPoints,
+    totalDbMs,
+  );
   if (state.yAxisMode === "global") {
     try {
       await ensureGlobalYAxisRange();

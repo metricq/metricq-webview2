@@ -6,7 +6,12 @@ import { runAnalyze } from "./analyze.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { wireExpressionModal } from "./expressions.js";
 import { createHelpModule } from "./help.js";
-import { formatDecimalInput, formatFixed, formatInteger, parseLocalizedNumber } from "./number-format.mjs";
+import {
+  formatDecimalInput,
+  formatFixed,
+  formatInteger,
+  parseLocalizedNumber,
+} from "./number-format.mjs";
 import {
   clearMetrics,
   fetchMetadata,
@@ -34,7 +39,7 @@ import {
   setInitialRange,
   toLocalInput,
   updateRangeButtonLabel,
-} from "./utils.js";
+} from "./time-range-ui.mjs";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 import {
@@ -121,7 +126,9 @@ function syncStackedModeButton() {
 function updateSidebarToggleIcon() {
   const icon = dom.btnSidebarToggle.querySelector("i");
   if (!icon) return;
-  icon.className = state.sidebarCollapsed ? "bi bi-chevron-bar-left" : "bi bi-chevron-bar-right";
+  icon.className = state.sidebarCollapsed
+    ? "bi bi-chevron-bar-left"
+    : "bi bi-chevron-bar-right";
 }
 
 function setSidebarCollapsed(collapsed) {
@@ -158,8 +165,14 @@ function applyResponsiveSidebarMode() {
 }
 
 function showUrlStateErrorModal(message) {
-  const text = String(message || "").trim() || "Der Link-Status war ungültig und wurde entfernt.";
-  if (!dom.urlStateErrorModal || !dom.urlStateErrorText || !globalThis.bootstrap?.Modal) {
+  const text =
+    String(message || "").trim() ||
+    "Der Link-Status war ungültig und wurde entfernt.";
+  if (
+    !dom.urlStateErrorModal ||
+    !dom.urlStateErrorText ||
+    !globalThis.bootstrap?.Modal
+  ) {
     return;
   }
   dom.urlStateErrorText.textContent = text;
@@ -225,9 +238,8 @@ function formatDurationHuman(ms) {
   if (abs < 1000) return `${abs} ms`;
   if (abs < 60_000) {
     const sec = abs / 1000;
-    const text = sec < 10
-      ? formatFixed(sec, 1)
-      : formatInteger(Math.round(sec));
+    const text =
+      sec < 10 ? formatFixed(sec, 1) : formatInteger(Math.round(sec));
     return `${text} s`;
   }
   if (abs < 3_600_000) {
@@ -246,7 +258,8 @@ function formatDurationHuman(ms) {
   if (abs >= yearMs) {
     const years = Math.floor(abs / yearMs);
     const months = Math.round((abs % yearMs) / monthMs);
-    if (months >= 12) return `${years + 1} ${plural(years + 1, "Jahr", "Jahre")}`;
+    if (months >= 12)
+      return `${years + 1} ${plural(years + 1, "Jahr", "Jahre")}`;
     return months > 0
       ? `${years} ${plural(years, "Jahr", "Jahre")} ${months} ${plural(months, "Monat", "Monate")}`
       : `${years} ${plural(years, "Jahr", "Jahre")}`;
@@ -260,7 +273,9 @@ function formatDurationHuman(ms) {
   }
   const d = Math.floor(abs / 86_400_000);
   const h = Math.round((abs % 86_400_000) / 3_600_000);
-  return h > 0 ? `${d} ${plural(d, "Tag", "Tage")} ${h} h` : `${d} ${plural(d, "Tag", "Tage")}`;
+  return h > 0
+    ? `${d} ${plural(d, "Tag", "Tage")} ${h} h`
+    : `${d} ${plural(d, "Tag", "Tage")}`;
 }
 
 function showZoomRangeBadge() {
@@ -321,10 +336,18 @@ function syncYAxisModalFromState() {
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
   syncStackedModeButton();
-  const fillMin = Number.isFinite(state.yAxisManualMin) ? state.yAxisManualMin : state.yAxisCurrentMin;
-  const fillMax = Number.isFinite(state.yAxisManualMax) ? state.yAxisManualMax : state.yAxisCurrentMax;
-  dom.yAxisManualMin.value = Number.isFinite(fillMin) ? formatDecimalInput(fillMin) : "";
-  dom.yAxisManualMax.value = Number.isFinite(fillMax) ? formatDecimalInput(fillMax) : "";
+  const fillMin = Number.isFinite(state.yAxisManualMin)
+    ? state.yAxisManualMin
+    : state.yAxisCurrentMin;
+  const fillMax = Number.isFinite(state.yAxisManualMax)
+    ? state.yAxisManualMax
+    : state.yAxisCurrentMax;
+  dom.yAxisManualMin.value = Number.isFinite(fillMin)
+    ? formatDecimalInput(fillMin)
+    : "";
+  dom.yAxisManualMax.value = Number.isFinite(fillMax)
+    ? formatDecimalInput(fillMax)
+    : "";
   updateYAxisManualInputsEnabled();
 }
 
@@ -358,7 +381,10 @@ function commitDragZoom() {
     return;
   }
   const rawRange = to - from;
-  const clampedRange = Math.max(MIN_ZOOM_RANGE_MS, Math.min(MAX_ZOOM_RANGE_MS, rawRange));
+  const clampedRange = Math.max(
+    MIN_ZOOM_RANGE_MS,
+    Math.min(MAX_ZOOM_RANGE_MS, rawRange),
+  );
   const center = from + rawRange / 2;
   state.from = Math.round(center - clampedRange / 2);
   state.to = Math.round(center + clampedRange / 2);
@@ -437,7 +463,10 @@ function wireTimeDialogEvents() {
     // restart animation even when quickly re-clicking same shortcut
     void button.offsetWidth;
     button.classList.add("time-shortcut-active");
-    window.setTimeout(() => button.classList.remove("time-shortcut-active"), 460);
+    window.setTimeout(
+      () => button.classList.remove("time-shortcut-active"),
+      460,
+    );
     applyPreset(button.dataset.range);
   });
 
@@ -484,7 +513,9 @@ function wireMetricPanelEvents() {
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
   dom.btnClear.addEventListener("click", () => clearMetrics(hooks));
-  dom.btnRecolorClassic.addEventListener("click", () => recolorMetricsClassic(hooks));
+  dom.btnRecolorClassic.addEventListener("click", () =>
+    recolorMetricsClassic(hooks),
+  );
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
 
   dom.metricSearch.addEventListener("input", () => {
@@ -504,15 +535,23 @@ function wireModalEvents() {
   dom.btnExportPng.addEventListener("click", exportPNG);
   dom.btnExportCsv.addEventListener("click", exportCSV);
   dom.btnExportJson.addEventListener("click", exportJSON);
-  dom.btnApplyFactor.addEventListener("click", () => applyFactorFromModal(hooks));
+  dom.btnApplyFactor.addEventListener("click", () =>
+    applyFactorFromModal(hooks),
+  );
 }
 
 function wireYAxisEvents() {
   dom.btnYAxis.addEventListener("click", syncYAxisModalFromState);
   dom.yAxisModal.addEventListener("shown.bs.modal", syncYAxisModalFromState);
   dom.yAxisModeLocal.addEventListener("change", updateYAxisManualInputsEnabled);
-  dom.yAxisModeGlobal.addEventListener("change", updateYAxisManualInputsEnabled);
-  dom.yAxisModeManual.addEventListener("change", updateYAxisManualInputsEnabled);
+  dom.yAxisModeGlobal.addEventListener(
+    "change",
+    updateYAxisManualInputsEnabled,
+  );
+  dom.yAxisModeManual.addEventListener(
+    "change",
+    updateYAxisManualInputsEnabled,
+  );
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
     const manualMin = parseLocalizedNumber(dom.yAxisManualMin.value);
@@ -691,7 +730,11 @@ function applyPreset(preset) {
   const now = new Date();
   const from = evalPresetToken(tokens[0], now);
   const to = evalPresetToken(tokens[1], now);
-  if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from >= to) {
+  if (
+    !Number.isFinite(from.getTime()) ||
+    !Number.isFinite(to.getTime()) ||
+    from >= to
+  ) {
     return;
   }
 

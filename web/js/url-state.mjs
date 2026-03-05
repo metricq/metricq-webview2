@@ -1,7 +1,7 @@
 import { dom } from "./dom.js";
 import { colors, state } from "./model.js";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
-import { toLocalInput, updateRangeButtonLabel } from "./utils.js";
+import { toLocalInput, updateRangeButtonLabel } from "./time-range-ui.mjs";
 
 const URL_STATE_PARAM = "state";
 const URL_STATE_VERSION = 1;
@@ -75,14 +75,15 @@ function sanitizeMetricEntry(raw, index) {
 
 function serializeMetricEntry(metric, index) {
   const entry = { n: metric.name };
-  if (metric.expr) entry.e = metric.expr;
-  if (!metric.expr) {
+  if (metric.expr) {
+    entry.e = metric.expr;
+  } else {
     const alias = String(metric.alias || "").trim();
     if (alias) entry.a = alias;
   }
 
   const color = String(metric.color || "").toLowerCase();
-  if (color) entry.c = metric.color;
+  if (color) entry.c = color;
 
   if (!metric.draw) entry.h = 1;
 
@@ -100,21 +101,19 @@ function serializeMetricEntry(metric, index) {
 }
 
 function serializeYAxis() {
-  const stacked = state.yAxisStacked ? 1 : undefined;
+  const stacked = state.yAxisStacked ? { s: 1 } : {};
   if (state.yAxisMode === "local") {
-    if (stacked) return { m: "local", s: stacked };
+    if (state.yAxisStacked) return { m: "local", ...stacked };
     return null;
-  }
-  if (state.yAxisMode === "manual") {
+  } else if (state.yAxisMode === "manual") {
     const min = Number(state.yAxisManualMin);
     const max = Number(state.yAxisManualMax);
     if (Number.isFinite(min) && Number.isFinite(max) && min < max) {
-      return { m: "manual", min, max, ...(stacked ? { s: stacked } : {}) };
+      return { m: "manual", min, max, ...stacked };
     }
-    return { m: "manual", ...(stacked ? { s: stacked } : {}) };
-  }
-  if (state.yAxisMode === "global") {
-    return { m: "global", ...(stacked ? { s: stacked } : {}) };
+    return { m: "manual", ...stacked };
+  } else if (state.yAxisMode === "global") {
+    return { m: "global", ...stacked };
   }
   return null;
 }
@@ -147,7 +146,9 @@ function applyYAxisConfig(y) {
 function buildPayload() {
   const payload = {
     v: URL_STATE_VERSION,
-    m: state.metrics.map((metric, index) => serializeMetricEntry(metric, index)),
+    m: state.metrics.map((metric, index) =>
+      serializeMetricEntry(metric, index),
+    ),
   };
   if (state.renderMode === "ti") payload.rm = "ti";
 
@@ -167,7 +168,10 @@ function buildPayload() {
 
 function serializeRelative() {
   if (state.timeMode !== "relative") return null;
-  const amount = Math.max(1, Number.parseInt(dom.relativeAmount?.value || "0", 10) || 1);
+  const amount = Math.max(
+    1,
+    Number.parseInt(dom.relativeAmount?.value || "0", 10) || 1,
+  );
   const unit = String(dom.relativeUnit?.value || "h");
   if (!RELATIVE_UNITS.has(unit)) return null;
   return { a: amount, u: unit };
@@ -264,7 +268,11 @@ function applyRelativeConfig(r) {
 }
 
 export async function syncUrlStateNow() {
-  if (!Number.isFinite(state.from) || !Number.isFinite(state.to) || state.from >= state.to) {
+  if (
+    !Number.isFinite(state.from) ||
+    !Number.isFinite(state.to) ||
+    state.from >= state.to
+  ) {
     return;
   }
 
@@ -293,27 +301,37 @@ export async function applyStateFromUrl() {
   try {
     payload = decodeStatePayload(encoded);
   } catch (_) {
-    throw new InvalidUrlStateError("Der Link-Status ist ungültig und konnte nicht geladen werden.");
+    throw new InvalidUrlStateError(
+      "Der Link-Status ist ungültig und konnte nicht geladen werden.",
+    );
   }
 
   const hasRelative = payload?.r != null;
   const hasAbsolute = payload?.f != null || payload?.t != null;
   if (hasRelative && hasAbsolute) {
-    throw new InvalidUrlStateError("Der Link enthält widersprüchliche Zeitangaben und konnte nicht geladen werden.");
+    throw new InvalidUrlStateError(
+      "Der Link enthält widersprüchliche Zeitangaben und konnte nicht geladen werden.",
+    );
   }
   if (!hasRelative && !hasAbsolute) {
-    throw new InvalidUrlStateError("Der Link enthält keine gültige Zeitangabe und konnte nicht geladen werden.");
+    throw new InvalidUrlStateError(
+      "Der Link enthält keine gültige Zeitangabe und konnte nicht geladen werden.",
+    );
   }
 
   if (hasRelative) {
     if (!applyRelativeConfig(payload?.r)) {
-      throw new InvalidUrlStateError("Der Link enthält einen ungültigen relativen Zeitraum und konnte nicht geladen werden.");
+      throw new InvalidUrlStateError(
+        "Der Link enthält einen ungültigen relativen Zeitraum und konnte nicht geladen werden.",
+      );
     }
   } else {
     const from = Number(payload?.f);
     const to = Number(payload?.t);
     if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) {
-      throw new InvalidUrlStateError("Der Link enthält einen ungültigen Zeitraum und konnte nicht geladen werden.");
+      throw new InvalidUrlStateError(
+        "Der Link enthält einen ungültigen Zeitraum und konnte nicht geladen werden.",
+      );
     }
 
     state.timeMode = "absolute";
@@ -329,7 +347,9 @@ export async function applyStateFromUrl() {
     .map((entry, index) => sanitizeMetricEntry(entry, index))
     .filter(Boolean);
 
-  const renderMode = String(payload?.rm || "").trim().toLowerCase();
+  const renderMode = String(payload?.rm || "")
+    .trim()
+    .toLowerCase();
   state.renderMode = renderMode === "ti" ? "ti" : "standard";
 
   applyYAxisConfig(payload?.y);
@@ -352,7 +372,8 @@ export function applyLegacyWebviewHashFallback() {
   const now = Date.now();
   const from = parseLegacyTimeExpr(parts[0], now);
   const to = parseLegacyTimeExpr(parts[1], now);
-  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to) return false;
+  if (!Number.isFinite(from) || !Number.isFinite(to) || from >= to)
+    return false;
 
   const rel = /^now-(\d+)([mhdwMy])$/.exec(String(parts[0] || "").trim());
   const isRelative = rel && String(parts[1] || "").trim() === "now";
