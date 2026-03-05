@@ -1,7 +1,16 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import { metricDisplayName, state } from "./model.js";
-import { downloadBlob } from "./utils.js";
+
+function downloadBlob(filename, type, content) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export function exportJSON() {
   const payload = {
@@ -10,7 +19,11 @@ export function exportJSON() {
     metrics: state.metrics,
     series: Object.fromEntries(state.series.entries()),
   };
-  downloadBlob("metricq-codex.json", "application/json", JSON.stringify(payload, null, 2));
+  downloadBlob(
+    "metricq-codex.json",
+    "application/json",
+    JSON.stringify(payload, null, 2),
+  );
 }
 
 export function exportCSV() {
@@ -30,7 +43,9 @@ export function exportCSV() {
       rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.avg},avg`);
       rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.min},min`);
       rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.max},max`);
-      rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.count},count`);
+      rows.push(
+        `${metric.name},${new Date(p.t).toISOString()},${p.count},count`,
+      );
     }
   }
   downloadBlob("metricq-codex.csv", "text/csv", rows.join("\n"));
@@ -44,7 +59,10 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const rowGap = 6;
   const swatchSize = 10;
   const textX = pad + swatchSize + 8;
-  const maxAllowedWidth = Math.min(520, Math.max(220, Math.floor(cssWidth * 0.42)));
+  const maxAllowedWidth = Math.min(
+    520,
+    Math.max(220, Math.floor(cssWidth * 0.42)),
+  );
   const minAllowedWidth = 190;
 
   const rows = visible.map((metric) => {
@@ -67,7 +85,10 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     }
   }
   const neededWidth = Math.ceil(textX + maxTextWidth + pad);
-  const boxWidth = Math.max(minAllowedWidth, Math.min(maxAllowedWidth, neededWidth));
+  const boxWidth = Math.max(
+    minAllowedWidth,
+    Math.min(maxAllowedWidth, neededWidth),
+  );
 
   let boxH = pad;
   for (const row of rows) {
@@ -100,14 +121,20 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     ctx.font = "12px sans-serif";
     ctx.textBaseline = "alphabetic";
     const rowMaxTextWidth = boxWidth - textX - pad;
-    const clippedMain = ctx.measureText(main).width > rowMaxTextWidth ? `${main.slice(0, 64)}...` : main;
+    const clippedMain =
+      ctx.measureText(main).width > rowMaxTextWidth
+        ? `${main.slice(0, 64)}...`
+        : main;
     ctx.fillText(clippedMain, boxX + textX, y);
 
     y += 14;
     if (desc) {
       ctx.fillStyle = "#8a94a6";
       ctx.font = "11px sans-serif";
-      const clippedDesc = ctx.measureText(desc).width > rowMaxTextWidth ? `${desc.slice(0, 84)}...` : desc;
+      const clippedDesc =
+        ctx.measureText(desc).width > rowMaxTextWidth
+          ? `${desc.slice(0, 84)}...`
+          : desc;
       ctx.fillText(clippedDesc, boxX + textX, y);
       y += 13;
     }
