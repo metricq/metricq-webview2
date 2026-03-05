@@ -18,16 +18,12 @@ function formatRelativeRangeLabel() {
   };
 
   const { singular, plural, gender } = labels[unit] || labels.h;
-  const noun = amount === 1 ? singular : plural;
-  const adjective =
-    amount !== 1
-      ? "Letzten"
-      : gender === "m"
-        ? "Letzten"
-        : gender === "n"
-          ? "Letztes"
-          : "Letzte";
-  return `${adjective} ${amount} ${noun}`;
+  if (amount === 1) {
+    const singularAdjective =
+      gender === "m" ? "Letzter" : gender === "n" ? "Letztes" : "Letzte";
+    return `${singularAdjective} ${singular}`;
+  }
+  return `Letzte ${amount} ${plural}`;
 }
 
 function formatAbsoluteRangeDate(date) {
