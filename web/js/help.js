@@ -66,6 +66,7 @@ export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderC
     if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle) return;
     const metricCount = state.metrics.length;
     const hasMetrics = metricCount > 0;
+    const hasMultipleMetrics = metricCount > 1;
     const sidebarOpen = !state.sidebarCollapsed;
     if (dom.btnEmptyHideHelp) dom.btnEmptyHideHelp.classList.toggle("d-none", !hasMetrics);
 
@@ -77,29 +78,34 @@ export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderC
       : "Starte mit einer Metrik oder lege eine berechnete Metrik an.";
 
     const actions = [];
-    actions.push(helpActionButton("focus_metric_search", hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen", "bi-search", "primary"));
-    actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
-
     if (!hasMetrics) {
-      if (sidebarOpen) actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"));
+      actions.push(helpActionButton("focus_metric_search", hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen", "bi-search", "primary"));
+      actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
+    }
+    
+    if (!hasMetrics) {
+      if (sidebarOpen) actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse", "secondary"));
       else actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
       dom.chartHelpSections.innerHTML = actions.join("");
       return;
     }
 
     if (sidebarOpen) {
-      actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse"));
-      actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
-      actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
-      actions.push(helpActionButton("toggle_first_metric", "1. Metrik Ein/Aus", "bi-toggles"));
-      actions.push(helpActionButton("recolor_classic", "Klassisch", "bi-brush"));
-      actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
-      actions.push(helpActionButton("first_metric_color", "1. Metrik Farbe", "bi-circle-fill"));
+      if (hasMultipleMetrics) {
+        actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
+        actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
+        actions.push(helpActionButton("recolor_classic", "Klassisch färben", "bi-brush"));
+        actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
+      } else {
+        actions.push(helpActionButton("toggle_first_metric", "Metrik Ein/Ausblenden", "bi-toggles", "outline-primary"));
+        actions.push(helpActionButton("first_metric_color", "Farbe wählen", "bi-circle-fill", "outline-primary"));
+      }
+      actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse", "secondary"));
     } else {
+      actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical", "outline-primary"));
+      actions.push(helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers", state.yAxisStacked ? "primary" : "outline-primary"));
+      actions.push(helpActionButton("open_time_range", "Zeitraum wählen", "bi-clock-history", "outline-primary"));
       actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
-      actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical"));
-      actions.push(helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers"));
-      actions.push(helpActionButton("open_time_range", "Zeitraum", "bi-clock-history"));
     }
 
     dom.chartHelpSections.innerHTML = actions.join("");
