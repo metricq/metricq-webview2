@@ -9,21 +9,21 @@ function formatRelativeRangeLabel() {
   const unit = String(dom.relativeUnit?.value || "h");
 
   const labels = {
-    m: { singular: "Minute", plural: "Minuten", gender: "f", pluralPhrase: "Minuten" },
-    h: { singular: "Stunde", plural: "Stunden", gender: "f", pluralPhrase: "Stunden" },
-    d: { singular: "Tag", plural: "Tage", gender: "m", pluralPhrase: "Tagen" },
-    w: { singular: "Woche", plural: "Wochen", gender: "f", pluralPhrase: "Wochen" },
-    M: { singular: "Monat", plural: "Monate", gender: "m", pluralPhrase: "Monaten" },
-    y: { singular: "Jahr", plural: "Jahre", gender: "n", pluralPhrase: "Jahren" },
+    m: { singular: "Minute", plural: "Minuten", gender: "f" },
+    h: { singular: "Stunde", plural: "Stunden", gender: "f" },
+    d: { singular: "Tag", plural: "Tagen", gender: "m" },
+    w: { singular: "Woche", plural: "Wochen", gender: "f" },
+    M: { singular: "Monat", plural: "Monaten", gender: "m" },
+    y: { singular: "Jahr", plural: "Jahren", gender: "n" },
   };
 
-  const { singular, plural, pluralPhrase, gender } = labels[unit] || labels.h;
+  const { singular, plural, gender } = labels[unit] || labels.h;
   if (amount === 1) {
     const singularAdjective =
       gender === "m" ? "Letzter" : gender === "n" ? "Letztes" : "Letzte";
     return `${singularAdjective} ${singular}`;
   }
-  return `Letzten ${amount} ${pluralPhrase || plural}`;
+  return `Letzten ${amount} ${plural}`;
 }
 
 function formatAbsoluteRangeDate(date) {
