@@ -3,8 +3,9 @@ package main
 import (
 	"time"
 
-	metricq "github.com/metricq/metricq-go"
 	"sync"
+
+	metricq "github.com/metricq/metricq-go"
 )
 
 type config struct {
@@ -23,7 +24,7 @@ type service struct {
 	closeOnce sync.Once
 }
 
-type historyRequest = metricq.HistoryRequest
+type historyRequest = metricq.HistoryQuery
 
 const (
 	historyRequestTypeAggregateTimeline = metricq.HistoryRequestTypeAggregateTimeline
@@ -33,7 +34,7 @@ const (
 )
 
 type historyAggregate = metricq.HistoryAggregate
-type historyResponse = metricq.HistoryResponse
+type historyResponse = metricq.HistoryDataResponse
 
 type metricLookupRequest struct {
 	Function string `json:"function"`
