@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 func TestParseISOToUnixMS(t *testing.T) {
 	got, err := parseISOToUnixMS("1970-01-01T00:00:00.001Z")
@@ -15,10 +18,10 @@ func TestParseISOToUnixMS(t *testing.T) {
 
 func TestContainsFn(t *testing.T) {
 	list := []string{"min", "avg", "max"}
-	if !containsFn(list, "avg") {
+	if !slices.Contains(list, "avg") {
 		t.Fatalf("expected to find function")
 	}
-	if containsFn(list, "count") {
+	if slices.Contains(list, "count") {
 		t.Fatalf("did not expect to find count")
 	}
 }

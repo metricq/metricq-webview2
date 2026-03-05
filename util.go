@@ -9,12 +9,3 @@ func parseISOToUnixMS(v string) (int64, error) {
 	}
 	return t.UnixMilli(), nil
 }
-
-func containsFn(list []string, fn string) bool {
-	for _, item := range list {
-		if item == fn {
-			return true
-		}
-	}
-	return false
-}
