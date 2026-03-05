@@ -2,21 +2,32 @@ import { dom } from "./dom.js";
 import { state } from "./model.js";
 
 function formatRelativeRangeLabel() {
-  const amount = Math.max(1, Number.parseInt(dom.relativeAmount?.value || "1", 10) || 1);
+  const amount = Math.max(
+    1,
+    Number.parseInt(dom.relativeAmount?.value || "1", 10) || 1,
+  );
   const unit = String(dom.relativeUnit?.value || "h");
 
   const labels = {
-    m: ["Minute", "Minuten"],
-    h: ["Stunde", "Stunden"],
-    d: ["Tag", "Tage"],
-    w: ["Woche", "Wochen"],
-    M: ["Monat", "Monate"],
-    y: ["Jahr", "Jahre"],
+    m: { singular: "Minute", plural: "Minuten", gender: "f" },
+    h: { singular: "Stunde", plural: "Stunden", gender: "f" },
+    d: { singular: "Tag", plural: "Tage", gender: "m" },
+    w: { singular: "Woche", plural: "Wochen", gender: "f" },
+    M: { singular: "Monat", plural: "Monate", gender: "m" },
+    y: { singular: "Jahr", plural: "Jahre", gender: "n" },
   };
 
-  const [one, many] = labels[unit] || labels.h;
-  const noun = amount === 1 ? one : many;
-  return `Letzte ${amount} ${noun}`;
+  const { singular, plural, gender } = labels[unit] || labels.h;
+  const noun = amount === 1 ? singular : plural;
+  const adjective =
+    amount !== 1
+      ? "Letzten"
+      : gender === "m"
+        ? "Letzten"
+        : gender === "n"
+          ? "Letztes"
+          : "Letzte";
+  return `${adjective} ${amount} ${noun}`;
 }
 
 function formatAbsoluteRangeDate(date) {
@@ -59,9 +70,10 @@ export function updateRangeButtonLabel() {
     if (dom.timePopupCurrentRange) {
       const from = new Date(state.from);
       const to = new Date(state.to);
-      dom.timePopupCurrentRange.textContent = Number.isFinite(from.getTime()) && Number.isFinite(to.getTime())
-        ? `${from.toLocaleString()} - ${to.toLocaleString()}`
-        : relLabel;
+      dom.timePopupCurrentRange.textContent =
+        Number.isFinite(from.getTime()) && Number.isFinite(to.getTime())
+          ? `${from.toLocaleString()} - ${to.toLocaleString()}`
+          : relLabel;
     }
     return;
   }
