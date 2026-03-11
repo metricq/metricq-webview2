@@ -97,6 +97,7 @@ let zoomRangeBadgeTimer = null;
 let wheelZoomLoadTimer = null;
 let timeDialogMode = "relative";
 let helpModule = null;
+let sharePopTimer = null;
 
 function renderContextualHelp() {
   helpModule?.renderContextualHelp();
@@ -216,6 +217,57 @@ function closeTimePopup() {
 function toggleTimePopup() {
   if (dom.timePopup.classList.contains("d-none")) openTimePopup();
   else closeTimePopup();
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text ?? "");
+  if (!value) return false;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value);
+      return true;
+    }
+  } catch (_) {}
+
+  const fallback = document.createElement("textarea");
+  fallback.value = value;
+  fallback.setAttribute("readonly", "");
+  fallback.style.position = "fixed";
+  fallback.style.left = "-9999px";
+  fallback.style.top = "0";
+  document.body.appendChild(fallback);
+  fallback.select();
+  let ok = false;
+  try {
+    ok = document.execCommand("copy");
+  } catch (_) {
+    ok = false;
+  }
+  document.body.removeChild(fallback);
+  return ok;
+}
+
+function showShareCopiedPop(anchorEl) {
+  if (!anchorEl) return;
+  let pop = document.getElementById("shareCopyPop");
+  if (!pop) {
+    pop = document.createElement("div");
+    pop.id = "shareCopyPop";
+    pop.className = "share-copy-pop";
+    pop.textContent = "Kopiert.";
+    document.body.appendChild(pop);
+  }
+  const rect = anchorEl.getBoundingClientRect();
+  pop.style.left = `${Math.round(rect.left + rect.width / 2)}px`;
+  pop.style.top = `${Math.round(rect.top - 10)}px`;
+  pop.classList.remove("is-visible");
+  void pop.offsetWidth;
+  pop.classList.add("is-visible");
+  if (sharePopTimer) window.clearTimeout(sharePopTimer);
+  sharePopTimer = window.setTimeout(() => {
+    pop.classList.remove("is-visible");
+    sharePopTimer = null;
+  }, 680);
 }
 
 function fitContentHeight() {
@@ -406,6 +458,11 @@ function wireTopBarEvents() {
     hooks.loadData();
   });
   dom.btnTimeRange.addEventListener("click", toggleTimePopup);
+  dom.btnShare?.addEventListener("click", async () => {
+    await syncUrlStateNow().catch(() => {});
+    const copied = await copyTextToClipboard(window.location.href);
+    if (copied) showShareCopiedPop(dom.btnShare);
+  });
   dom.btnRenderMode.addEventListener("click", () => {
     state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
     syncRenderModeButton();

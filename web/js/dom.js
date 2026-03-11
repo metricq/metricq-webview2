@@ -61,6 +61,7 @@ export const dom = {
   btnExportPng: document.getElementById("btnExportPng"),
   btnExportCsv: document.getElementById("btnExportCsv"),
   btnExportJson: document.getElementById("btnExportJson"),
+  btnShare: document.getElementById("btnShare"),
   factorModal: document.getElementById("factorModal"),
   factorMetricName: document.getElementById("factorMetricName"),
   factorNormalizationInfo: document.getElementById("factorNormalizationInfo"),
