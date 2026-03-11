@@ -33,6 +33,24 @@ function canonicalizeExpressionText(text) {
   return String(text || "").replace(DECIMAL_COMMA_BETWEEN_DIGITS, "$1.$2");
 }
 
+function transformExpressionTextPreservingMetrics(expression, transformText) {
+  const parts = parseExpressionPartsRaw(String(expression || ""));
+  let out = "";
+  for (const part of parts) {
+    if (part.type === "metric") out += `[${part.value}]`;
+    else out += transformText(String(part.value || ""));
+  }
+  return out;
+}
+
+function localizeExpressionTextPreservingMetrics(text) {
+  return transformExpressionTextPreservingMetrics(text, localizeExpressionText);
+}
+
+function canonicalizeExpressionTextPreservingMetrics(text) {
+  return transformExpressionTextPreservingMetrics(text, canonicalizeExpressionText);
+}
+
 function ensureHoverInfoElement() {
   if (hoverInfoEl) return hoverInfoEl;
   hoverInfoEl = document.createElement("div");
@@ -221,7 +239,7 @@ function parseBracketMetric(text) {
 
 function parseExpressionParts(expression) {
   const parts = [];
-  const text = canonicalizeExpressionText(expression);
+  const text = canonicalizeExpressionTextPreservingMetrics(expression);
   let cursor = 0;
   const regex = /\[([^\]]+)\]/g;
   let match = regex.exec(text);
@@ -251,7 +269,7 @@ function serializeExpressionEditor() {
   for (const node of dom.expressionInput.childNodes) {
     out += serializeExpressionNode(node);
   }
-  return localizeExpressionText(out);
+  return localizeExpressionTextPreservingMetrics(out);
 }
 
 function serializeExpressionNode(node) {
@@ -331,7 +349,7 @@ function serializeFullExpressionEditor() {
     }
     out += node.textContent || "";
   }
-  return localizeExpressionText(out);
+  return localizeExpressionTextPreservingMetrics(out);
 }
 
 const caretOffsetMapper = {
@@ -801,7 +819,7 @@ async function pasteExpressionSelectionFromClipboard(event) {
   event.preventDefault();
   const raw = String(event.clipboardData?.getData("text/plain") || "");
   if (!raw) return;
-  const normalized = localizeExpressionText(raw.replace(/\r\n/g, "\n"));
+  const normalized = localizeExpressionTextPreservingMetrics(raw.replace(/\r\n/g, "\n"));
   const parsed = parseExpressionPartsRaw(normalized);
   const resolved = [];
   const unknownMetrics = [];
@@ -1015,7 +1033,7 @@ function expressionFromEditor() {
 }
 
 function canonicalExpressionFromEditor() {
-  return canonicalizeExpressionText(expressionFromEditor());
+  return canonicalizeExpressionTextPreservingMetrics(expressionFromEditor());
 }
 
 function expressionDraftIsValid() {
