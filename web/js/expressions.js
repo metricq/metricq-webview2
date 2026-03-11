@@ -18,6 +18,7 @@ let draggingTokenId = "";
 let draggingMetricName = "";
 let expressionErrorTokenEl = null;
 let expressionErrorFragmentEl = null;
+let editingTokenState = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -75,6 +76,61 @@ function clearDropMarker() {
 function clearDragState() {
   draggingTokenId = "";
   draggingMetricName = "";
+}
+
+function placeCaretInTextNodeAt(textNode, offset) {
+  if (!textNode || textNode.nodeType !== Node.TEXT_NODE) return;
+  const range = document.createRange();
+  const safeOffset = Math.max(0, Math.min(Number(offset) || 0, (textNode.textContent || "").length));
+  range.setStart(textNode, safeOffset);
+  range.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function tokenOffsetFromClientX(token, clientX) {
+  const name = String(token?.dataset?.metricName || "").trim();
+  if (!name) return 0;
+  const rect = token.getBoundingClientRect();
+  if (!rect || rect.width <= 0 || !Number.isFinite(clientX)) return name.length;
+  const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  return Math.round(ratio * name.length);
+}
+
+function commitTokenInlineEdit(commit) {
+  if (!editingTokenState) return;
+  const { token, originalName } = editingTokenState;
+  editingTokenState = null;
+  if (!token || !dom.expressionInput.contains(token)) return;
+
+  const currentText = String(token.textContent || "").trim();
+  const nextName = commit && currentText ? currentText : originalName;
+  token.dataset.metricName = nextName;
+  token.textContent = nextName;
+  token.contentEditable = "false";
+  token.draggable = true;
+  token.classList.remove("expression-token-editing");
+  placeCaretAfterNode(token);
+  refreshExpressionValidationState();
+  void refreshUnknownMetricWarnings();
+}
+
+function startTokenInlineEdit(token, clientX) {
+  if (!token || !dom.expressionInput.contains(token)) return;
+  if (editingTokenState && editingTokenState.token !== token) {
+    commitTokenInlineEdit(true);
+  }
+
+  const originalName = String(token.dataset.metricName || "").trim();
+  token.textContent = originalName;
+  token.contentEditable = "true";
+  token.draggable = false;
+  token.classList.add("expression-token-editing");
+  token.focus();
+  const textNode = token.firstChild;
+  placeCaretInTextNodeAt(textNode, tokenOffsetFromClientX(token, clientX));
+  editingTokenState = { token, originalName };
 }
 
 function hideExpressionErrorMarker() {
@@ -1245,10 +1301,8 @@ function maybePlaceCaretOutsideEdgeToken(event) {
 function placeCaretOnTokenClick(event) {
   const clickedToken = event.target?.closest?.(".expression-token");
   if (!clickedToken || !dom.expressionInput.contains(clickedToken)) return;
-  const rect = clickedToken.getBoundingClientRect();
   event.preventDefault();
-  if (event.clientX < rect.left + rect.width / 2) placeCaretBeforeNode(clickedToken);
-  else placeCaretAfterNode(clickedToken);
+  startTokenInlineEdit(clickedToken, event.clientX);
 }
 
 export function wireExpressionModal(hooks) {
@@ -1313,6 +1367,18 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("keydown", (event) => {
+    if (editingTokenState?.token && dom.expressionInput.contains(editingTokenState.token)) {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        commitTokenInlineEdit(true);
+        return;
+      }
+      if (event.key === "Escape") {
+        event.preventDefault();
+        commitTokenInlineEdit(false);
+        return;
+      }
+    }
     if (event.ctrlKey || event.metaKey || event.altKey) return;
     if (handleArrowAroundTokens(event)) return;
     if (event.key !== "Backspace" && event.key !== "Delete") return;
@@ -1332,6 +1398,12 @@ export function wireExpressionModal(hooks) {
   });
   dom.expressionInput.addEventListener("mousedown", maybePlaceCaretOutsideEdgeToken);
   dom.expressionInput.addEventListener("click", placeCaretOnTokenClick);
+  dom.expressionInput.addEventListener("focusout", (event) => {
+    if (!editingTokenState?.token) return;
+    const leavingToken = event.target === editingTokenState.token;
+    const stillInside = editingTokenState.token.contains(event.relatedTarget);
+    if (leavingToken && !stillInside) commitTokenInlineEdit(true);
+  });
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => {
     void saveExpressionMetric(hooks);
