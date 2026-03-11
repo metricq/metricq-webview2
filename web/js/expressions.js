@@ -1454,11 +1454,13 @@ export function wireExpressionModal(hooks) {
     if (editingTokenState?.token && dom.expressionInput.contains(editingTokenState.token)) {
       if (event.key === "Enter") {
         event.preventDefault();
+        event.stopPropagation();
         commitTokenInlineEdit(true);
         return;
       }
       if (event.key === "Escape") {
         event.preventDefault();
+        event.stopPropagation();
         commitTokenInlineEdit(false);
         return;
       }
