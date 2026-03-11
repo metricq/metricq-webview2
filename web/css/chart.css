@@ -371,6 +371,22 @@
   max-width: 100%;
 }
 
+.chart-loading-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 7;
+  pointer-events: none;
+}
+
+.chart-loading-spinner {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-width: 0.28rem;
+}
+
 .axis-label {
   fill: var(--fg-soft);
   font-size: 11px;

@@ -20,6 +20,7 @@ let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
+let chartLoadingEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
 let helpMinimizeTimerId = null;
@@ -89,6 +90,22 @@ function positionHoverCursorLine(x, top, height) {
 
 function hideHoverCursorLine() {
   if (hoverCursorLineEl) hoverCursorLineEl.classList.add("d-none");
+}
+
+function ensureChartLoadingEl() {
+  if (chartLoadingEl) return chartLoadingEl;
+  chartLoadingEl = document.createElement("div");
+  chartLoadingEl.className = "chart-loading-state d-none";
+  chartLoadingEl.innerHTML = `
+    <div class="spinner-border text-secondary chart-loading-spinner" role="status" aria-hidden="true"></div>
+  `;
+  dom.chartWrap.appendChild(chartLoadingEl);
+  return chartLoadingEl;
+}
+
+function setChartLoadingVisible(visible) {
+  const el = ensureChartLoadingEl();
+  el.classList.toggle("d-none", !visible);
 }
 
 function updateCollapsedLegendFade(clientX, clientY) {
@@ -781,9 +798,6 @@ function drawStackedTimelineLine(ctx, entry, tiMode, sx, sy) {
 function drawEmptyChartState(ctx, margin) {
   lastStackedByMetric = null;
   lastLayout = null;
-  ctx.fillStyle = "#000000";
-  ctx.font = "14px sans-serif";
-  ctx.fillText("Keine sichtbaren Daten", margin.left + 8, margin.top + 24);
 }
 
 function setChartEmptyStateVisible(visible) {
@@ -1051,6 +1065,7 @@ export function renderChart() {
     }
     state.helpOverlayMinimizeActive = false;
   }
+  if (showHelpOverlay) setChartLoadingVisible(false);
   if (noMetricsSelected) {
     lastStackedByMetric = null;
     lastLayout = null;
@@ -1058,10 +1073,12 @@ export function renderChart() {
     return;
   }
   if (seriesList.length === 0) {
+    setChartLoadingVisible(true);
     if (!showHelpOverlay) setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;
   }
+  setChartLoadingVisible(false);
   dom.canvas.style.cursor = "crosshair";
 
   const tiMode = state.renderMode === "ti";
