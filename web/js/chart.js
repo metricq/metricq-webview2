@@ -659,23 +659,6 @@ function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
   const topAlpha = 0.26;
   // Keep shared boundaries between stack layers almost untinted to avoid visible overlap.
   const boundaryAlpha = 0.0;
-  const segmentGradient = (yLine, yBase) => {
-    if (!Number.isFinite(yLine) || !Number.isFinite(yBase)) return null;
-    const yTop = Math.min(yLine, yBase);
-    const yBottom = Math.max(yLine, yBase);
-    if (yBottom <= yTop + 0.5) return null;
-    const negative = yLine > yBase;
-    const grad = ctx.createLinearGradient(0, yTop, 0, yBottom);
-    if (negative) {
-      // Negative stack contribution: stronger at the lower edge, fading upward.
-      grad.addColorStop(0, cssColorWithAlpha(color, boundaryAlpha));
-      grad.addColorStop(1, cssColorWithAlpha(color, topAlpha));
-    } else {
-      grad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
-      grad.addColorStop(1, cssColorWithAlpha(color, boundaryAlpha));
-    }
-    return grad;
-  };
   const total = Number(entry.length) || 0;
   let start = -1;
   for (let i = 0; i <= total; i += 1) {
@@ -690,14 +673,43 @@ function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
       start = -1;
       continue;
     }
+    let yTop = Number.POSITIVE_INFINITY;
+    let yBottom = Number.NEGATIVE_INFINITY;
+    let positiveCount = 0;
+    let negativeCount = 0;
+    for (let j = start; j < end; j += 1) {
+      const yLine = sy(entry.avgValues[j]);
+      const yBase = sy(entry.baseValues[j]);
+      if (yLine < yTop) yTop = yLine;
+      if (yBase < yTop) yTop = yBase;
+      if (yLine > yBottom) yBottom = yLine;
+      if (yBase > yBottom) yBottom = yBase;
+      const delta = entry.avgValues[j] - entry.baseValues[j];
+      if (delta < 0) negativeCount += 1;
+      else positiveCount += 1;
+    }
+    const runGrad =
+      yBottom > yTop + 0.5
+        ? ctx.createLinearGradient(0, yTop, 0, yBottom)
+        : null;
+    if (runGrad) {
+      const negativeRun = negativeCount > positiveCount;
+      if (negativeRun) {
+        // Negative stack contribution: stronger at the lower edge, fading upward.
+        runGrad.addColorStop(0, cssColorWithAlpha(color, boundaryAlpha));
+        runGrad.addColorStop(1, cssColorWithAlpha(color, topAlpha));
+      } else {
+        runGrad.addColorStop(0, cssColorWithAlpha(color, topAlpha));
+        runGrad.addColorStop(1, cssColorWithAlpha(color, boundaryAlpha));
+      }
+    }
     if (tiMode) {
       for (let j = start + 1; j < end; j += 1) {
         const x0 = sx(entry.times[j - 1]);
         const x1 = sx(entry.times[j]);
         const yLine = sy(entry.avgValues[j]);
         const yBase = sy(entry.baseValues[j]);
-        const grad = segmentGradient(yLine, yBase);
-        ctx.fillStyle = grad || cssColorWithAlpha(color, topAlpha);
+        ctx.fillStyle = runGrad || cssColorWithAlpha(color, topAlpha);
         ctx.beginPath();
         ctx.moveTo(x0, yLine);
         ctx.lineTo(x1, yLine);
@@ -707,25 +719,17 @@ function drawStackedTimelineFill(ctx, entry, tiMode, sx, sy, color) {
         ctx.fill();
       }
     } else {
-      for (let j = start + 1; j < end; j += 1) {
-        const x0 = sx(entry.times[j - 1]);
-        const x1 = sx(entry.times[j]);
-        const yLine0 = sy(entry.avgValues[j - 1]);
-        const yLine1 = sy(entry.avgValues[j]);
-        const yBase0 = sy(entry.baseValues[j - 1]);
-        const yBase1 = sy(entry.baseValues[j]);
-        const yLineMid = (yLine0 + yLine1) / 2;
-        const yBaseMid = (yBase0 + yBase1) / 2;
-        const grad = segmentGradient(yLineMid, yBaseMid);
-        ctx.fillStyle = grad || cssColorWithAlpha(color, topAlpha);
-        ctx.beginPath();
-        ctx.moveTo(x0, yLine0);
-        ctx.lineTo(x1, yLine1);
-        ctx.lineTo(x1, yBase1);
-        ctx.lineTo(x0, yBase0);
-        ctx.closePath();
-        ctx.fill();
+      ctx.fillStyle = runGrad || cssColorWithAlpha(color, topAlpha);
+      ctx.beginPath();
+      for (let j = start; j < end; j += 1) {
+        if (j === start) ctx.moveTo(sx(entry.times[j]), sy(entry.avgValues[j]));
+        else ctx.lineTo(sx(entry.times[j]), sy(entry.avgValues[j]));
       }
+      for (let j = end - 1; j >= start; j -= 1) {
+        ctx.lineTo(sx(entry.times[j]), sy(entry.baseValues[j]));
+      }
+      ctx.closePath();
+      ctx.fill();
     }
     start = -1;
   }
