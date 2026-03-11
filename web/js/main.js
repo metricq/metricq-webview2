@@ -258,8 +258,12 @@ function showShareCopiedPop(anchorEl) {
     document.body.appendChild(pop);
   }
   const rect = anchorEl.getBoundingClientRect();
-  pop.style.left = `${Math.round(rect.left + rect.width / 2)}px`;
-  pop.style.top = `${Math.round(rect.top - 10)}px`;
+  const centerX = rect.left + rect.width / 2;
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const clampedX = Math.max(24, Math.min(viewportWidth - 24, centerX));
+  const top = rect.bottom + 12;
+  pop.style.left = `${Math.round(clampedX)}px`;
+  pop.style.top = `${Math.round(top)}px`;
   pop.classList.remove("is-visible");
   void pop.offsetWidth;
   pop.classList.add("is-visible");
@@ -267,7 +271,7 @@ function showShareCopiedPop(anchorEl) {
   sharePopTimer = window.setTimeout(() => {
     pop.classList.remove("is-visible");
     sharePopTimer = null;
-  }, 680);
+  }, 1100);
 }
 
 function fitContentHeight() {
