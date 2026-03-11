@@ -1305,6 +1305,59 @@ function placeCaretOnTokenClick(event) {
   startTokenInlineEdit(clickedToken, event.clientX);
 }
 
+function caretChildIndex(range) {
+  if (!range) return 0;
+  const container = range.startContainer;
+  const offset = range.startOffset;
+  if (container === dom.expressionInput) {
+    return Math.max(0, Math.min(offset, dom.expressionInput.childNodes.length));
+  }
+  if (container?.parentNode === dom.expressionInput) {
+    const index = Array.prototype.indexOf.call(dom.expressionInput.childNodes, container);
+    if (index < 0) return 0;
+    if (container.nodeType === Node.TEXT_NODE) {
+      return index + ((offset > 0) ? 1 : 0);
+    }
+    return index + ((offset > 0) ? 1 : 0);
+  }
+  const token = closestTokenElement(container);
+  if (token?.parentNode === dom.expressionInput) {
+    const index = Array.prototype.indexOf.call(dom.expressionInput.childNodes, token);
+    if (index >= 0) return index + 1;
+  }
+  return dom.expressionInput.childNodes.length;
+}
+
+function nearestTokenFromCaret(direction = 0) {
+  const range = getSelectionRangeInEditor();
+  if (!range || !range.collapsed) return null;
+  const children = Array.from(dom.expressionInput.childNodes || []);
+  const idx = caretChildIndex(range);
+
+  const previousToken = () => {
+    for (let i = Math.min(idx - 1, children.length - 1); i >= 0; i -= 1) {
+      const node = children[i];
+      if (node?.nodeType === Node.ELEMENT_NODE && node.classList?.contains("expression-token")) {
+        return node;
+      }
+    }
+    return null;
+  };
+  const nextToken = () => {
+    for (let i = Math.max(0, idx); i < children.length; i += 1) {
+      const node = children[i];
+      if (node?.nodeType === Node.ELEMENT_NODE && node.classList?.contains("expression-token")) {
+        return node;
+      }
+    }
+    return null;
+  };
+
+  if (direction < 0) return previousToken();
+  if (direction > 0) return nextToken();
+  return previousToken() || nextToken();
+}
+
 export function wireExpressionModal(hooks) {
   function openAddModal() {
     editingMetricName = "";
@@ -1367,6 +1420,37 @@ export function wireExpressionModal(hooks) {
   });
 
   dom.expressionInput.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      event.preventDefault();
+      void saveExpressionMetric(hooks);
+      return;
+    }
+
+    if (event.key === "F2") {
+      const token = nearestTokenFromCaret(0);
+      if (!token) return;
+      event.preventDefault();
+      startTokenInlineEdit(token, Number.NaN);
+      return;
+    }
+
+    if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey) {
+      if (event.key === "ArrowLeft") {
+        const token = nearestTokenFromCaret(-1);
+        if (!token) return;
+        event.preventDefault();
+        placeCaretBeforeNode(token);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        const token = nearestTokenFromCaret(1);
+        if (!token) return;
+        event.preventDefault();
+        placeCaretAfterNode(token);
+        return;
+      }
+    }
+
     if (editingTokenState?.token && dom.expressionInput.contains(editingTokenState.token)) {
       if (event.key === "Enter") {
         event.preventDefault();
