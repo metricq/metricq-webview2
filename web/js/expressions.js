@@ -98,12 +98,13 @@ function tokenOffsetFromClientX(token, clientX) {
   return Math.round(ratio * name.length);
 }
 
-function commitTokenInlineEdit(commit) {
+function commitTokenInlineEdit(commit, options = {}) {
   if (!editingTokenState) return;
   const { token, originalName } = editingTokenState;
   editingTokenState = null;
   if (!token || !dom.expressionInput.contains(token)) return;
 
+  const placeCaret = options.placeCaret !== false;
   const currentText = String(token.textContent || "").trim();
   const nextName = commit && currentText ? currentText : originalName;
   token.dataset.metricName = nextName;
@@ -111,7 +112,7 @@ function commitTokenInlineEdit(commit) {
   token.contentEditable = "false";
   token.draggable = true;
   token.classList.remove("expression-token-editing");
-  placeCaretAfterNode(token);
+  if (placeCaret) placeCaretAfterNode(token);
   refreshExpressionValidationState();
   void refreshUnknownMetricWarnings();
 }
@@ -761,8 +762,14 @@ function renderMetricHoverHtml(metricName, details) {
   `;
 }
 
-function bindMetadataHover(element, metricName) {
+function bindMetadataHover(element, metricNameOrGetter) {
+  const getMetricName = () => {
+    if (typeof metricNameOrGetter === "function") return String(metricNameOrGetter() || "").trim();
+    return String(metricNameOrGetter || "").trim();
+  };
   const show = async (event) => {
+    const metricName = getMetricName();
+    if (!metricName) return;
     const x = event.clientX || 0;
     const y = event.clientY || 0;
     hoveredMetricName = metricName;
@@ -774,6 +781,7 @@ function bindMetadataHover(element, metricName) {
   element.addEventListener("mouseenter", show);
   element.addEventListener("mousemove", (event) => moveHoverInfo(event.clientX, event.clientY));
   element.addEventListener("mouseleave", () => {
+    const metricName = getMetricName();
     if (hoveredMetricName === metricName) hoveredMetricName = "";
     hideHoverInfo();
   });
@@ -790,15 +798,20 @@ function makeMetricTokenNode(metricName, options = {}) {
   token.draggable = true;
   token.contentEditable = "false";
   token.textContent = metricName;
-  bindMetadataHover(token, metricName);
+  bindMetadataHover(token, () => String(token.dataset.metricName || "").trim());
   token.addEventListener("dragstart", (event) => {
+    const currentMetricName = String(token.dataset.metricName || "").trim();
+    if (!currentMetricName) {
+      event.preventDefault();
+      return;
+    }
     draggingTokenId = String(token.dataset.tokenId || "");
-    draggingMetricName = metricName;
-    event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(metricName));
-    event.dataTransfer?.setData("application/x-metricq-metric", metricName);
+    draggingMetricName = currentMetricName;
+    event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(currentMetricName));
+    event.dataTransfer?.setData("application/x-metricq-metric", currentMetricName);
     event.dataTransfer?.setData("application/x-metricq-token-id", String(token.dataset.tokenId || ""));
     event.dataTransfer.effectAllowed = "move";
-    setTokenDragImage(event, metricName);
+    setTokenDragImage(event, currentMetricName);
   });
   return token;
 }
@@ -1488,8 +1501,14 @@ export function wireExpressionModal(hooks) {
     if (!editingTokenState?.token) return;
     const leavingToken = event.target === editingTokenState.token;
     const stillInside = editingTokenState.token.contains(event.relatedTarget);
-    if (leavingToken && !stillInside) commitTokenInlineEdit(true);
+    if (leavingToken && !stillInside) commitTokenInlineEdit(true, { placeCaret: false });
   });
+  document.addEventListener("pointerdown", (event) => {
+    if (!editingTokenState?.token) return;
+    const target = event.target;
+    if (target && editingTokenState.token.contains(target)) return;
+    commitTokenInlineEdit(true, { placeCaret: false });
+  }, true);
 
   dom.btnSaveExpressionMetric.addEventListener("click", () => {
     void saveExpressionMetric(hooks);
