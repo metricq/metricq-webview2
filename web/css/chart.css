@@ -382,9 +382,9 @@
 }
 
 .chart-loading-spinner {
-  width: 2.4rem;
-  height: 2.4rem;
-  border-width: 0.28rem;
+  width: 9.6rem;
+  height: 9.6rem;
+  border-width: 1.12rem;
 }
 
 .axis-label {
