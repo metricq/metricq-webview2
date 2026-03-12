@@ -21,6 +21,7 @@ let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
 let chartLoadingEl = null;
+let chartErrorEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
 let helpMinimizeTimerId = null;
@@ -120,6 +121,32 @@ function ensureChartLoadingEl() {
 function setChartLoadingVisible(visible) {
   const el = ensureChartLoadingEl();
   el.classList.toggle("d-none", !visible);
+}
+
+function ensureChartErrorEl() {
+  if (chartErrorEl) return chartErrorEl;
+  chartErrorEl = document.createElement("div");
+  chartErrorEl.className = "chart-error-state d-none";
+  chartErrorEl.innerHTML = `
+    <div class="chart-error-card">
+      <div class="chart-error-title">Verbindung zum Backend fehlgeschlagen</div>
+      <div class="chart-error-text" id="chartErrorText">Bitte Seite neu laden.</div>
+      <button class="btn btn-sm btn-danger" id="btnChartErrorReload" type="button">Neu laden</button>
+    </div>
+  `;
+  dom.chartWrap.appendChild(chartErrorEl);
+  const btn = chartErrorEl.querySelector("#btnChartErrorReload");
+  btn?.addEventListener("click", () => window.location.reload());
+  return chartErrorEl;
+}
+
+function setChartErrorVisible(message) {
+  const el = ensureChartErrorEl();
+  const textEl = el.querySelector("#chartErrorText");
+  if (textEl) {
+    textEl.textContent = String(message || "Bitte Seite neu laden.");
+  }
+  el.classList.toggle("d-none", !message);
 }
 
 function updateCollapsedLegendFade(clientX, clientY) {
@@ -1029,8 +1056,10 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
+  const hasLoadError = String(state.dataLoadError || "").trim().length > 0;
   dom.canvas.style.cursor = "default";
   if (noMetricsSelected) {
+    state.dataLoadError = "";
     state.helpOverlayForced = false;
     state.helpOverlayMinimizeDeferred = false;
     state.helpOverlayMinimizeActive = false;
@@ -1079,6 +1108,7 @@ export function renderChart() {
     }
     state.helpOverlayMinimizeActive = false;
   }
+  setChartErrorVisible(hasLoadError ? state.dataLoadError : "");
   if (showHelpOverlay) setChartLoadingVisible(false);
   if (noMetricsSelected) {
     lastStackedByMetric = null;
@@ -1087,7 +1117,7 @@ export function renderChart() {
     return;
   }
   if (seriesList.length === 0) {
-    setChartLoadingVisible(true);
+    setChartLoadingVisible(!hasLoadError);
     if (!showHelpOverlay) setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;

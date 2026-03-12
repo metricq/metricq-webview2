@@ -126,6 +126,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     state.loadedFrom = null;
     state.loadedTo = null;
     state.loadedMetricsKey = "";
+    state.dataLoadError = "";
     renderChart();
     onStateChanged();
     return;
@@ -206,32 +207,48 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   req.targets = queryTargets;
 
   const started = performance.now();
-  const [body, stackedBody] = await Promise.all([
-    queryTargets.length > 0
-      ? apiFetch("/api/query", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(req),
-        })
-      : Promise.resolve({ series: [] }),
-    state.yAxisStacked && stackedTargets.length > 0
-      ? apiFetch("/api/query/stacked", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            targets: stackedTargets,
-            from: extendedFrom,
-            to: extendedTo,
-            maxDataPoints: computeMaxDataPoints(),
-          }),
-        })
-      : Promise.resolve(null),
-  ]);
+  let body = { series: [] };
+  let stackedBody = null;
+  try {
+    [body, stackedBody] = await Promise.all([
+      queryTargets.length > 0
+        ? apiFetch("/api/query", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(req),
+          })
+        : Promise.resolve({ series: [] }),
+      state.yAxisStacked && stackedTargets.length > 0
+        ? apiFetch("/api/query/stacked", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              targets: stackedTargets,
+              from: extendedFrom,
+              to: extendedTo,
+              maxDataPoints: computeMaxDataPoints(),
+            }),
+          })
+        : Promise.resolve(null),
+    ]);
+  } catch (err) {
+    if (requestSeq !== latestLoadRequestSeq) return;
+    const reason = String(err?.message || "").trim();
+    state.dataLoadError =
+      "Backend-Verbindung verloren oder ungültige Antwort erhalten. Bitte Seite neu laden.";
+    dom.perfBadge.textContent = reason
+      ? `Fehler: ${reason}`
+      : "Fehler: Backend-Anfrage fehlgeschlagen";
+    renderChart();
+    onStateChanged();
+    return;
+  }
 
   let aggPoints = 0;
   let rawPoints = 0;
   let totalDbMs = 0;
   if (requestSeq !== latestLoadRequestSeq) return;
+  state.dataLoadError = "";
 
   state.series.clear();
   for (const series of body.series || []) {

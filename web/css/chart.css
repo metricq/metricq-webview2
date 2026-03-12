@@ -387,6 +387,40 @@
   border-width: 1.12rem;
 }
 
+.chart-error-state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.chart-error-card {
+  pointer-events: auto;
+  width: min(520px, calc(100% - 2rem));
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(220, 53, 69, 0.35);
+  border-radius: 0.6rem;
+  box-shadow: 0 0.35rem 1rem rgba(16, 24, 40, 0.16);
+  padding: 0.85rem 0.95rem;
+  text-align: center;
+}
+
+.chart-error-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #a61e2d;
+  margin-bottom: 0.3rem;
+}
+
+.chart-error-text {
+  font-size: 0.88rem;
+  color: #5a6578;
+  margin-bottom: 0.65rem;
+}
+
 .axis-label {
   fill: var(--fg-soft);
   font-size: 11px;
