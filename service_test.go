@@ -48,8 +48,8 @@ func TestHistoryToSeriesAggregates(t *testing.T) {
 	if got.Mode != "aggregates" {
 		t.Fatalf("unexpected mode: %s", got.Mode)
 	}
-	if got.RawCount != 5 {
-		t.Fatalf("unexpected raw count: %v", got.RawCount)
+	if got.SampleCount != 5 {
+		t.Fatalf("unexpected sample count: %v", got.SampleCount)
 	}
 	if got.AggPoints[0].Avg != 2 || got.AggPoints[1].Avg != 4 {
 		t.Fatalf("unexpected averages: %+v", got.AggPoints)

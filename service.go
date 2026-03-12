@@ -172,7 +172,7 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 			ts += hr.TimeDelta[i]
 			series.Points = append(series.Points, apiPoint{T: ts / int64(time.Millisecond), V: value})
 		}
-		series.RawCount = float64(len(series.Points))
+		series.SampleCount = uint64(len(series.Points))
 		series.Stats["type"] = "raw"
 		return series
 	}
@@ -180,7 +180,7 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 		series.Mode = "aggregates"
 		series.AggPoints = make([]apiAggPoint, 0, len(hr.Agg))
 		ts := int64(0)
-		rawCount := 0.0
+		var sampleCount uint64
 		for i, agg := range hr.Agg {
 			ts += hr.TimeDelta[i]
 			avg := aggregateMean(agg)
@@ -196,9 +196,9 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 				Count:        agg.Count,
 				ActiveTimeMS: activeTimeMS,
 			})
-			rawCount += float64(agg.Count)
+			sampleCount += agg.Count
 		}
-		series.RawCount = rawCount
+		series.SampleCount = sampleCount
 		series.Stats["type"] = "aggregate"
 		return series
 	}

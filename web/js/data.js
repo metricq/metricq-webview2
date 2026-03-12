@@ -238,7 +238,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     state.series.set(series.metric, series);
     if (series.mode === "aggregates")
       aggPoints += (series.aggregatePoints || []).length;
-    rawPoints += Math.round(series.rawCount || 0);
+    rawPoints += Number(series.sampleCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
   }
   totalDbMs += Number(stackedBody?.duration || 0) * 1000;
@@ -270,7 +270,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
         mode: "values",
         duration: 0,
         points,
-        rawCount: points.length,
+        sampleCount: points.length,
         stats: { type: "stacked-aligned" },
       });
     }
