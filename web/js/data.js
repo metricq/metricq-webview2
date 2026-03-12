@@ -16,6 +16,21 @@ import { ensureGlobalYAxisRange } from "./y-axis.mjs";
 let latestLoadRequestSeq = 0;
 const metadataUnitCache = new Map();
 
+function isBackendConnectionErrorText(message) {
+  const text = String(message || "").toLowerCase();
+  if (!text) return false;
+  return (
+    text.includes("channel/connection is not open") ||
+    text.includes("connection is not open") ||
+    text.includes("rpc channel closed") ||
+    text.includes("publish history request") ||
+    text.includes("i/o timeout") ||
+    text.includes("broken pipe") ||
+    text.includes("connection reset") ||
+    text.includes("eof")
+  );
+}
+
 async function fetchMetricUnitCached(metricName) {
   const key = String(metricName || "").trim();
   if (!key) return "";
@@ -127,6 +142,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     state.loadedTo = null;
     state.loadedMetricsKey = "";
     state.dataLoadError = "";
+    state.dataLoadErrorKind = "";
     renderChart();
     onStateChanged();
     return;
@@ -236,6 +252,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     const reason = String(err?.message || "").trim();
     state.dataLoadError =
       "Backend-Verbindung verloren oder ungültige Antwort erhalten. Bitte Seite neu laden.";
+    state.dataLoadErrorKind = "backend";
     dom.perfBadge.textContent = reason
       ? `Fehler: ${reason}`
       : "Fehler: Backend-Anfrage fehlgeschlagen";
@@ -249,14 +266,31 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   let totalDbMs = 0;
   if (requestSeq !== latestLoadRequestSeq) return;
   state.dataLoadError = "";
+  state.dataLoadErrorKind = "";
 
   state.series.clear();
-  for (const series of body.series || []) {
+  const seriesEntries = Array.isArray(body?.series) ? body.series : [];
+  const failedSeries = [];
+  for (const series of seriesEntries) {
     state.series.set(series.metric, series);
+    if (String(series?.error || "").trim()) failedSeries.push(series);
     if (series.mode === "aggregates")
       aggPoints += (series.aggregatePoints || []).length;
     rawPoints += Number(series.sampleCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;
+  }
+  if (failedSeries.length > 0) {
+    const backendLike =
+      failedSeries.length === seriesEntries.length &&
+      failedSeries.every((series) => isBackendConnectionErrorText(series.error));
+    if (backendLike) {
+      state.dataLoadError =
+        "Backend hat die Verbindung zu MetricQ verloren. Bitte Seite neu laden.";
+      state.dataLoadErrorKind = "backend";
+    } else {
+      state.dataLoadError = `${failedSeries.length} Metrik(en) konnten nicht geladen werden.`;
+      state.dataLoadErrorKind = "metric";
+    }
   }
   totalDbMs += Number(stackedBody?.duration || 0) * 1000;
   state.stackedAligned = stackedBody

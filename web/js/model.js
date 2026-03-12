@@ -7,6 +7,7 @@ export const state = {
   loadedTo: null,
   loadedMetricsKey: "",
   dataLoadError: "",
+  dataLoadErrorKind: "",
   yAxisMode: "local",
   yAxisManualMin: null,
   yAxisManualMax: null,

@@ -421,6 +421,14 @@
   margin-bottom: 0.65rem;
 }
 
+.chart-error-state.is-metric-error .chart-error-card {
+  border-color: rgba(255, 193, 7, 0.5);
+}
+
+.chart-error-state.is-metric-error .chart-error-title {
+  color: #8d6a00;
+}
+
 .axis-label {
   fill: var(--fg-soft);
   font-size: 11px;

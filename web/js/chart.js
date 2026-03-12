@@ -140,12 +140,22 @@ function ensureChartErrorEl() {
   return chartErrorEl;
 }
 
-function setChartErrorVisible(message) {
+function setChartErrorVisible(message, kind = "backend") {
   const el = ensureChartErrorEl();
+  const titleEl = el.querySelector(".chart-error-title");
   const textEl = el.querySelector("#chartErrorText");
+  const reloadBtn = el.querySelector("#btnChartErrorReload");
+  const isMetricError = kind === "metric";
+  el.classList.toggle("is-metric-error", isMetricError);
+  if (titleEl) {
+    titleEl.textContent = isMetricError
+      ? "Einzelne Metriken konnten nicht geladen werden"
+      : "Verbindung zum Backend fehlgeschlagen";
+  }
   if (textEl) {
     textEl.textContent = String(message || "Bitte Seite neu laden.");
   }
+  if (reloadBtn) reloadBtn.classList.toggle("d-none", isMetricError);
   el.classList.toggle("d-none", !message);
 }
 
@@ -1057,9 +1067,11 @@ export function renderChart() {
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
   const hasLoadError = String(state.dataLoadError || "").trim().length > 0;
+  const showBlockingError = hasLoadError && seriesList.length === 0;
   dom.canvas.style.cursor = "default";
   if (noMetricsSelected) {
     state.dataLoadError = "";
+    state.dataLoadErrorKind = "";
     state.helpOverlayForced = false;
     state.helpOverlayMinimizeDeferred = false;
     state.helpOverlayMinimizeActive = false;
@@ -1108,7 +1120,10 @@ export function renderChart() {
     }
     state.helpOverlayMinimizeActive = false;
   }
-  setChartErrorVisible(hasLoadError ? state.dataLoadError : "");
+  setChartErrorVisible(
+    showBlockingError ? state.dataLoadError : "",
+    state.dataLoadErrorKind || "backend",
+  );
   if (showHelpOverlay) setChartLoadingVisible(false);
   if (noMetricsSelected) {
     lastStackedByMetric = null;
@@ -1117,7 +1132,7 @@ export function renderChart() {
     return;
   }
   if (seriesList.length === 0) {
-    setChartLoadingVisible(!hasLoadError);
+    setChartLoadingVisible(!showBlockingError);
     if (!showHelpOverlay) setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;
