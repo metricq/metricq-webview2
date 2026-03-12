@@ -247,16 +247,18 @@ async function copyTextToClipboard(text) {
   return ok;
 }
 
-function showShareCopiedPop(anchorEl) {
+function showShareCopiedPop(anchorEl, text = "Kopiert.", kind = "success") {
   if (!anchorEl) return;
   let pop = document.getElementById("shareCopyPop");
   if (!pop) {
     pop = document.createElement("div");
     pop.id = "shareCopyPop";
     pop.className = "share-copy-pop";
-    pop.textContent = "Kopiert.";
     document.body.appendChild(pop);
   }
+  pop.textContent = String(text || "Kopiert.");
+  pop.classList.toggle("is-error", kind === "error");
+  pop.classList.toggle("is-success", kind !== "error");
   const rect = anchorEl.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
   const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
@@ -465,7 +467,13 @@ function wireTopBarEvents() {
   dom.btnShare?.addEventListener("click", async () => {
     await syncUrlStateNow().catch(() => {});
     const copied = await copyTextToClipboard(window.location.href);
-    if (copied) showShareCopiedPop(dom.btnShare);
+    if (copied) showShareCopiedPop(dom.btnShare, "Kopiert.", "success");
+    else
+      showShareCopiedPop(
+        dom.btnShare,
+        "Kopieren fehlgeschlagen.",
+        "error",
+      );
   });
   dom.btnRenderMode.addEventListener("click", () => {
     state.renderMode = state.renderMode === "ti" ? "standard" : "ti";

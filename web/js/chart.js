@@ -25,6 +25,9 @@ let hoverRafId = 0;
 let colorSampleCtx = null;
 let helpMinimizeTimerId = null;
 let helpMinimizeRenderActive = false;
+let hoverBoxContentKey = "";
+let hoverBoxWidth = 220;
+let hoverBoxHeight = 120;
 const rgbaCache = new Map();
 
 function cssColorWithAlpha(color, alpha) {
@@ -90,6 +93,17 @@ function positionHoverCursorLine(x, top, height) {
 
 function hideHoverCursorLine() {
   if (hoverCursorLineEl) hoverCursorLineEl.classList.add("d-none");
+}
+
+function setHoverBoxHtml(html) {
+  const next = String(html || "");
+  if (next !== hoverBoxContentKey) {
+    dom.hoverBox.innerHTML = next;
+    hoverBoxContentKey = next;
+    hoverBoxWidth = dom.hoverBox.offsetWidth || 220;
+    hoverBoxHeight = dom.hoverBox.offsetHeight || 120;
+  }
+  dom.hoverBox.classList.remove("d-none");
 }
 
 function ensureChartLoadingEl() {
@@ -1693,22 +1707,21 @@ function renderHoverAt(clientX, clientY) {
         return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
       })
       .join("");
-    dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`;
-    dom.hoverBox.classList.remove("d-none");
+    setHoverBoxHtml(
+      `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(t)}</div>${rowsHtml}`,
+    );
     hideHoverPoint();
     positionHoverCursorLine(lastLayout.sx(t), margin.top, lastLayout.plotH);
 
     const rect = dom.chartWrap.getBoundingClientRect();
-    const hoverWidth = dom.hoverBox.offsetWidth || 220;
     const cursorXWrap = clientX - rect.left;
     const preferredRight = cursorXWrap + 12;
-    const overflowRight = preferredRight + hoverWidth > rect.width - 8;
+    const overflowRight = preferredRight + hoverBoxWidth > rect.width - 8;
     const left = overflowRight
-      ? Math.max(8, cursorXWrap - hoverWidth - 12)
+      ? Math.max(8, cursorXWrap - hoverBoxWidth - 12)
       : preferredRight;
-    const hoverHeight = dom.hoverBox.offsetHeight || 120;
     const preferredTop = clientY - rect.top - 16;
-    const maxTop = rect.height - hoverHeight - 8;
+    const maxTop = rect.height - hoverBoxHeight - 8;
     const top = Math.max(8, Math.min(preferredTop, maxTop));
     dom.hoverBox.style.left = `${left}px`;
     dom.hoverBox.style.top = `${top}px`;
@@ -1813,23 +1826,22 @@ function renderHoverAt(clientX, clientY) {
       return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
     })
     .join("");
-  dom.hoverBox.innerHTML = `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`;
-  dom.hoverBox.classList.remove("d-none");
+  setHoverBoxHtml(
+    `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(selected.sampled.t)}</div>${rowHtml}`,
+  );
 
   positionHoverPoint(selected.xPx, selected.yPx, selected.metric.color);
 
   const rect = dom.chartWrap.getBoundingClientRect();
-  const hoverWidth = dom.hoverBox.offsetWidth || 220;
   const cursorXWrap = clientX - rect.left;
   const preferredRight = cursorXWrap + 12;
-  const overflowRight = preferredRight + hoverWidth > rect.width - 8;
+  const overflowRight = preferredRight + hoverBoxWidth > rect.width - 8;
   const left = overflowRight
-    ? Math.max(8, cursorXWrap - hoverWidth - 12)
+    ? Math.max(8, cursorXWrap - hoverBoxWidth - 12)
     : preferredRight;
   dom.hoverBox.style.left = `${left}px`;
-  const hoverHeight = dom.hoverBox.offsetHeight || 120;
   const preferredTop = clientY - rect.top - 16;
-  const maxTop = rect.height - hoverHeight - 8;
+  const maxTop = rect.height - hoverBoxHeight - 8;
   const top = Math.max(8, Math.min(preferredTop, maxTop));
   dom.hoverBox.style.top = `${top}px`;
 }
@@ -1860,6 +1872,7 @@ export function hideHover() {
   }
   lastHoverClientX = null;
   lastHoverClientY = null;
+  hoverBoxContentKey = "";
   dom.hoverBox.classList.add("d-none");
   if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
