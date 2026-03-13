@@ -577,7 +577,7 @@ function wireMetricPanelEvents() {
   const syncMetricSearchReset = () => {
     if (!dom.btnResetMetricSearch) return;
     const hasValue = String(dom.metricSearch.value || "").trim().length > 0;
-    dom.btnResetMetricSearch.classList.toggle("is-visible", hasValue);
+    dom.btnResetMetricSearch.classList.toggle("is-visible", hasValue || metricSearchRegexMode);
   };
 
   if (dom.btnResetMetricSearch) {
