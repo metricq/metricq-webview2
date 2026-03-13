@@ -1064,10 +1064,17 @@ function createMetricChip(name) {
     insertMetricTokenAtCursor(name);
   });
   chip.addEventListener("dragstart", (event) => {
+    draggingTokenId = "";
+    draggingMetricName = name;
     event.dataTransfer?.setData("application/x-metricq-token", expressionTokenForMetric(name));
     event.dataTransfer?.setData("application/x-metricq-metric", name);
+    event.dataTransfer?.setData("text/plain", expressionTokenForMetric(name));
     event.dataTransfer.effectAllowed = "copy";
     setTokenDragImage(event, name);
+  });
+  chip.addEventListener("dragend", () => {
+    clearDragState();
+    clearDropMarker();
   });
   return chip;
 }
