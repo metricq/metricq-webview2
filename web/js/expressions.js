@@ -19,6 +19,7 @@ let draggingMetricName = "";
 let expressionErrorTokenEl = null;
 let expressionErrorFragmentEl = null;
 let editingTokenState = null;
+let lastEditorCaretOffset = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -76,6 +77,20 @@ function clearDropMarker() {
 function clearDragState() {
   draggingTokenId = "";
   draggingMetricName = "";
+}
+
+function captureEditorCaretOffset() {
+  const offset = caretOffsetMapper.selectionExpressionOffset();
+  if (Number.isFinite(offset)) {
+    lastEditorCaretOffset = Math.max(0, Number(offset) || 0);
+  }
+}
+
+function restoreEditorCaretOffset() {
+  if (!Number.isFinite(lastEditorCaretOffset)) return false;
+  caretOffsetMapper.setCaretByExpressionOffset(lastEditorCaretOffset);
+  const range = getSelectionRangeInEditor();
+  return Boolean(range);
 }
 
 function placeCaretInTextNodeAt(textNode, offset) {
@@ -913,9 +928,13 @@ async function pasteExpressionSelectionFromClipboard(event) {
 }
 
 function insertMetricTokenAtCursor(metricName) {
-  const range = getSelectionRangeInEditor();
+  let range = getSelectionRangeInEditor();
+  if (!range && restoreEditorCaretOffset()) {
+    range = getSelectionRangeInEditor();
+  }
   const token = makeMetricTokenNode(metricName);
   insertNodeAtRange(token, range);
+  captureEditorCaretOffset();
 }
 
 function removeAdjacentToken(key) {
@@ -1496,6 +1515,18 @@ export function wireExpressionModal(hooks) {
   dom.expressionInput.addEventListener("input", () => {
     refreshExpressionValidationState();
     void refreshUnknownMetricWarnings();
+    captureEditorCaretOffset();
+  });
+  dom.expressionInput.addEventListener("mouseup", () => {
+    captureEditorCaretOffset();
+  });
+  dom.expressionInput.addEventListener("keyup", () => {
+    captureEditorCaretOffset();
+  });
+  document.addEventListener("selectionchange", () => {
+    const range = getSelectionRangeInEditor();
+    if (!range || !range.collapsed) return;
+    captureEditorCaretOffset();
   });
   dom.expressionInput.addEventListener("copy", copyExpressionSelectionToClipboard);
   dom.expressionInput.addEventListener("cut", cutExpressionSelectionToClipboard);
@@ -1542,6 +1573,7 @@ export function wireExpressionModal(hooks) {
     hideHoverInfo();
     hideExpressionErrorMarker();
     clearDropMarker();
+    lastEditorCaretOffset = null;
     if (shouldReleaseHelpMinimize) {
       startHelpOverlayMinimize(1900);
     }
