@@ -23,6 +23,7 @@ import {
   setAllVisible,
   applyFactorFromModal,
 } from "./metrics.js";
+import { wireMetricSearchField } from "./metric-search-field.js";
 import {
   getPlotXBoundsInCanvas,
   hideHover,
@@ -564,31 +565,23 @@ function wireTimeDialogEvents() {
 }
 
 function wireMetricPanelEvents() {
-  let metricSearchRegexMode = false;
-
-  const setMetricSearchMode = (regexMode) => {
-    metricSearchRegexMode = Boolean(regexMode);
-    dom.metricSearchWrap?.classList.toggle("regex-mode", metricSearchRegexMode);
-    dom.metricSearchGroup?.classList.toggle("input-group", metricSearchRegexMode);
-    dom.metricSearchGroup?.classList.toggle("input-group-sm", metricSearchRegexMode);
-    dom.metricSearchModePrefix?.classList.toggle("d-none", !metricSearchRegexMode);
-  };
-
-  const syncMetricSearchReset = () => {
-    if (!dom.btnResetMetricSearch) return;
-    const hasValue = String(dom.metricSearch.value || "").trim().length > 0;
-    dom.btnResetMetricSearch.classList.toggle("is-visible", hasValue || metricSearchRegexMode);
-  };
-
-  if (dom.btnResetMetricSearch) {
-    dom.btnResetMetricSearch.addEventListener("click", () => {
-      dom.metricSearch.value = "";
-      dom.metricHints.innerHTML = "";
-      setMetricSearchMode(false);
-      syncMetricSearchReset();
-      dom.metricSearch.focus();
-    });
-  }
+  wireMetricSearchField({
+    wrapEl: dom.metricSearchWrap,
+    groupEl: dom.metricSearchGroup,
+    inputEl: dom.metricSearch,
+    resetEl: dom.btnResetMetricSearch,
+    prefixEl: dom.metricSearchModePrefix,
+    debounceMs: 220,
+    minLength: 2,
+    onSearch: async (query, mode) => {
+      if (!query) {
+        dom.metricHints.innerHTML = "";
+        return;
+      }
+      const hints = await searchMetricHints(query, { mode });
+      renderHints(hints, hooks);
+    },
+  });
 
   dom.btnHideAll.addEventListener("click", () => setAllVisible(false, hooks));
   dom.btnShowAll.addEventListener("click", () => setAllVisible(true, hooks));
@@ -598,31 +591,6 @@ function wireMetricPanelEvents() {
   );
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
 
-  dom.metricSearch.addEventListener("input", () => {
-    const current = String(dom.metricSearch.value || "");
-    if (!metricSearchRegexMode && current.startsWith("/")) {
-      setMetricSearchMode(true);
-      dom.metricSearch.value = current.slice(1);
-    }
-    syncMetricSearchReset();
-    window.clearTimeout(dom.metricSearch._timer);
-    dom.metricSearch._timer = window.setTimeout(async () => {
-      const hints = await searchMetricHints(dom.metricSearch.value.trim(), {
-        mode: metricSearchRegexMode ? "selector" : "infix",
-      });
-      renderHints(hints, hooks);
-    }, 220);
-  });
-
-  dom.metricSearch.addEventListener("keydown", (event) => {
-    if (!metricSearchRegexMode) return;
-    if (event.key !== "Backspace") return;
-    if (String(dom.metricSearch.value || "").length !== 0) return;
-    setMetricSearchMode(false);
-  });
-
-  setMetricSearchMode(false);
-  syncMetricSearchReset();
 }
 
 function wireModalEvents() {

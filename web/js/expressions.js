@@ -6,10 +6,10 @@ import { addExpressionMetric, searchMetricHints, updateExpressionMetric } from "
 import { expressionTokenForMetric } from "./targets.mjs";
 import { expandExpressionAliases } from "./expression-alias.mjs";
 import { normalizeSIUnit } from "./units.mjs";
+import { wireMetricSearchField } from "./metric-search-field.js";
 
 let editingMetricName = "";
 let blockCloseOnInvalidExpression = false;
-let expressionSearchTimer = null;
 let tokenSequence = 1;
 let hoverInfoEl = null;
 let hoveredMetricName = "";
@@ -20,6 +20,7 @@ let expressionErrorTokenEl = null;
 let expressionErrorFragmentEl = null;
 let editingTokenState = null;
 let lastEditorCaretOffset = null;
+let expressionMetricSearchField = null;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
@@ -1117,13 +1118,12 @@ function renderMetricSearchHints(names) {
   }
 }
 
-async function updateMetricSearchHints() {
-  const query = dom.expressionMetricSearch.value.trim();
+async function updateMetricSearchHints(query, mode) {
   if (query.length < 2) {
     renderMetricSearchHints([]);
     return;
   }
-  const names = await searchMetricHints(query);
+  const names = await searchMetricHints(query, { mode });
   renderMetricSearchHints(names);
 }
 
@@ -1409,7 +1409,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik hinzufügen";
     dom.expressionMetricName.value = buildNextExpressionName();
     renderExpressionEditor("");
-    dom.expressionMetricSearch.value = "";
+    expressionMetricSearchField?.reset();
     renderMetricSearchHints([]);
     renderMetricPalette();
     void refreshUnknownMetricWarnings();
@@ -1426,7 +1426,7 @@ export function wireExpressionModal(hooks) {
     dom.expressionMetricModalTitle.textContent = "Berechnete Metrik bearbeiten";
     dom.expressionMetricName.value = metric.name;
     renderExpressionEditor(metric.expr || "");
-    dom.expressionMetricSearch.value = "";
+    expressionMetricSearchField?.reset();
     renderMetricSearchHints([]);
     renderMetricPalette();
     void refreshUnknownMetricWarnings();
@@ -1572,7 +1572,7 @@ export function wireExpressionModal(hooks) {
     state.helpOverlayMinimizeDeferred = false;
     editingMetricName = "";
     blockCloseOnInvalidExpression = false;
-    dom.expressionMetricSearch.value = "";
+    expressionMetricSearchField?.reset();
     renderMetricSearchHints([]);
     hideHoverInfo();
     hideExpressionErrorMarker();
@@ -1583,9 +1583,15 @@ export function wireExpressionModal(hooks) {
     }
   });
 
-  dom.expressionMetricSearch.addEventListener("input", () => {
-    if (expressionSearchTimer != null) window.clearTimeout(expressionSearchTimer);
-    expressionSearchTimer = window.setTimeout(updateMetricSearchHints, 180);
+  expressionMetricSearchField = wireMetricSearchField({
+    wrapEl: dom.expressionMetricSearchWrap,
+    groupEl: dom.expressionMetricSearchGroup,
+    inputEl: dom.expressionMetricSearch,
+    resetEl: dom.btnResetExpressionMetricSearch,
+    prefixEl: dom.expressionMetricSearchModePrefix,
+    debounceMs: 180,
+    minLength: 2,
+    onSearch: updateMetricSearchHints,
   });
 
   document.addEventListener("metricq:edit-expression", (event) => {

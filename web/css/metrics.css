@@ -20,11 +20,11 @@
     display: inline-flex !important;
 }
 
-.metric-search-wrap.regex-mode #metricSearch {
+.metric-search-wrap.regex-mode .metric-search-input {
     border-left: 0;
 }
 
-.metric-search-wrap.regex-mode .metric-search-mode-prefix + #metricSearch:focus {
+.metric-search-wrap.regex-mode .metric-search-mode-prefix + .metric-search-input:focus {
     border-left: 0;
 }
 

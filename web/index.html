@@ -113,7 +113,7 @@
                       <span class="input-group-text metric-search-mode-prefix d-none" id="metricSearchModePrefix" title="Regex-Suche aktiv" aria-label="Regex-Suche aktiv">
                         <i class="bi bi-regex"></i>
                       </span>
-                      <input type="text" class="form-control form-control-sm pe-4" id="metricSearch" placeholder="Metrik suchen" />
+                      <input type="text" class="form-control form-control-sm metric-search-input pe-4" id="metricSearch" placeholder="Metrik suchen" />
                     </div>
                     <button class="btn metric-search-reset" id="btnResetMetricSearch" title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
                       <i class="bi bi-x-lg"></i>
@@ -397,7 +397,17 @@
             </div>
             <div>
               <label class="form-label" for="expressionMetricSearch">Metrik referenzieren</label>
-              <input id="expressionMetricSearch" class="form-control form-control-sm" placeholder="Metrik suchen (auch nicht hinzugefügte)" />
+              <div class="metric-search-wrap" id="expressionMetricSearchWrap">
+                <div id="expressionMetricSearchGroup">
+                  <span class="input-group-text metric-search-mode-prefix d-none" id="expressionMetricSearchModePrefix" title="Regex-Suche aktiv" aria-label="Regex-Suche aktiv">
+                    <i class="bi bi-regex"></i>
+                  </span>
+                  <input id="expressionMetricSearch" class="form-control form-control-sm metric-search-input pe-4" placeholder="Metrik suchen (auch nicht hinzugefügte)" />
+                </div>
+                <button class="btn metric-search-reset" id="btnResetExpressionMetricSearch" title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
               <div id="expressionMetricHints" class="expression-hints mt-2"></div>
             </div>
             <div>
