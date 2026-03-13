@@ -459,9 +459,20 @@ export async function fetchMetadata(name, hooks) {
 }
 
 export async function searchMetricHints(query) {
-  if (query.length < 2) return [];
+  const raw = String(query || "").trim();
+  if (raw.length < 2) return [];
+  let mode = "infix";
+  let search = raw;
+  if (raw.length >= 2 && raw.startsWith("/") && raw.endsWith("/")) {
+    const body = raw.slice(1, -1).trim();
+    if (!body) return [];
+    mode = "selector";
+    search = body;
+  }
   try {
-    const body = await apiFetch(`/api/metrics?query=${encodeURIComponent(query)}&limit=25`);
+    const body = await apiFetch(
+      `/api/metrics?query=${encodeURIComponent(search)}&mode=${encodeURIComponent(mode)}&limit=25`,
+    );
     return body.metrics || [];
   } catch (_) {
     return [];

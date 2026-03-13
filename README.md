@@ -65,7 +65,7 @@ Dann reichen Browser-Reloads, um HTML/CSS/JS-Änderungen zu sehen, ohne den Go-P
 
 Aktuell registrierte Endpunkte:
 - `GET /api/health`
-- `GET /api/metrics?query=<infix-or-/selector/>&limit=<n>`
+- `GET /api/metrics?query=<suchtext-oder-regex-body>&mode=<infix|selector>&limit=<n>`
 - `GET /api/metadata?metric=<name>`
 - `POST /api/query`
 - `POST /api/query/stacked`

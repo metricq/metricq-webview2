@@ -49,7 +49,8 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 
 	query := strings.TrimSpace(r.URL.Query().Get("query"))
-	infix, selector := splitMetricSearchQuery(query)
+	mode := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("mode")))
+	infix, selector := resolveMetricSearchQuery(query, mode)
 	limit := 100
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 5000 {
@@ -76,15 +77,17 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"metrics": list})
 }
 
-func splitMetricSearchQuery(query string) (infix, selector string) {
+func resolveMetricSearchQuery(query, mode string) (infix, selector string) {
 	q := strings.TrimSpace(query)
-	if len(q) >= 2 && strings.HasPrefix(q, "/") && strings.HasSuffix(q, "/") {
-		mid := strings.TrimSpace(q[1 : len(q)-1])
-		if mid != "" {
-			return "", q
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case "selector", "regex":
+		if q == "" {
+			return "", ""
 		}
+		return "", q
+	default:
+		return q, ""
 	}
-	return q, ""
 }
 
 func (s *service) handleAPIMetadata(w http.ResponseWriter, r *http.Request) {
