@@ -569,6 +569,8 @@ function wireMetricPanelEvents() {
   const setMetricSearchMode = (regexMode) => {
     metricSearchRegexMode = Boolean(regexMode);
     dom.metricSearchWrap?.classList.toggle("regex-mode", metricSearchRegexMode);
+    dom.metricSearchGroup?.classList.toggle("input-group", metricSearchRegexMode);
+    dom.metricSearchGroup?.classList.toggle("input-group-sm", metricSearchRegexMode);
     dom.metricSearchModePrefix?.classList.toggle("d-none", !metricSearchRegexMode);
   };
 
