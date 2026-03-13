@@ -2,6 +2,7 @@ package main
 
 import (
 	"math"
+	"errors"
 	"testing"
 )
 
@@ -62,6 +63,26 @@ func TestParseExpressionRejectsInvalidForms(t *testing.T) {
 		if _, err := parseExpression(expr); err == nil {
 			t.Fatalf("expected parse error for %q", expr)
 		}
+	}
+}
+
+func TestParseExpressionUnsupportedFunctionMarksFunctionToken(t *testing.T) {
+	_, err := parseExpression("mean([a],[b])")
+	if err == nil {
+		t.Fatalf("expected parse error for unsupported function")
+	}
+	var parseErr *exprParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected exprParseError, got %T", err)
+	}
+	if parseErr.Code != "unsupported_function" {
+		t.Fatalf("unexpected error code: %q", parseErr.Code)
+	}
+	if parseErr.Token != "mean" {
+		t.Fatalf("unexpected token: %q", parseErr.Token)
+	}
+	if parseErr.Pos != 0 || parseErr.End != 4 {
+		t.Fatalf("unexpected position range: %d..%d", parseErr.Pos, parseErr.End)
 	}
 }
 

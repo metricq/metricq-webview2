@@ -584,7 +584,7 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 	if tok.kind == "ident" {
 		p.take()
 		if p.peek().kind == "(" {
-			return p.parseFunctionCall(tok.val)
+			return p.parseFunctionCall(tok)
 		}
 		return nil, newExprParseErrorWithToken(
 			"unbracketed_metric_reference",
@@ -597,11 +597,17 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 	return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 }
 
-func (p *exprParser) parseFunctionCall(name string) (exprNode, error) {
-	fn := strings.ToLower(strings.TrimSpace(name))
+func (p *exprParser) parseFunctionCall(fnToken exprToken) (exprNode, error) {
+	name := strings.TrimSpace(fnToken.val)
+	fn := strings.ToLower(name)
 	if fn != "min" && fn != "max" && fn != "sum" {
-		tok := p.peek()
-		return nil, newExprParseError("unsupported_function", fmt.Sprintf("unsupported function %q", name), tok.pos, tok.end)
+		return nil, newExprParseErrorWithToken(
+			"unsupported_function",
+			fmt.Sprintf("unsupported function %q", name),
+			fnToken.val,
+			fnToken.pos,
+			fnToken.end,
+		)
 	}
 	if p.peek().kind != "(" {
 		tok := p.peek()
