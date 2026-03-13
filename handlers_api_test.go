@@ -44,7 +44,7 @@ func TestSplitMetricSearchQuery(t *testing.T) {
 	}
 
 	infix, selector = splitMetricSearchQuery("/foo.*/")
-	if infix != "" || selector != "foo.*" {
+	if infix != "" || selector != "/foo.*/" {
 		t.Fatalf("unexpected selector split: infix=%q selector=%q", infix, selector)
 	}
 

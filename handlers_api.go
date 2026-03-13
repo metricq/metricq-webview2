@@ -81,7 +81,7 @@ func splitMetricSearchQuery(query string) (infix, selector string) {
 	if len(q) >= 2 && strings.HasPrefix(q, "/") && strings.HasSuffix(q, "/") {
 		mid := strings.TrimSpace(q[1 : len(q)-1])
 		if mid != "" {
-			return "", mid
+			return "", q
 		}
 	}
 	return q, ""
