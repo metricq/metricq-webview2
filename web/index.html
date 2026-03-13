@@ -108,8 +108,13 @@
               </div>
               <div class="card-body p-2 d-flex flex-column gap-2 flex-fill min-h-0 overflow-hidden">
                 <div class="metric-search-row">
-                  <div class="metric-search-wrap">
-                    <input type="text" class="form-control form-control-sm pe-4" id="metricSearch" placeholder="Metrik suchen" />
+                  <div class="metric-search-wrap" id="metricSearchWrap">
+                    <div class="input-group input-group-sm" id="metricSearchGroup">
+                      <span class="input-group-text metric-search-mode-prefix d-none" id="metricSearchModePrefix" title="Regex-Suche aktiv" aria-label="Regex-Suche aktiv">
+                        <i class="bi bi-regex"></i>
+                      </span>
+                      <input type="text" class="form-control pe-4" id="metricSearch" placeholder="Metrik suchen" />
+                    </div>
                     <button class="btn metric-search-reset" id="btnResetMetricSearch" title="Suche zurücksetzen" aria-label="Suche zurücksetzen">
                       <i class="bi bi-x-lg"></i>
                     </button>

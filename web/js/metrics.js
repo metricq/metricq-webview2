@@ -458,17 +458,12 @@ export async function fetchMetadata(name, hooks) {
   } catch (_) {}
 }
 
-export async function searchMetricHints(query) {
+export async function searchMetricHints(query, options = {}) {
   const raw = String(query || "").trim();
   if (raw.length < 2) return [];
-  let mode = "infix";
-  let search = raw;
-  if (raw.length >= 2 && raw.startsWith("/") && raw.endsWith("/")) {
-    const body = raw.slice(1, -1).trim();
-    if (!body) return [];
-    mode = "selector";
-    search = body;
-  }
+  const regexMode = options?.mode === "selector";
+  const mode = regexMode ? "selector" : "infix";
+  const search = raw;
   try {
     const body = await apiFetch(
       `/api/metrics?query=${encodeURIComponent(search)}&mode=${encodeURIComponent(mode)}&limit=25`,
