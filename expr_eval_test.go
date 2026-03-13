@@ -7,18 +7,18 @@ import (
 
 func TestParseExpressionSupportedForms(t *testing.T) {
 	cases := []string{
-		"a+b",
-		"a-b",
-		"a*b",
-		"a/b",
+		"[a]+[b]",
+		"[a]-[b]",
+		"[a]*[b]",
+		"[a]/[b]",
 		"([a]+[b])/2",
-		"sum(a,b,3.5)",
-		"-a",
-		"log a",
-		"sum(a,b,c)",
-		"min(a,b,c)",
-		"max(a,b,c)",
-		"([rack-a.power] + b) / c",
+		"sum([a],[b],3.5)",
+		"-[a]",
+		"log [a]",
+		"sum([a],[b],[c])",
+		"min([a],[b],[c])",
+		"max([a],[b],[c])",
+		"([rack-a.power] + [b]) / [c]",
 	}
 	for _, expr := range cases {
 		node, err := parseExpression(expr)
@@ -35,7 +35,7 @@ func TestEvalExpressionWithScalarLiteral(t *testing.T) {
 	inputs := map[string]map[int64]float64{
 		"a": {1000: 10, 2000: 20},
 	}
-	node, err := parseExpression("a/2")
+	node, err := parseExpression("[a]/2")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -51,11 +51,12 @@ func TestEvalExpressionWithScalarLiteral(t *testing.T) {
 func TestParseExpressionRejectsInvalidForms(t *testing.T) {
 	cases := []string{
 		"",
-		"a+",
+		"[a]+",
 		"sin(a)",
 		"min()",
 		"[metric.a",
 		"()",
+		"a",
 	}
 	for _, expr := range cases {
 		if _, err := parseExpression(expr); err == nil {
@@ -71,7 +72,7 @@ func TestEvalExpressionMathOps(t *testing.T) {
 		"b": {1000: 2, 2000: 3},
 	}
 
-	node, err := parseExpression("a+b")
+	node, err := parseExpression("[a]+[b]")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
@@ -83,19 +84,19 @@ func TestEvalExpressionMathOps(t *testing.T) {
 		t.Fatalf("unexpected add values: %#v", got)
 	}
 
-	node, _ = parseExpression("a-b")
+	node, _ = parseExpression("[a]-[b]")
 	got, _ = evalExpression(node, inputs)
 	if got[1000] != 8 || got[2000] != 9 {
 		t.Fatalf("unexpected sub values: %#v", got)
 	}
 
-	node, _ = parseExpression("a*b")
+	node, _ = parseExpression("[a]*[b]")
 	got, _ = evalExpression(node, inputs)
 	if got[1000] != 20 || got[2000] != 36 {
 		t.Fatalf("unexpected mul values: %#v", got)
 	}
 
-	node, _ = parseExpression("a/b")
+	node, _ = parseExpression("[a]/[b]")
 	got, _ = evalExpression(node, inputs)
 	if got[1000] != 5 || got[2000] != 4 {
 		t.Fatalf("unexpected div values: %#v", got)
@@ -109,31 +110,31 @@ func TestEvalExpressionFunctionsAndUnary(t *testing.T) {
 		"c": {10: 4},
 	}
 
-	node, _ := parseExpression("sum(a,b,c)")
+	node, _ := parseExpression("sum([a],[b],[c])")
 	got, _ := evalExpression(node, inputs)
 	if got[10] != 16 {
 		t.Fatalf("sum mismatch: %#v", got)
 	}
 
-	node, _ = parseExpression("min(a,b,c)")
+	node, _ = parseExpression("min([a],[b],[c])")
 	got, _ = evalExpression(node, inputs)
 	if got[10] != 2 {
 		t.Fatalf("min mismatch: %#v", got)
 	}
 
-	node, _ = parseExpression("max(a,b,c)")
+	node, _ = parseExpression("max([a],[b],[c])")
 	got, _ = evalExpression(node, inputs)
 	if got[10] != 10 {
 		t.Fatalf("max mismatch: %#v", got)
 	}
 
-	node, _ = parseExpression("-a")
+	node, _ = parseExpression("-[a]")
 	got, _ = evalExpression(node, inputs)
 	if got[10] != -10 {
 		t.Fatalf("neg mismatch: %#v", got)
 	}
 
-	node, _ = parseExpression("log a")
+	node, _ = parseExpression("log [a]")
 	got, _ = evalExpression(node, inputs)
 	if math.Abs(got[10]-1.0) > 1e-12 {
 		t.Fatalf("log mismatch: %#v", got)
@@ -145,7 +146,7 @@ func TestEvalExpressionUsesIntervalValueSincePreviousPoint(t *testing.T) {
 		"a": {1000: 1, 2000: 2, 3000: 3},
 		"b": {2000: 20, 3000: 30, 4000: 40},
 	}
-	node, _ := parseExpression("a+b")
+	node, _ := parseExpression("[a]+[b]")
 	got, err := evalExpression(node, inputs)
 	if err != nil {
 		t.Fatalf("eval failed: %v", err)
@@ -166,7 +167,7 @@ func TestEvalExpressionDoesNotBackfillBeforeFirstPoint(t *testing.T) {
 		"a": {1000: 1, 2000: 2},
 		"b": {2000: 20},
 	}
-	node, _ := parseExpression("a+b")
+	node, _ := parseExpression("[a]+[b]")
 	got, err := evalExpression(node, inputs)
 	if err != nil {
 		t.Fatalf("eval failed: %v", err)
@@ -220,7 +221,7 @@ func TestSeriesToEvalInputMapAndAggregateConversion(t *testing.T) {
 }
 
 func TestEvalExpressionWithSamplesMinMaxUsesAggregateBounds(t *testing.T) {
-	node, err := parseExpression("max(a,b)-min(a,b)")
+	node, err := parseExpression("max([a],[b])-min([a],[b])")
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}

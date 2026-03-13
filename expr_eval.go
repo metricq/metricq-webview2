@@ -586,7 +586,13 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 		if p.peek().kind == "(" {
 			return p.parseFunctionCall(tok.val)
 		}
-		return metricNode{name: tok.val}, nil
+		return nil, newExprParseErrorWithToken(
+			"unbracketed_metric_reference",
+			fmt.Sprintf("metric reference %q must use [name] syntax", tok.val),
+			tok.val,
+			tok.pos,
+			tok.end,
+		)
 	}
 	return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 }

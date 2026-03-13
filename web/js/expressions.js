@@ -1047,6 +1047,10 @@ function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
       return quotedToken
         ? `Unerwartetes Token ${quotedToken}.`
         : "Unerwartetes Token im Ausdruck.";
+    case "unbracketed_metric_reference":
+      return quotedToken
+        ? `Metrik-Referenz ${quotedToken} muss als [name] geschrieben werden.`
+        : "Metrik-Referenz muss als [name] geschrieben werden.";
     case "missing_closing_parenthesis":
       return "Fehlende schließende Klammer ) im Ausdruck.";
     case "unsupported_function":
