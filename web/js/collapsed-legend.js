@@ -58,7 +58,7 @@ function buildSectionHeader({ stacked = false, count = 0 } = {}) {
 
   const text = document.createElement("span");
   text.className = "collapsed-legend-section-header-text";
-  text.textContent = stacked ? `Stack (${count})` : "Einzeln";
+  text.textContent = stacked ? `Gestapelt (${count})` : "Nicht gestapelt";
 
   header.append(icon, text);
   return header;

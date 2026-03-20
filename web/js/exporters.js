@@ -129,7 +129,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     const out = [];
     if (nonStacked.length > 0) {
       out.push({
-        title: "Einzeln",
+        title: "Nicht gestapelt",
         stacked: false,
         showHeader: true,
         rows: buildRows(nonStacked, false),
@@ -137,7 +137,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     }
     if (stacked.length > 0) {
       out.push({
-        title: `Stack (${stacked.length})`,
+        title: `Gestapelt (${stacked.length})`,
         stacked: true,
         showHeader: true,
         rows: buildRows(stacked, true),

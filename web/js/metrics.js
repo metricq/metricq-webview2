@@ -623,8 +623,8 @@ export function renderMetricList(hooks) {
         : "btn-outline-secondary";
       const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers";
       const stackTitle = stacksInYAxis
-        ? "Diese Metrik wird gestapelt"
-        : "Diese Metrik nicht stapeln";
+        ? "Diese Metrik ist gestapelt"
+        : "Diese Metrik ist nicht gestapelt";
       return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi ${stackButtonIcon}"></i></button>`;
     })();
     controls.innerHTML = `
