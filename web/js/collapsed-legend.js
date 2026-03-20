@@ -67,11 +67,13 @@ function buildSectionHeader({ stacked = false, count = 0 } = {}) {
 function appendLegendSection(
   host,
   metrics,
-  { stacked = false, forceNormalIndicator = false } = {},
+  { stacked = false, forceNormalIndicator = false, showHeader = true } = {},
 ) {
   const section = document.createElement("section");
   section.className = `collapsed-legend-section${stacked ? " is-stacked" : ""}`;
-  section.appendChild(buildSectionHeader({ stacked, count: metrics.length }));
+  if (showHeader) {
+    section.appendChild(buildSectionHeader({ stacked, count: metrics.length }));
+  }
   for (const metric of metrics) {
     section.appendChild(buildLegendRow(metric, { forceNormalIndicator }));
   }
@@ -105,7 +107,7 @@ export function renderCollapsedLegend() {
     appendLegendSection(
       host,
       visible,
-      { stacked: false, forceNormalIndicator: true },
+      { stacked: false, forceNormalIndicator: true, showHeader: false },
     );
   }
 

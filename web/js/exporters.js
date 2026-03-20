@@ -85,18 +85,29 @@ function drawLegend(ctx, cssWidth, cssHeight) {
 
   const sections = (() => {
     if (!state.yAxisStacked) {
-      return [{ title: "Einzeln", stacked: false, rows: buildRows(visible) }];
+      return [{
+        title: "",
+        stacked: false,
+        showHeader: false,
+        rows: buildRows(visible),
+      }];
     }
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
     const out = [];
     if (nonStacked.length > 0) {
-      out.push({ title: "Einzeln", stacked: false, rows: buildRows(nonStacked) });
+      out.push({
+        title: "Einzeln",
+        stacked: false,
+        showHeader: true,
+        rows: buildRows(nonStacked),
+      });
     }
     if (stacked.length > 0) {
       out.push({
         title: `Stack (${stacked.length})`,
         stacked: true,
+        showHeader: true,
         rows: buildRows(stacked),
       });
     }
@@ -105,8 +116,10 @@ function drawLegend(ctx, cssWidth, cssHeight) {
 
   let maxTextWidth = 0;
   for (const section of sections) {
-    ctx.font = "700 10px sans-serif";
-    maxTextWidth = Math.max(maxTextWidth, ctx.measureText(section.title).width + 20);
+    if (section.showHeader) {
+      ctx.font = "700 10px sans-serif";
+      maxTextWidth = Math.max(maxTextWidth, ctx.measureText(section.title).width + 20);
+    }
     ctx.font = "12px sans-serif";
     for (const row of section.rows) {
       maxTextWidth = Math.max(maxTextWidth, ctx.measureText(row.main).width);
@@ -126,7 +139,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   let boxH = pad;
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
-    boxH += 18;
+    if (section.showHeader) boxH += 18;
     for (const row of section.rows) {
       boxH += 14;
       if (row.desc) boxH += 13;
@@ -151,22 +164,24 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const rowMaxTextWidth = boxWidth - textX - pad;
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
-    const pillTextWidth = Math.ceil(ctx.measureText(section.title).width);
-    const pillWidth = Math.min(boxWidth - (pad * 2), pillTextWidth + 28);
+    if (section.showHeader) {
+      const pillTextWidth = Math.ceil(ctx.measureText(section.title).width);
+      const pillWidth = Math.min(boxWidth - (pad * 2), pillTextWidth + 28);
 
-    ctx.fillStyle = section.stacked
-      ? "rgba(13, 110, 253, 0.14)"
-      : "rgba(108, 117, 125, 0.08)";
-    ctx.beginPath();
-    ctx.roundRect(boxX + pad, y, pillWidth, 16, 999);
-    ctx.fill();
+      ctx.fillStyle = section.stacked
+        ? "rgba(13, 110, 253, 0.14)"
+        : "rgba(108, 117, 125, 0.08)";
+      ctx.beginPath();
+      ctx.roundRect(boxX + pad, y, pillWidth, 16, 999);
+      ctx.fill();
 
-    ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
-    ctx.font = "700 10px sans-serif";
-    ctx.textBaseline = "middle";
-    ctx.fillText(section.stacked ? "≡" : "-", boxX + pad + 7, y + 8);
-    ctx.fillText(section.title, boxX + pad + 18, y + 8);
-    y += 22;
+      ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
+      ctx.font = "700 10px sans-serif";
+      ctx.textBaseline = "middle";
+      ctx.fillText(section.stacked ? "≡" : "-", boxX + pad + 7, y + 8);
+      ctx.fillText(section.title, boxX + pad + 18, y + 8);
+      y += 22;
+    }
 
     if (section.stacked) {
       const sectionRowsHeight = section.rows.reduce((height, row) => {
