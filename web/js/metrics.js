@@ -588,6 +588,16 @@ export function renderMetricList(hooks) {
     mainText.className = "metric-name-main";
     const formulaPrefix = metric.expr ? "ƒ " : "";
     mainText.textContent = formulaPrefix + metricDisplayName(metric) + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
+    if (metric.stackMode !== "normal") {
+      const stackMarker = document.createElement("span");
+      stackMarker.className = "metric-stack-indicator";
+      if (!state.yAxisStacked) stackMarker.classList.add("is-inactive");
+      stackMarker.title = state.yAxisStacked
+        ? "Diese Metrik wird gestapelt"
+        : "Diese Metrik ist fuer Stacking markiert";
+      stackMarker.innerHTML = '<i class="bi bi-layers-fill" aria-hidden="true"></i>';
+      mainText.prepend(stackMarker);
+    }
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
@@ -608,8 +618,8 @@ export function renderMetricList(hooks) {
     const stackButton = state.yAxisStacked
       ? (() => {
         const stacksInYAxis = metric.stackMode !== "normal";
-        const stackButtonClass = stacksInYAxis ? "btn-outline-secondary" : "btn-warning";
-        const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers-half";
+        const stackButtonClass = stacksInYAxis ? "btn-outline-secondary active-stack-button" : "btn-outline-secondary";
+        const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers";
         const stackTitle = stacksInYAxis
           ? "Im Stack-Modus: gestapelt zeichnen"
           : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";

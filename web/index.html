@@ -34,8 +34,9 @@
               <button class="btn btn-outline-primary" id="btnRenderMode" type="button" title="Rendering-Modus umschalten">
                 TI
               </button>
-              <button class="btn btn-outline-primary ms-auto" id="btnStackedMode" type="button" title="Stacked-Mode umschalten">
-                <i class="bi bi-layers"></i>
+              <button class="btn btn-outline-primary ms-auto stack-toggle-button" id="btnStackedMode" type="button" title="Stacked-Mode umschalten" aria-pressed="false">
+                <i class="bi bi-layers" aria-hidden="true"></i>
+                <span>Stack</span>
               </button>
               <button class="btn btn-outline-primary" id="btnYAxis" data-bs-toggle="modal" data-bs-target="#yAxisModal" title="Y-Achse konfigurieren">
                 <i class="bi bi-arrows-vertical"></i>
@@ -86,6 +87,10 @@
                 <div id="hoverBox" class="hover-box d-none"></div>
                 <div id="dragSelectBox" class="drag-select-box d-none"></div>
                 <div id="zoomRangeBadge" class="zoom-range-badge"></div>
+                <div id="stackedModeBadge" class="stacked-mode-badge" aria-hidden="true">
+                  <i class="bi bi-layers-fill"></i>
+                  <span id="stackedModeBadgeCount">0</span>
+                </div>
                 <div id="collapsedLegend" class="collapsed-legend d-none" aria-label="Legende"></div>
               </div>
             </div>

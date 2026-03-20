@@ -58,6 +58,7 @@ function syncUrlStateIfAllowed() {
 
 function onStateChangedCombined() {
   renderContextualHelp();
+  syncStackedModeButton();
   syncUrlStateIfAllowed();
 }
 
@@ -118,11 +119,25 @@ function syncRenderModeButton() {
 function syncStackedModeButton() {
   if (!dom.btnStackedMode) return;
   const stackedActive = !!state.yAxisStacked;
+  const stackedMetricCount = state.metrics.filter(
+    (metric) => metric.stackMode !== "normal",
+  ).length;
+  const icon = dom.btnStackedMode.querySelector("i");
   dom.btnStackedMode.classList.toggle("btn-primary", stackedActive);
   dom.btnStackedMode.classList.toggle("btn-outline-primary", !stackedActive);
+  dom.btnStackedMode.setAttribute("aria-pressed", String(stackedActive));
   dom.btnStackedMode.title = stackedActive
-    ? "Stacked-Mode aktiv"
+    ? `Stacked-Mode aktiv (${stackedMetricCount} Metriken im Stack)`
     : "Stacked-Mode inaktiv";
+  if (icon) icon.className = stackedActive ? "bi bi-layers-fill" : "bi bi-layers";
+  if (dom.stackedModeBadge) {
+    const showBadge = stackedActive && stackedMetricCount > 0;
+    dom.stackedModeBadge.classList.toggle("is-visible", showBadge);
+    dom.stackedModeBadge.title = `Stacked-Mode aktiv: ${stackedMetricCount} Metriken`;
+  }
+  if (dom.stackedModeBadgeCount) {
+    dom.stackedModeBadgeCount.textContent = String(stackedMetricCount);
+  }
 }
 
 function updateSidebarToggleIcon() {

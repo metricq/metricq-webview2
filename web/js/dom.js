@@ -14,6 +14,8 @@ export const dom = {
   hoverBox: document.getElementById("hoverBox"),
   dragSelectBox: document.getElementById("dragSelectBox"),
   zoomRangeBadge: document.getElementById("zoomRangeBadge"),
+  stackedModeBadge: document.getElementById("stackedModeBadge"),
+  stackedModeBadgeCount: document.getElementById("stackedModeBadgeCount"),
   collapsedLegend: document.getElementById("collapsedLegend"),
   fromInput: document.getElementById("fromTime"),
   toInput: document.getElementById("toTime"),
