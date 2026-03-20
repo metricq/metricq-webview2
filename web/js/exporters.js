@@ -38,6 +38,24 @@ function clipTextToWidth(ctx, text, maxWidth) {
   return raw.slice(0, lo) + ellipsis;
 }
 
+function drawStackedIndicator(ctx, x, y, size, color) {
+  const w = size;
+  const h = Math.max(4, Math.round(size * 0.34));
+  const offset = Math.max(2, Math.round(size * 0.18));
+  const radius = 1.5;
+  const topY = y + offset;
+  const midY = y + Math.round(size * 0.42);
+  const lowY = y + size - h - offset;
+  const left = x;
+
+  ctx.fillStyle = color;
+  for (const yy of [lowY, midY, topY]) {
+    ctx.beginPath();
+    ctx.roundRect(left, yy, w, h, radius);
+    ctx.fill();
+  }
+}
+
 export function exportJSON() {
   const payload = {
     from: state.from,
@@ -85,10 +103,11 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const rowGap = 5;
   const sectionGap = 10;
   const swatchSize = 10;
+  const indicatorSize = 12;
   const headerHeight = 18;
   const mainLineHeight = 16;
   const descLineHeight = 13;
-  const textX = pad + swatchSize + 10;
+  const textX = pad + indicatorSize + 10;
   const maxAllowedWidth = Math.min(
     520,
     Math.max(220, Math.floor(cssWidth * 0.42)),
@@ -100,8 +119,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       const unit = metric.displayUnit || metric.unit || "";
       const factor = shownMetricFactor(metric);
       const formulaPrefix = metric.expr ? "ƒ " : "";
-      const marker = stacked ? "≡ " : "";
-      const main = `${marker}${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
+      const main = `${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
       const desc = truncateMiddle(String(metric.description || "").trim(), 84);
       return { metric, main, desc };
     });
@@ -191,7 +209,11 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
       ctx.font = "700 11px sans-serif";
       ctx.textBaseline = "top";
-      ctx.fillText(section.title, boxX + pad, y);
+      const headerTextX = boxX + pad + (section.stacked ? indicatorSize + 6 : 0);
+      if (section.stacked) {
+        drawStackedIndicator(ctx, boxX + pad, y + 1, indicatorSize, "#0b5ed7");
+      }
+      ctx.fillText(section.title, headerTextX, y);
 
       ctx.strokeStyle = section.stacked
         ? "rgba(13, 110, 253, 0.28)"
@@ -212,12 +234,17 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillStyle = metric.color;
       ctx.textBaseline = "alphabetic";
       ctx.font = "12px sans-serif";
-      ctx.fillRect(
-        boxX + pad,
-        mainTop + Math.floor((mainLineHeight - swatchSize) / 2),
-        swatchSize,
-        swatchSize,
-      );
+      const indicatorY = mainTop + Math.floor((mainLineHeight - indicatorSize) / 2);
+      if (section.stacked) {
+        drawStackedIndicator(ctx, boxX + pad, indicatorY, indicatorSize, metric.color);
+      } else {
+        ctx.fillRect(
+          boxX + pad + Math.floor((indicatorSize - swatchSize) / 2),
+          mainTop + Math.floor((mainLineHeight - swatchSize) / 2),
+          swatchSize,
+          swatchSize,
+        );
+      }
 
       ctx.fillStyle = "#1f2937";
       const clippedMain = clipTextToWidth(ctx, main, rowMaxTextWidth);
