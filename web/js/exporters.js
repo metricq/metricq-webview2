@@ -19,6 +19,25 @@ function truncateMiddle(text, maxLen) {
   return `${raw.slice(0, keep)}…${raw.slice(raw.length - keep)}`;
 }
 
+function clipTextToWidth(ctx, text, maxWidth) {
+  const raw = String(text || "");
+  if (!raw) return "";
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+  const ellipsis = "…";
+  const ellipsisWidth = ctx.measureText(ellipsis).width;
+  if (ellipsisWidth > maxWidth) return "";
+
+  let lo = 0;
+  let hi = raw.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = raw.slice(0, mid) + ellipsis;
+    if (ctx.measureText(candidate).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return raw.slice(0, lo) + ellipsis;
+}
+
 export function exportJSON() {
   const payload = {
     from: state.from,
@@ -191,20 +210,14 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillRect(boxX + pad, y - 9, swatchSize, swatchSize);
 
       ctx.fillStyle = "#1f2937";
-      const clippedMain =
-        ctx.measureText(main).width > rowMaxTextWidth
-          ? `${main.slice(0, 64)}...`
-          : main;
+      const clippedMain = clipTextToWidth(ctx, main, rowMaxTextWidth);
       ctx.fillText(clippedMain, boxX + textX, y);
 
       y += 15;
       if (desc) {
         ctx.fillStyle = "#8a94a6";
         ctx.font = "11px sans-serif";
-        const clippedDesc =
-          ctx.measureText(desc).width > rowMaxTextWidth
-            ? `${desc.slice(0, 84)}...`
-            : desc;
+        const clippedDesc = clipTextToWidth(ctx, desc, rowMaxTextWidth);
         ctx.fillText(clippedDesc, boxX + textX, y);
         y += 12;
       }
