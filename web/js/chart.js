@@ -1066,6 +1066,8 @@ export function renderChart() {
 
   const seriesList = getVisibleSeries();
   const noMetricsSelected = state.metrics.length === 0;
+  const allMetricsHidden =
+    !noMetricsSelected && state.metrics.every((metric) => !metric.draw);
   const hasLoadError = String(state.dataLoadError || "").trim().length > 0;
   const showBlockingError = hasLoadError && seriesList.length === 0;
   dom.canvas.style.cursor = "default";
@@ -1132,7 +1134,7 @@ export function renderChart() {
     return;
   }
   if (seriesList.length === 0) {
-    setChartLoadingVisible(!showBlockingError);
+    setChartLoadingVisible(!allMetricsHidden && !showBlockingError);
     if (!showHelpOverlay) setChartEmptyStateVisible(false);
     drawEmptyChartState(ctx, margin);
     return;
