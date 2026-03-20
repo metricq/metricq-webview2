@@ -63,22 +63,23 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   if (visible.length === 0) return;
 
   const pad = 8;
-  const rowGap = 6;
-  const sectionGap = 8;
+  const rowGap = 5;
+  const sectionGap = 10;
   const swatchSize = 10;
-  const textX = pad + swatchSize + 8;
+  const textX = pad + swatchSize + 10;
   const maxAllowedWidth = Math.min(
     520,
     Math.max(220, Math.floor(cssWidth * 0.42)),
   );
   const minAllowedWidth = 190;
 
-  const buildRows = (metrics) =>
+  const buildRows = (metrics, stacked = false) =>
     metrics.map((metric) => {
       const unit = metric.displayUnit || metric.unit || "";
       const factor = shownMetricFactor(metric);
       const formulaPrefix = metric.expr ? "ƒ " : "";
-      const main = `${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
+      const marker = stacked ? "≡ " : "";
+      const main = `${marker}${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
       const desc = truncateMiddle(String(metric.description || "").trim(), 84);
       return { metric, main, desc };
     });
@@ -100,7 +101,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
         title: "Einzeln",
         stacked: false,
         showHeader: true,
-        rows: buildRows(nonStacked),
+        rows: buildRows(nonStacked, false),
       });
     }
     if (stacked.length > 0) {
@@ -108,7 +109,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
         title: `Stack (${stacked.length})`,
         stacked: true,
         showHeader: true,
-        rows: buildRows(stacked),
+        rows: buildRows(stacked, true),
       });
     }
     return out;
@@ -139,10 +140,10 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   let boxH = pad;
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
-    if (section.showHeader) boxH += 18;
+    if (section.showHeader) boxH += 16;
     for (const row of section.rows) {
-      boxH += 14;
-      if (row.desc) boxH += 13;
+      boxH += 15;
+      if (row.desc) boxH += 12;
       boxH += rowGap;
     }
     boxH += pad - rowGap;
@@ -166,17 +167,19 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     const section = sections[i];
     if (section.showHeader) {
       ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
-      ctx.font = "700 10px sans-serif";
+      ctx.font = "700 11px sans-serif";
       ctx.textBaseline = "alphabetic";
-      ctx.fillText(section.title, boxX + pad, y + 10);
+      ctx.fillText(section.title, boxX + pad, y + 9);
 
-      ctx.strokeStyle = section.stacked ? "rgba(13, 110, 253, 0.28)" : "rgba(108, 117, 125, 0.22)";
+      ctx.strokeStyle = section.stacked
+        ? "rgba(13, 110, 253, 0.28)"
+        : "rgba(108, 117, 125, 0.22)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(boxX + pad, y + 14);
-      ctx.lineTo(boxX + boxWidth - pad, y + 14);
+      ctx.moveTo(boxX + pad, y + 12);
+      ctx.lineTo(boxX + boxWidth - pad, y + 12);
       ctx.stroke();
-      y += 20;
+      y += 16;
     }
 
     for (const row of section.rows) {
@@ -186,11 +189,6 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.textBaseline = "alphabetic";
       ctx.font = "12px sans-serif";
       ctx.fillRect(boxX + pad, y - 9, swatchSize, swatchSize);
-      if (section.stacked) {
-        ctx.strokeStyle = metric.color;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(boxX + pad - 2, y - 11, swatchSize + 4, swatchSize + 4);
-      }
 
       ctx.fillStyle = "#1f2937";
       const clippedMain =
@@ -199,7 +197,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
           : main;
       ctx.fillText(clippedMain, boxX + textX, y);
 
-      y += 14;
+      y += 15;
       if (desc) {
         ctx.fillStyle = "#8a94a6";
         ctx.font = "11px sans-serif";
@@ -208,7 +206,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
             ? `${desc.slice(0, 84)}...`
             : desc;
         ctx.fillText(clippedDesc, boxX + textX, y);
-        y += 13;
+        y += 12;
       }
       y += rowGap;
     }
