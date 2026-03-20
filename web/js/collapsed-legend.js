@@ -9,7 +9,7 @@ function truncateMiddle(text, maxLen) {
   return `${raw.slice(0, keep)}…${raw.slice(raw.length - keep)}`;
 }
 
-function buildLegendRow(metric, {forceNormalIndicator = false} = {}) {
+function buildLegendRow(metric, { forceNormalIndicator = false } = {}) {
   const row = document.createElement("div");
   row.className = "collapsed-legend-item";
 
@@ -46,10 +46,35 @@ function buildLegendRow(metric, {forceNormalIndicator = false} = {}) {
   return row;
 }
 
-function appendLegendSection(host, metrics) {
+function buildSectionHeader({ stacked = false, count = 0 } = {}) {
+  const header = document.createElement("div");
+  header.className = `collapsed-legend-section-header${stacked ? " is-stacked" : ""}`;
+
+  const icon = document.createElement("span");
+  icon.className = `collapsed-legend-section-header-icon${stacked ? " is-stacked" : ""}`;
+  icon.innerHTML = stacked
+    ? '<i class="bi bi-layers-fill" aria-hidden="true"></i>'
+    : '<i class="bi bi-dash-lg" aria-hidden="true"></i>';
+
+  const text = document.createElement("span");
+  text.className = "collapsed-legend-section-header-text";
+  text.textContent = stacked ? `Stack (${count})` : "Einzeln";
+
+  header.append(icon, text);
+  return header;
+}
+
+function appendLegendSection(
+  host,
+  metrics,
+  { stacked = false, forceNormalIndicator = false } = {},
+) {
   const section = document.createElement("section");
-  section.className = "collapsed-legend-section";
-  for (const metric of metrics) section.appendChild(buildLegendRow(metric));
+  section.className = `collapsed-legend-section${stacked ? " is-stacked" : ""}`;
+  section.appendChild(buildSectionHeader({ stacked, count: metrics.length }));
+  for (const metric of metrics) {
+    section.appendChild(buildLegendRow(metric, { forceNormalIndicator }));
+  }
   host.appendChild(section);
 }
 
@@ -72,10 +97,16 @@ export function renderCollapsedLegend() {
   if (state.yAxisStacked) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
-    if (nonStacked.length > 0) appendLegendSection(host, nonStacked);
-    if (stacked.length > 0) appendLegendSection(host, stacked);
+    if (nonStacked.length > 0)
+      appendLegendSection(host, nonStacked, { stacked: false });
+    if (stacked.length > 0)
+      appendLegendSection(host, stacked, { stacked: true });
   } else {
-    for (const metric of visible) host.appendChild(buildLegendRow(metric, {forceNormalIndicator: true}));
+    appendLegendSection(
+      host,
+      visible,
+      { stacked: false, forceNormalIndicator: true },
+    );
   }
 
   host.classList.remove("d-none");

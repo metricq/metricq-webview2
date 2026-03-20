@@ -330,8 +330,53 @@
   padding: 0.2rem 0.3rem;
 }
 
+.collapsed-legend-section.is-stacked {
+  background: linear-gradient(180deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.04));
+  border: 1px solid rgba(13, 110, 253, 0.16);
+}
+
 .collapsed-legend-section + .collapsed-legend-section {
   margin-top: 0.28rem;
+}
+
+.collapsed-legend-section-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.32rem;
+  padding: 0.08rem 0.32rem;
+  border-radius: 999px;
+  background: rgba(108, 117, 125, 0.08);
+  color: #5f6b7b;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.collapsed-legend-section-header.is-stacked {
+  background: rgba(13, 110, 253, 0.14);
+  color: #0b5ed7;
+}
+
+.collapsed-legend-section-header-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: rgba(108, 117, 125, 0.12);
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.collapsed-legend-section-header-icon.is-stacked {
+  background: rgba(13, 110, 253, 0.18);
+}
+
+.collapsed-legend-section-header-text {
+  line-height: 1;
 }
 
 .collapsed-legend-color {
@@ -343,12 +388,12 @@
 
 .collapsed-legend-icon {
   flex: 0 0 auto;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 1;
 }
 
