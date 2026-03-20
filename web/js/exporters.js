@@ -200,9 +200,9 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
       ctx.font = "700 11px sans-serif";
       ctx.textBaseline = "top";
-      const headerTextX = boxX + pad + (section.stacked ? indicatorSize + 6 : 0);
+      const headerTextX = boxX + pad + (section.stacked ? indicatorSize + 7 : 0);
       if (section.stacked) {
-        drawBootstrapLayersFill(ctx, boxX + pad, y + 1, indicatorSize, "#0b5ed7");
+        drawBootstrapLayersFill(ctx, boxX + pad - 1, y + 2, indicatorSize, "#0b5ed7");
       }
       ctx.fillText(section.title, headerTextX, y);
 
@@ -223,12 +223,17 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       const mainBaseline = mainTop + mainLineHeight - 3;
 
       ctx.fillStyle = metric.color;
-      const indicatorY = mainTop + Math.floor((mainLineHeight - indicatorSize) / 2);
+      const indicatorY =
+        mainTop + Math.floor((mainLineHeight - indicatorSize) / 2) + 1;
       if (section.stacked) {
-        drawBootstrapLayersFill(ctx, boxX + pad, indicatorY, indicatorSize, metric.color);
+        drawBootstrapLayersFill(
+          ctx,
+          boxX + pad - 1,
+          indicatorY,
+          indicatorSize,
+          metric.color,
+        );
       } else {
-        ctx.textBaseline = "alphabetic";
-        ctx.font = "12px sans-serif";
         ctx.fillRect(
           boxX + pad + Math.floor((indicatorSize - swatchSize) / 2),
           mainTop + Math.floor((mainLineHeight - swatchSize) / 2),
@@ -238,6 +243,8 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       }
 
       ctx.fillStyle = "#1f2937";
+      ctx.textBaseline = "alphabetic";
+      ctx.font = "12px sans-serif";
       const clippedMain = clipTextToWidth(ctx, main, rowMaxTextWidth);
       ctx.fillText(clippedMain, boxX + textX, mainBaseline);
 
