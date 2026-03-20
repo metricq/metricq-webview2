@@ -58,7 +58,6 @@ function syncUrlStateIfAllowed() {
 
 function onStateChangedCombined() {
   renderContextualHelp();
-  syncStackedIndicators();
   syncUrlStateIfAllowed();
 }
 
@@ -116,21 +115,6 @@ function syncRenderModeButton() {
     : "Standard-Modus aktiv (Point-to-Point)";
 }
 
-function syncStackedIndicators() {
-  const stackedActive = !!state.yAxisStacked;
-  const stackedMetricCount = state.metrics.filter(
-    (metric) => metric.stackMode !== "normal",
-  ).length;
-  if (dom.stackedModeBadge) {
-    const showBadge = stackedActive && stackedMetricCount > 0;
-    dom.stackedModeBadge.classList.toggle("is-visible", showBadge);
-    dom.stackedModeBadge.title = `Stacked-Mode aktiv: ${stackedMetricCount} Metriken`;
-  }
-  if (dom.stackedModeBadgeCount) {
-    dom.stackedModeBadgeCount.textContent = String(stackedMetricCount);
-  }
-}
-
 function updateSidebarToggleIcon() {
   const icon = dom.btnSidebarToggle.querySelector("i");
   if (!icon) return;
@@ -152,7 +136,6 @@ function setSidebarCollapsed(collapsed) {
   );
   updateSidebarToggleIcon();
   syncRenderModeButton();
-  syncStackedIndicators();
   renderCollapsedLegend();
   renderContextualHelp();
   renderChart();
@@ -400,7 +383,6 @@ function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
-  syncStackedIndicators();
   const fillMin = Number.isFinite(state.yAxisManualMin)
     ? state.yAxisManualMin
     : state.yAxisCurrentMin;
@@ -888,7 +870,6 @@ async function init() {
   });
   syncYAxisModalFromState();
   syncRenderModeButton();
-  syncStackedIndicators();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();
