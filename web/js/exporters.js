@@ -118,7 +118,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   for (const section of sections) {
     if (section.showHeader) {
       ctx.font = "700 10px sans-serif";
-      maxTextWidth = Math.max(maxTextWidth, ctx.measureText(section.title).width + 20);
+      maxTextWidth = Math.max(maxTextWidth, ctx.measureText(section.title).width);
     }
     ctx.font = "12px sans-serif";
     for (const row of section.rows) {
@@ -165,36 +165,18 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
     if (section.showHeader) {
-      const pillTextWidth = Math.ceil(ctx.measureText(section.title).width);
-      const pillWidth = Math.min(boxWidth - (pad * 2), pillTextWidth + 28);
-
-      ctx.fillStyle = section.stacked
-        ? "rgba(13, 110, 253, 0.14)"
-        : "rgba(108, 117, 125, 0.08)";
-      ctx.beginPath();
-      ctx.roundRect(boxX + pad, y, pillWidth, 16, 999);
-      ctx.fill();
-
       ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
       ctx.font = "700 10px sans-serif";
-      ctx.textBaseline = "middle";
-      ctx.fillText(section.stacked ? "≡" : "-", boxX + pad + 7, y + 8);
-      ctx.fillText(section.title, boxX + pad + 18, y + 8);
-      y += 22;
-    }
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(section.title, boxX + pad, y + 10);
 
-    if (section.stacked) {
-      const sectionRowsHeight = section.rows.reduce((height, row) => {
-        let next = height + 14 + rowGap;
-        if (row.desc) next += 13;
-        return next;
-      }, pad - rowGap);
-      ctx.fillStyle = "rgba(13, 110, 253, 0.08)";
-      ctx.strokeStyle = "rgba(13, 110, 253, 0.16)";
+      ctx.strokeStyle = section.stacked ? "rgba(13, 110, 253, 0.28)" : "rgba(108, 117, 125, 0.22)";
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.roundRect(boxX + 4, y - 4, boxWidth - 8, sectionRowsHeight + 8, 6);
-      ctx.fill();
+      ctx.moveTo(boxX + pad, y + 14);
+      ctx.lineTo(boxX + boxWidth - pad, y + 14);
       ctx.stroke();
+      y += 20;
     }
 
     for (const row of section.rows) {
@@ -203,10 +185,11 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillStyle = metric.color;
       ctx.textBaseline = "alphabetic";
       ctx.font = "12px sans-serif";
+      ctx.fillRect(boxX + pad, y - 9, swatchSize, swatchSize);
       if (section.stacked) {
-        ctx.fillText("≡", boxX + pad + 1, y);
-      } else {
-        ctx.fillRect(boxX + pad, y - 9, swatchSize, swatchSize);
+        ctx.strokeStyle = metric.color;
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(boxX + pad - 2, y - 11, swatchSize + 4, swatchSize + 4);
       }
 
       ctx.fillStyle = "#1f2937";
