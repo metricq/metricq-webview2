@@ -599,13 +599,6 @@ export function renderMetricList(hooks) {
     mainText.className = "metric-name-main";
     const formulaPrefix = metric.expr ? "ƒ " : "";
     mainText.textContent = formulaPrefix + metricDisplayName(metric) + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
-    if (metric.stackMode !== "normal") {
-      const stackMarker = document.createElement("span");
-      stackMarker.className = "metric-stack-indicator";
-      stackMarker.title = "Diese Metrik wird gestapelt";
-      stackMarker.innerHTML = '<i class="bi bi-layers-fill" aria-hidden="true"></i>';
-      mainText.prepend(stackMarker);
-    }
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
