@@ -85,6 +85,9 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const rowGap = 5;
   const sectionGap = 10;
   const swatchSize = 10;
+  const headerHeight = 18;
+  const mainLineHeight = 16;
+  const descLineHeight = 13;
   const textX = pad + swatchSize + 10;
   const maxAllowedWidth = Math.min(
     520,
@@ -159,10 +162,10 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   let boxH = pad;
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
-    if (section.showHeader) boxH += 16;
+    if (section.showHeader) boxH += headerHeight;
     for (const row of section.rows) {
-      boxH += 15;
-      if (row.desc) boxH += 12;
+      boxH += mainLineHeight;
+      if (row.desc) boxH += descLineHeight;
       boxH += rowGap;
     }
     boxH += pad - rowGap;
@@ -187,39 +190,46 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     if (section.showHeader) {
       ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
       ctx.font = "700 11px sans-serif";
-      ctx.textBaseline = "alphabetic";
-      ctx.fillText(section.title, boxX + pad, y + 9);
+      ctx.textBaseline = "top";
+      ctx.fillText(section.title, boxX + pad, y);
 
       ctx.strokeStyle = section.stacked
         ? "rgba(13, 110, 253, 0.28)"
         : "rgba(108, 117, 125, 0.22)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(boxX + pad, y + 12);
-      ctx.lineTo(boxX + boxWidth - pad, y + 12);
+      ctx.moveTo(boxX + pad, y + headerHeight - 3);
+      ctx.lineTo(boxX + boxWidth - pad, y + headerHeight - 3);
       ctx.stroke();
-      y += 16;
+      y += headerHeight;
     }
 
     for (const row of section.rows) {
       const { metric, main, desc } = row;
+      const mainTop = y;
+      const mainBaseline = mainTop + mainLineHeight - 3;
 
       ctx.fillStyle = metric.color;
       ctx.textBaseline = "alphabetic";
       ctx.font = "12px sans-serif";
-      ctx.fillRect(boxX + pad, y - 9, swatchSize, swatchSize);
+      ctx.fillRect(
+        boxX + pad,
+        mainTop + Math.floor((mainLineHeight - swatchSize) / 2),
+        swatchSize,
+        swatchSize,
+      );
 
       ctx.fillStyle = "#1f2937";
       const clippedMain = clipTextToWidth(ctx, main, rowMaxTextWidth);
-      ctx.fillText(clippedMain, boxX + textX, y);
+      ctx.fillText(clippedMain, boxX + textX, mainBaseline);
 
-      y += 15;
+      y += mainLineHeight;
       if (desc) {
         ctx.fillStyle = "#8a94a6";
         ctx.font = "11px sans-serif";
         const clippedDesc = clipTextToWidth(ctx, desc, rowMaxTextWidth);
-        ctx.fillText(clippedDesc, boxX + textX, y);
-        y += 12;
+        ctx.fillText(clippedDesc, boxX + textX, y + descLineHeight - 3);
+        y += descLineHeight;
       }
       y += rowGap;
     }
