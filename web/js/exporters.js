@@ -39,10 +39,12 @@ function clipTextToWidth(ctx, text, maxWidth) {
 }
 
 function drawBootstrapLayersFill(ctx, x, y, size, color) {
+  ctx.save();
   ctx.fillStyle = color;
   ctx.font = `${size}px bootstrap-icons`;
   ctx.textBaseline = "top";
   ctx.fillText("\uf459", x, y);
+  ctx.restore();
 }
 
 export function exportJSON() {
