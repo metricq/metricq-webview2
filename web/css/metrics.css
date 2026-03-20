@@ -170,11 +170,6 @@
     vertical-align: text-bottom;
 }
 
-.metric-stack-indicator.is-inactive {
-    background: rgba(108, 117, 125, 0.12);
-    color: #6c757d;
-}
-
 .active-stack-button {
     background: rgba(13, 110, 253, 0.1);
     border-color: rgba(13, 110, 253, 0.45);

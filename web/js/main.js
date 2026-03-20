@@ -58,7 +58,7 @@ function syncUrlStateIfAllowed() {
 
 function onStateChangedCombined() {
   renderContextualHelp();
-  syncStackedModeButton();
+  syncStackedIndicators();
   syncUrlStateIfAllowed();
 }
 
@@ -116,20 +116,11 @@ function syncRenderModeButton() {
     : "Standard-Modus aktiv (Point-to-Point)";
 }
 
-function syncStackedModeButton() {
-  if (!dom.btnStackedMode) return;
+function syncStackedIndicators() {
   const stackedActive = !!state.yAxisStacked;
   const stackedMetricCount = state.metrics.filter(
     (metric) => metric.stackMode !== "normal",
   ).length;
-  const icon = dom.btnStackedMode.querySelector("i");
-  dom.btnStackedMode.classList.toggle("btn-primary", stackedActive);
-  dom.btnStackedMode.classList.toggle("btn-outline-primary", !stackedActive);
-  dom.btnStackedMode.setAttribute("aria-pressed", String(stackedActive));
-  dom.btnStackedMode.title = stackedActive
-    ? `Stacked-Mode aktiv (${stackedMetricCount} Metriken im Stack)`
-    : "Stacked-Mode inaktiv";
-  if (icon) icon.className = stackedActive ? "bi bi-layers-fill" : "bi bi-layers";
   if (dom.stackedModeBadge) {
     const showBadge = stackedActive && stackedMetricCount > 0;
     dom.stackedModeBadge.classList.toggle("is-visible", showBadge);
@@ -161,7 +152,7 @@ function setSidebarCollapsed(collapsed) {
   );
   updateSidebarToggleIcon();
   syncRenderModeButton();
-  syncStackedModeButton();
+  syncStackedIndicators();
   renderCollapsedLegend();
   renderContextualHelp();
   renderChart();
@@ -409,7 +400,7 @@ function syncYAxisModalFromState() {
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
-  syncStackedModeButton();
+  syncStackedIndicators();
   const fillMin = Number.isFinite(state.yAxisManualMin)
     ? state.yAxisManualMin
     : state.yAxisCurrentMin;
@@ -494,17 +485,6 @@ function wireTopBarEvents() {
   dom.btnRenderMode.addEventListener("click", () => {
     state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
     syncRenderModeButton();
-    hooks.loadData();
-  });
-  dom.btnStackedMode.addEventListener("click", async () => {
-    state.yAxisStacked = !state.yAxisStacked;
-    syncStackedModeButton();
-    renderMetricList(hooks);
-    if (state.yAxisMode === "global") {
-      try {
-        await ensureGlobalYAxisRange();
-      } catch (_) {}
-    }
     hooks.loadData();
   });
   dom.btnSidebarToggle.addEventListener("click", () => {
@@ -908,7 +888,7 @@ async function init() {
   });
   syncYAxisModalFromState();
   syncRenderModeButton();
-  syncStackedModeButton();
+  syncStackedIndicators();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();

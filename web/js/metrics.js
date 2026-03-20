@@ -5,7 +5,13 @@ import { dom } from "./dom.js";
 import { startHelpOverlayMinimize } from "./chart.js";
 import { collectExpressionReferences } from "./expression-refs.mjs";
 import { formatFactorDisplay, shownMetricFactor } from "./factor-format.mjs";
-import { colors, metricByName, metricDisplayName, state } from "./model.js";
+import {
+  colors,
+  metricByName,
+  metricDisplayName,
+  state,
+  syncYAxisStackedState,
+} from "./model.js";
 import { sanitizeFactor } from "./factors.mjs";
 import { formatDecimalInput } from "./number-format.mjs";
 import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
@@ -327,7 +333,7 @@ export function addMetric(name, hooks) {
     color: colors[state.metrics.length % colors.length],
     draw: true,
     drawAvg: true,
-    stackMode: "stack",
+    stackMode: "normal",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -340,6 +346,7 @@ export function addMetric(name, hooks) {
   if (hadNoMetrics) {
     startHelpOverlayMinimize(1900);
   }
+  syncYAxisStackedState();
   hooks.loadData();
   hooks.onStateChanged?.();
   fetchMetadata(name, hooks);
@@ -355,7 +362,7 @@ export function addExpressionMetric(name, expr, hooks) {
     color: colors[state.metrics.length % colors.length],
     draw: true,
     drawAvg: true,
-    stackMode: "stack",
+    stackMode: "normal",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -365,6 +372,7 @@ export function addExpressionMetric(name, expr, hooks) {
     description: metricExpr,
   });
   renderMetricList(hooks);
+  syncYAxisStackedState();
   hooks.loadData();
   hooks.onStateChanged?.();
   return true;
@@ -392,6 +400,7 @@ export function updateExpressionMetric(originalName, name, expr, hooks) {
 
 export function removeMetric(name, hooks) {
   state.metrics = state.metrics.filter((m) => m.name !== name);
+  syncYAxisStackedState();
   state.series.delete(name);
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
@@ -427,11 +436,13 @@ export function setAllVisible(draw, hooks) {
 
 export function clearMetrics(hooks) {
   state.metrics = [];
+  syncYAxisStackedState();
   state.series.clear();
   factorMetricName = "";
   applyAutoScaling(state.metrics, state.series);
   renderMetricList(hooks);
   hooks.renderChart();
+  hooks.onStateChanged?.();
 }
 
 export async function fetchMetadata(name, hooks) {
@@ -591,10 +602,7 @@ export function renderMetricList(hooks) {
     if (metric.stackMode !== "normal") {
       const stackMarker = document.createElement("span");
       stackMarker.className = "metric-stack-indicator";
-      if (!state.yAxisStacked) stackMarker.classList.add("is-inactive");
-      stackMarker.title = state.yAxisStacked
-        ? "Diese Metrik wird gestapelt"
-        : "Diese Metrik ist fuer Stacking markiert";
+      stackMarker.title = "Diese Metrik wird gestapelt";
       stackMarker.innerHTML = '<i class="bi bi-layers-fill" aria-hidden="true"></i>';
       mainText.prepend(stackMarker);
     }
@@ -615,17 +623,17 @@ export function renderMetricList(hooks) {
     const editButton = metric.expr
       ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
       : "";
-    const stackButton = state.yAxisStacked
-      ? (() => {
-        const stacksInYAxis = metric.stackMode !== "normal";
-        const stackButtonClass = stacksInYAxis ? "btn-outline-secondary active-stack-button" : "btn-outline-secondary";
-        const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers";
-        const stackTitle = stacksInYAxis
-          ? "Im Stack-Modus: gestapelt zeichnen"
-          : "Im Stack-Modus: normal (nicht gestapelt) zeichnen";
-        return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi ${stackButtonIcon}"></i></button>`;
-      })()
-      : "";
+    const stackButton = (() => {
+      const stacksInYAxis = metric.stackMode !== "normal";
+      const stackButtonClass = stacksInYAxis
+        ? "btn-outline-secondary active-stack-button"
+        : "btn-outline-secondary";
+      const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers";
+      const stackTitle = stacksInYAxis
+        ? "Diese Metrik wird gestapelt"
+        : "Diese Metrik nicht stapeln";
+      return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi ${stackButtonIcon}"></i></button>`;
+    })();
     controls.innerHTML = `
       <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
       ${stackButton}
@@ -645,6 +653,7 @@ export function renderMetricList(hooks) {
         hooks.onStateChanged?.();
       } else if (action === "stack-mode") {
         metric.stackMode = metric.stackMode === "normal" ? "stack" : "normal";
+        syncYAxisStackedState();
         renderMetricList(hooks);
         hooks.loadData();
         hooks.onStateChanged?.();

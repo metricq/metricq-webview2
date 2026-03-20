@@ -45,6 +45,13 @@ export function metricByName(name) {
   return state.metrics.find((m) => m.name === name);
 }
 
+export function syncYAxisStackedState() {
+  state.yAxisStacked = state.metrics.some(
+    (metric) => metric.stackMode !== "normal",
+  );
+  return state.yAxisStacked;
+}
+
 export function metricDisplayName(metric) {
   const alias = String(metric?.alias || "").trim();
   const expr = String(metric?.expr || "").trim();

@@ -103,7 +103,6 @@ export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderC
       actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse", "secondary"));
     } else {
       actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical", "outline-primary"));
-      actions.push(helpActionButton("toggle_stacked", state.yAxisStacked ? "Stacking aus" : "Stacking an", "bi-layers", state.yAxisStacked ? "primary" : "outline-primary"));
       actions.push(helpActionButton("open_time_range", "Zeitraum wählen", "bi-clock-history", "outline-primary"));
       actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
     }
@@ -184,11 +183,6 @@ export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderC
     if (action === "open_y_axis") {
       await animateCoachToTarget(sourceEl, dom.btnYAxis);
       dom.btnYAxis?.click();
-      return;
-    }
-    if (action === "toggle_stacked") {
-      await animateCoachToTarget(sourceEl, dom.btnStackedMode);
-      dom.btnStackedMode?.click();
       return;
     }
     if (action === "open_time_range") {

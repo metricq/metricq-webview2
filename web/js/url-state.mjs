@@ -1,5 +1,5 @@
 import { dom } from "./dom.js";
-import { colors, state } from "./model.js";
+import { colors, state, syncYAxisStackedState } from "./model.js";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./time-range-ui.mjs";
 
@@ -30,7 +30,7 @@ function decodeStatePayload(encoded) {
   return JSON.parse(json);
 }
 
-function sanitizeMetricEntry(raw, index) {
+function sanitizeMetricEntry(raw, index, defaultStacked = false) {
   const name = String(raw?.n || "").trim();
   if (!name) return null;
 
@@ -45,7 +45,7 @@ function sanitizeMetricEntry(raw, index) {
     color,
     draw,
     drawAvg: true,
-    stackMode: raw?.ns ? "normal" : "stack",
+    stackMode: raw?.ns ? "normal" : (defaultStacked ? "stack" : "normal"),
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -119,7 +119,6 @@ function serializeYAxis() {
 }
 
 function applyYAxisConfig(y) {
-  state.yAxisStacked = Number(y?.s) === 1;
   if (!y || y.m === "local") {
     state.yAxisMode = "local";
     state.yAxisManualMin = null;
@@ -215,7 +214,7 @@ function splitLegacyHashParts(hash) {
   return parts;
 }
 
-function parseLegacyMetricToken(token, index) {
+function parseLegacyMetricToken(token, index, defaultStacked = false) {
   let raw = String(token || "").trim();
   if (!raw) return null;
   if (raw.startsWith("(") && raw.endsWith(")")) raw = raw.slice(1, -1).trim();
@@ -231,7 +230,7 @@ function parseLegacyMetricToken(token, index) {
     color: defaultColorAt(index),
     draw: true,
     drawAvg: true,
-    stackMode: "stack",
+    stackMode: defaultStacked ? "stack" : "normal",
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -343,8 +342,9 @@ export async function applyStateFromUrl() {
   }
 
   const metricEntries = Array.isArray(payload?.m) ? payload.m : [];
+  const defaultStacked = Number(payload?.y?.s) === 1;
   state.metrics = metricEntries
-    .map((entry, index) => sanitizeMetricEntry(entry, index))
+    .map((entry, index) => sanitizeMetricEntry(entry, index, defaultStacked))
     .filter(Boolean);
 
   const renderMode = String(payload?.rm || "")
@@ -353,6 +353,7 @@ export async function applyStateFromUrl() {
   state.renderMode = renderMode === "ti" ? "ti" : "standard";
 
   applyYAxisConfig(payload?.y);
+  syncYAxisStackedState();
 
   return true;
 }
@@ -391,9 +392,10 @@ export function applyLegacyWebviewHashFallback() {
 
   state.metrics = parts
     .slice(2)
-    .map((item, index) => parseLegacyMetricToken(item, index))
+    .map((item, index) => parseLegacyMetricToken(item, index, false))
     .filter(Boolean);
   state.renderMode = "standard";
+  syncYAxisStackedState();
 
   return state.metrics.length > 0;
 }
