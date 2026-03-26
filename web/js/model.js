@@ -36,6 +36,12 @@ export const state = {
   pinchRangeStart: 0,
   pinchRangeEnd: 0,
   pinchCenterMs: 0,
+  penPointerId: null,
+  penStartX: 0,
+  penStartY: 0,
+  penLongPressArmed: false,
+  penLastTapTime: 0,
+  penLastTapX: 0,
   dragStartX: 0,
   dragCurrentX: 0,
 };

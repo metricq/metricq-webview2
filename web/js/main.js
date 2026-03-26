@@ -99,6 +99,13 @@ let wheelZoomLoadTimer = null;
 let timeDialogMode = "relative";
 let helpModule = null;
 let sharePopTimer = null;
+let penLongPressTimer = null;
+
+const PEN_MOVE_THRESHOLD_PX = 10;
+const PEN_DOUBLE_TAP_MS = 320;
+const PEN_DOUBLE_TAP_DISTANCE_PX = 32;
+const PEN_ZOOM_OUT_FACTOR = 1.25;
+const PEN_LONG_PRESS_MS = 280;
 
 function renderContextualHelp() {
   helpModule?.renderContextualHelp();
@@ -343,6 +350,47 @@ function scheduleWheelZoomDataLoad() {
     wheelZoomLoadTimer = null;
     hooks.loadData();
   }, 50);
+}
+
+function clearPenLongPressTimer() {
+  if (penLongPressTimer != null) window.clearTimeout(penLongPressTimer);
+  penLongPressTimer = null;
+}
+
+function resetPenTracking() {
+  clearPenLongPressTimer();
+  state.penPointerId = null;
+  state.penLongPressArmed = false;
+}
+
+function beginPenPan(clientX) {
+  forceAbsoluteTimeModeFromCurrentRange();
+  hideHover();
+  state.penLongPressArmed = false;
+  state.interactionMode = "pan";
+  state.isPanning = true;
+  state.panStartX = clientX;
+  state.panRangeStart = state.from;
+  state.panRangeEnd = state.to;
+}
+
+function beginPenZoomSelect(clientX) {
+  forceAbsoluteTimeModeFromCurrentRange();
+  hideHover();
+  state.penLongPressArmed = false;
+  state.interactionMode = "zoom-select";
+  state.dragStartX = getClampedClientX(clientX);
+  state.dragCurrentX = state.dragStartX;
+  updateDragSelection();
+}
+
+function handlePenDoubleTapZoomOut(clientX) {
+  forceAbsoluteTimeModeFromCurrentRange();
+  const center = timestampAtCanvasX(clientX);
+  zoomAt(center, PEN_ZOOM_OUT_FACTOR, () => {
+    showZoomRangeBadge();
+    hooks.loadData();
+  });
 }
 
 function forceAbsoluteTimeModeFromCurrentRange() {
@@ -786,6 +834,113 @@ function wireCanvasInteractionEvents() {
   });
   dom.canvas.addEventListener("touchcancel", finishTouchInteraction, {
     passive: true,
+  });
+
+  dom.canvas.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "pen") return;
+    if (!isChartInteractive()) {
+      event.preventDefault();
+      return;
+    }
+    event.preventDefault();
+    dom.canvas.setPointerCapture?.(event.pointerId);
+    state.penPointerId = event.pointerId;
+    state.penStartX = event.clientX;
+    state.penStartY = event.clientY;
+    state.penLongPressArmed = true;
+    clearPenLongPressTimer();
+    penLongPressTimer = window.setTimeout(() => {
+      penLongPressTimer = null;
+      if (
+        state.penPointerId !== event.pointerId ||
+        state.interactionMode !== "" ||
+        !state.penLongPressArmed
+      ) return;
+      beginPenZoomSelect(state.penStartX);
+    }, PEN_LONG_PRESS_MS);
+  });
+
+  dom.canvas.addEventListener("pointermove", (event) => {
+    if (event.pointerType !== "pen") return;
+    if (state.penPointerId !== event.pointerId) return;
+    const moved = Math.hypot(
+      event.clientX - state.penStartX,
+      event.clientY - state.penStartY,
+    );
+    if (state.interactionMode === "") {
+      if (moved <= PEN_MOVE_THRESHOLD_PX) return;
+      clearPenLongPressTimer();
+      state.penLongPressArmed = false;
+      beginPenPan(state.penStartX);
+    }
+    event.preventDefault();
+    if (state.interactionMode === "pan" && state.isPanning) {
+      panByPixels(event.clientX - state.panStartX);
+      return;
+    }
+    if (state.interactionMode === "zoom-select") {
+      state.dragCurrentX = getClampedClientX(event.clientX);
+      updateDragSelection();
+    }
+  });
+
+  dom.canvas.addEventListener("pointerup", (event) => {
+    if (event.pointerType !== "pen") return;
+    if (state.penPointerId !== event.pointerId) return;
+    event.preventDefault();
+    dom.canvas.releasePointerCapture?.(event.pointerId);
+    clearPenLongPressTimer();
+    const moved = Math.hypot(
+      event.clientX - state.penStartX,
+      event.clientY - state.penStartY,
+    );
+    const wasPan = state.interactionMode === "pan" && state.isPanning;
+    const wasZoomSelect = state.interactionMode === "zoom-select";
+    if (wasPan) {
+      state.isPanning = false;
+      state.interactionMode = "";
+      resetPenTracking();
+      hooks.loadData();
+      return;
+    }
+    if (wasZoomSelect) {
+      commitDragZoom();
+      state.interactionMode = "";
+      resetPenTracking();
+      return;
+    }
+    const now = Date.now();
+    const isTap = moved <= PEN_MOVE_THRESHOLD_PX;
+    const isDoubleTap =
+      isTap &&
+      state.penLastTapTime > 0 &&
+      now - state.penLastTapTime <= PEN_DOUBLE_TAP_MS &&
+      Math.abs(event.clientX - state.penLastTapX) <= PEN_DOUBLE_TAP_DISTANCE_PX;
+    resetPenTracking();
+    if (isDoubleTap) {
+      state.penLastTapTime = 0;
+      state.penLastTapX = 0;
+      handlePenDoubleTapZoomOut(event.clientX);
+      return;
+    }
+    if (isTap) {
+      state.penLastTapTime = now;
+      state.penLastTapX = event.clientX;
+    }
+  });
+
+  dom.canvas.addEventListener("pointercancel", (event) => {
+    if (event.pointerType !== "pen") return;
+    if (state.penPointerId !== event.pointerId) return;
+    dom.canvas.releasePointerCapture?.(event.pointerId);
+    if (state.interactionMode === "pan") {
+      state.isPanning = false;
+      state.interactionMode = "";
+    } else if (state.interactionMode === "zoom-select") {
+      state.interactionMode = "";
+      hideDragSelection();
+    }
+    resetPenTracking();
   });
 
   window.addEventListener("resize", () => {
