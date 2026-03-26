@@ -609,6 +609,35 @@ function wireYAxisEvents() {
 }
 
 function wireCanvasInteractionEvents() {
+  const touchDistance = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    const dx = touches[1].clientX - touches[0].clientX;
+    const dy = touches[1].clientY - touches[0].clientY;
+    return Math.hypot(dx, dy);
+  };
+
+  const touchMidpointClientX = (touches) => {
+    if (!touches || touches.length < 2) return 0;
+    return (touches[0].clientX + touches[1].clientX) / 2;
+  };
+
+  const previewPinchZoom = (clientX, scale) => {
+    const old = state.pinchRangeEnd - state.pinchRangeStart;
+    if (!(old > 0) || !(scale > 0)) return;
+    const next = old / scale;
+    if (next < MIN_ZOOM_RANGE_MS || next > MAX_ZOOM_RANGE_MS) return;
+    const center = Number.isFinite(state.pinchCenterMs)
+      ? state.pinchCenterMs
+      : timestampAtCanvasX(clientX);
+    const rel = (center - state.pinchRangeStart) / old;
+    state.from = Math.round(center - next * rel);
+    state.to = Math.round(center + next * (1 - rel));
+    dom.fromInput.value = toLocalInput(new Date(state.from));
+    dom.toInput.value = toLocalInput(new Date(state.to));
+    updateRangeButtonLabel();
+    renderChart();
+  };
+
   dom.canvas.addEventListener("mousemove", showHover);
   dom.canvas.addEventListener("mouseleave", hideHover);
 
@@ -678,6 +707,86 @@ function wireCanvasInteractionEvents() {
     },
     { passive: false },
   );
+
+  dom.canvas.addEventListener(
+    "touchstart",
+    (event) => {
+      if (!isChartInteractive()) {
+        event.preventDefault();
+        return;
+      }
+      if (event.touches.length === 1) {
+        event.preventDefault();
+        hideHover();
+        forceAbsoluteTimeModeFromCurrentRange();
+        state.interactionMode = "pan";
+        state.isPanning = true;
+        state.panStartX = event.touches[0].clientX;
+        state.panRangeStart = state.from;
+        state.panRangeEnd = state.to;
+        return;
+      }
+      if (event.touches.length >= 2) {
+        event.preventDefault();
+        hideHover();
+        forceAbsoluteTimeModeFromCurrentRange();
+        state.interactionMode = "pinch";
+        state.isPanning = false;
+        state.pinchStartDistance = touchDistance(event.touches);
+        state.pinchRangeStart = state.from;
+        state.pinchRangeEnd = state.to;
+        state.pinchCenterMs = timestampAtCanvasX(
+          touchMidpointClientX(event.touches),
+        );
+      }
+    },
+    { passive: false },
+  );
+
+  dom.canvas.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!isChartInteractive()) {
+        event.preventDefault();
+        return;
+      }
+      if (state.interactionMode === "pan" && state.isPanning && event.touches.length === 1) {
+        event.preventDefault();
+        panByPixels(event.touches[0].clientX - state.panStartX);
+        return;
+      }
+      if (state.interactionMode === "pinch" && event.touches.length >= 2) {
+        event.preventDefault();
+        const distance = touchDistance(event.touches);
+        if (!(distance > 0) || !(state.pinchStartDistance > 0)) return;
+        previewPinchZoom(
+          touchMidpointClientX(event.touches),
+          distance / state.pinchStartDistance,
+        );
+      }
+    },
+    { passive: false },
+  );
+
+  const finishTouchInteraction = () => {
+    if (state.interactionMode === "pan" && state.isPanning) {
+      state.isPanning = false;
+      state.interactionMode = "";
+      hooks.loadData();
+      return;
+    }
+    if (state.interactionMode === "pinch") {
+      state.interactionMode = "";
+      hooks.loadData();
+    }
+  };
+
+  dom.canvas.addEventListener("touchend", finishTouchInteraction, {
+    passive: true,
+  });
+  dom.canvas.addEventListener("touchcancel", finishTouchInteraction, {
+    passive: true,
+  });
 
   window.addEventListener("resize", () => {
     applyResponsiveSidebarMode();

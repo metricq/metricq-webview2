@@ -32,6 +32,7 @@
   display: block;
   z-index: 1;
   cursor: crosshair;
+  touch-action: none;
 }
 
 .chart-empty-state {

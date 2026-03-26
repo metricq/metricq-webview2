@@ -32,6 +32,10 @@ export const state = {
   panStartX: 0,
   panRangeStart: 0,
   panRangeEnd: 0,
+  pinchStartDistance: 0,
+  pinchRangeStart: 0,
+  pinchRangeEnd: 0,
+  pinchCenterMs: 0,
   dragStartX: 0,
   dragCurrentX: 0,
 };
