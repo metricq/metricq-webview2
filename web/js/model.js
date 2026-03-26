@@ -39,11 +39,6 @@ export const state = {
   penPointerId: null,
   penStartX: 0,
   penStartY: 0,
-  penLongPressArmed: false,
-  penLongPressActive: false,
-  penLastTapTime: 0,
-  penLastTapX: 0,
-  penLastTapY: 0,
   dragStartX: 0,
   dragCurrentX: 0,
 };

@@ -68,6 +68,8 @@ export const dom = {
   btnExportCsv: document.getElementById("btnExportCsv"),
   btnExportJson: document.getElementById("btnExportJson"),
   btnShare: document.getElementById("btnShare"),
+  btnZoomIn: document.getElementById("btnZoomIn"),
+  btnZoomOut: document.getElementById("btnZoomOut"),
   factorModal: document.getElementById("factorModal"),
   factorMetricName: document.getElementById("factorMetricName"),
   factorNormalizationInfo: document.getElementById("factorNormalizationInfo"),

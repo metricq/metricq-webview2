@@ -22,7 +22,6 @@ let hoverPointEl = null;
 let hoverCursorLineEl = null;
 let chartLoadingEl = null;
 let chartErrorEl = null;
-let penZoomCueEl = null;
 let hoverRafId = 0;
 let colorSampleCtx = null;
 let helpMinimizeTimerId = null;
@@ -158,24 +157,6 @@ function setChartErrorVisible(message, kind = "backend") {
   }
   if (reloadBtn) reloadBtn.classList.toggle("d-none", isMetricError);
   el.classList.toggle("d-none", !message);
-}
-
-function ensurePenZoomCueEl() {
-  if (penZoomCueEl) return penZoomCueEl;
-  penZoomCueEl = document.createElement("div");
-  penZoomCueEl.className = "pen-zoom-cue d-none";
-  dom.chartWrap.appendChild(penZoomCueEl);
-  return penZoomCueEl;
-}
-
-export function showPenZoomCue(clientX, clientY) {
-  const cue = ensurePenZoomCueEl();
-  const rect = dom.chartWrap.getBoundingClientRect();
-  cue.style.left = `${clientX - rect.left}px`;
-  cue.style.top = `${clientY - rect.top}px`;
-  cue.classList.remove("d-none", "is-animating");
-  void cue.offsetWidth;
-  cue.classList.add("is-animating");
 }
 
 function updateCollapsedLegendFade(clientX, clientY) {
