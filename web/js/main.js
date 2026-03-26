@@ -101,11 +101,11 @@ let helpModule = null;
 let sharePopTimer = null;
 let penLongPressTimer = null;
 
-const PEN_MOVE_THRESHOLD_PX = 10;
-const PEN_DOUBLE_TAP_MS = 320;
+const PEN_PAN_START_THRESHOLD_PX = 18;
+const PEN_DOUBLE_TAP_MS = 420;
 const PEN_DOUBLE_TAP_DISTANCE_PX = 32;
 const PEN_ZOOM_OUT_FACTOR = 1.25;
-const PEN_LONG_PRESS_MS = 280;
+const PEN_LONG_PRESS_MS = 430;
 
 function renderContextualHelp() {
   helpModule?.renderContextualHelp();
@@ -361,6 +361,7 @@ function resetPenTracking() {
   clearPenLongPressTimer();
   state.penPointerId = null;
   state.penLongPressArmed = false;
+  state.penLongPressActive = false;
 }
 
 function beginPenPan(clientX) {
@@ -378,6 +379,7 @@ function beginPenZoomSelect(clientX) {
   forceAbsoluteTimeModeFromCurrentRange();
   hideHover();
   state.penLongPressArmed = false;
+  state.penLongPressActive = true;
   state.interactionMode = "zoom-select";
   state.dragStartX = getClampedClientX(clientX);
   state.dragCurrentX = state.dragStartX;
@@ -848,6 +850,7 @@ function wireCanvasInteractionEvents() {
     state.penStartX = event.clientX;
     state.penStartY = event.clientY;
     state.penLongPressArmed = true;
+    state.penLongPressActive = false;
     clearPenLongPressTimer();
     penLongPressTimer = window.setTimeout(() => {
       penLongPressTimer = null;
@@ -868,7 +871,7 @@ function wireCanvasInteractionEvents() {
       event.clientY - state.penStartY,
     );
     if (state.interactionMode === "") {
-      if (moved <= PEN_MOVE_THRESHOLD_PX) return;
+      if (moved <= PEN_PAN_START_THRESHOLD_PX) return;
       clearPenLongPressTimer();
       state.penLongPressArmed = false;
       beginPenPan(state.penStartX);
@@ -910,22 +913,25 @@ function wireCanvasInteractionEvents() {
       return;
     }
     const now = Date.now();
-    const isTap = moved <= PEN_MOVE_THRESHOLD_PX;
+    const isTap = !state.penLongPressActive && moved <= PEN_PAN_START_THRESHOLD_PX;
     const isDoubleTap =
       isTap &&
       state.penLastTapTime > 0 &&
       now - state.penLastTapTime <= PEN_DOUBLE_TAP_MS &&
-      Math.abs(event.clientX - state.penLastTapX) <= PEN_DOUBLE_TAP_DISTANCE_PX;
+      Math.abs(event.clientX - state.penLastTapX) <= PEN_DOUBLE_TAP_DISTANCE_PX &&
+      Math.abs(event.clientY - state.penLastTapY) <= PEN_DOUBLE_TAP_DISTANCE_PX;
     resetPenTracking();
     if (isDoubleTap) {
       state.penLastTapTime = 0;
       state.penLastTapX = 0;
+      state.penLastTapY = 0;
       handlePenDoubleTapZoomOut(event.clientX);
       return;
     }
     if (isTap) {
       state.penLastTapTime = now;
       state.penLastTapX = event.clientX;
+      state.penLastTapY = event.clientY;
     }
   });
 
