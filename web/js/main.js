@@ -32,6 +32,7 @@ import {
   MIN_ZOOM_RANGE_MS,
   panByPixels,
   renderChart,
+  showPenZoomCue,
   showHover,
   timestampAtCanvasX,
   zoomAt,
@@ -859,6 +860,7 @@ function wireCanvasInteractionEvents() {
         state.interactionMode !== "" ||
         !state.penLongPressArmed
       ) return;
+      showPenZoomCue(state.penStartX, state.penStartY);
       beginPenZoomSelect(state.penStartX);
     }, PEN_LONG_PRESS_MS);
   });
