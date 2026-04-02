@@ -32,7 +32,10 @@ function animateCoachToTarget(fromEl, targetEl) {
     dot.animate(
       [
         { transform: "translate(0px, 0px) scale(1)", opacity: 0.9 },
-        { transform: `translate(${Math.round(x2 - x1)}px, ${Math.round(y2 - y1)}px) scale(0.8)`, opacity: 0.25 },
+        {
+          transform: `translate(${Math.round(x2 - x1)}px, ${Math.round(y2 - y1)}px) scale(0.8)`,
+          opacity: 0.25,
+        },
       ],
       { duration: 650, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards" },
     );
@@ -49,26 +52,68 @@ function animateCoachToTarget(fromEl, targetEl) {
 }
 
 function firstMetricToggleButton() {
-  return dom.metricList?.querySelector("li.metric-draggable-row button[data-action='toggle']") || null;
+  return (
+    dom.metricList?.querySelector(
+      "li.metric-draggable-row button[data-action='toggle']",
+    ) || null
+  );
 }
 
 function firstMetricColorButton() {
-  return dom.metricList?.querySelector("li.metric-draggable-row .metric-color-button") || null;
+  return (
+    dom.metricList?.querySelector(
+      "li.metric-draggable-row .metric-color-button",
+    ) || null
+  );
 }
 
-function helpActionButton(action, label, icon, tone = "outline-secondary", disabled = false) {
+function helpActionButton(
+  action,
+  label,
+  icon,
+  tone = "outline-secondary",
+  disabled = false,
+) {
   const disabledAttr = disabled ? " disabled" : "";
   return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}><i class="bi ${icon} me-1"></i>${label}</button>`;
 }
 
-export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderChart }) {
+export function createHelpModule({
+  setSidebarCollapsed,
+  toggleTimePopup,
+  renderChart,
+}) {
   function renderContextualHelp() {
-    if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle) return;
+    if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle)
+      return;
     const metricCount = state.metrics.length;
     const hasMetrics = metricCount > 0;
     const hasMultipleMetrics = metricCount > 1;
     const sidebarOpen = !state.sidebarCollapsed;
-    if (dom.btnEmptyHideHelp) dom.btnEmptyHideHelp.classList.toggle("d-none", !hasMetrics);
+    const metricSearchFocused = document.activeElement === dom.metricSearch;
+    const metricSearchMode = dom.metricSearchWrap?.classList.contains(
+      "mode-selector",
+    )
+      ? "Regex"
+      : dom.metricSearchWrap?.classList.contains("mode-description")
+        ? "Beschreibung"
+        : "Metrikname";
+    if (dom.btnEmptyHideHelp)
+      dom.btnEmptyHideHelp.classList.toggle("d-none", !hasMetrics);
+
+    if (metricSearchFocused) {
+      dom.chartHelpTitle.textContent = "Suchmodi";
+      dom.chartHelpSubtitle.innerHTML = `
+        <strong>Aktuell:</strong> ${metricSearchMode}. Mit <code>/</code> aktivierst du Regex, mit <code>?</code> die Suche in Descriptions.
+      `;
+      dom.chartHelpSections.innerHTML = [
+        `<div class="small text-muted">Metrikname: normal tippen, sucht im Namen.</div>`,
+        `<div class="small text-muted">Regex: <code>/</code> tippen, dann Muster eingeben.</div>`,
+        `<div class="small text-muted">Beschreibung: <code>?</code> tippen, dann Text aus der Description suchen.</div>`,
+        `<div class="small text-muted">Zurück zum Standardmodus: Feld leeren und <code>Backspace</code>.</div>`,
+      ].join("");
+      return;
+    }
 
     dom.chartHelpTitle.textContent = hasMetrics
       ? "Metriken vorhanden: nächste Schritte"
@@ -79,32 +124,108 @@ export function createHelpModule({ setSidebarCollapsed, toggleTimePopup, renderC
 
     const actions = [];
     if (!hasMetrics) {
-      actions.push(helpActionButton("focus_metric_search", hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen", "bi-search", "primary"));
-      actions.push(helpActionButton("open_expression", "Berechnete Metrik", "bi-plus-lg", "outline-primary"));
+      actions.push(
+        helpActionButton(
+          "focus_metric_search",
+          hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen",
+          "bi-search",
+          "primary",
+        ),
+      );
+      actions.push(
+        helpActionButton(
+          "open_expression",
+          "Berechnete Metrik",
+          "bi-plus-lg",
+          "outline-primary",
+        ),
+      );
     }
-    
+
     if (!hasMetrics) {
-      if (sidebarOpen) actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse", "secondary"));
-      else actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
+      if (sidebarOpen)
+        actions.push(
+          helpActionButton(
+            "close_sidebar",
+            "Sidebar schließen",
+            "bi-layout-sidebar-inset-reverse",
+            "secondary",
+          ),
+        );
+      else
+        actions.push(
+          helpActionButton(
+            "open_sidebar",
+            "Sidebar öffnen",
+            "bi-layout-sidebar-inset",
+          ),
+        );
       dom.chartHelpSections.innerHTML = actions.join("");
       return;
     }
 
     if (sidebarOpen) {
       if (hasMultipleMetrics) {
-        actions.push(helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"));
+        actions.push(
+          helpActionButton("hide_all", "Alle ausblenden", "bi-eye-slash"),
+        );
         actions.push(helpActionButton("show_all", "Alle zeigen", "bi-eye"));
-        actions.push(helpActionButton("recolor_classic", "Klassisch färben", "bi-brush"));
-        actions.push(helpActionButton("recolor_random", "Neu färben", "bi-palette"));
+        actions.push(
+          helpActionButton("recolor_classic", "Klassisch färben", "bi-brush"),
+        );
+        actions.push(
+          helpActionButton("recolor_random", "Neu färben", "bi-palette"),
+        );
       } else {
-        actions.push(helpActionButton("toggle_first_metric", "Metrik Ein/Ausblenden", "bi-toggles", "outline-primary"));
-        actions.push(helpActionButton("first_metric_color", "Farbe wählen", "bi-circle-fill", "outline-primary"));
+        actions.push(
+          helpActionButton(
+            "toggle_first_metric",
+            "Metrik Ein/Ausblenden",
+            "bi-toggles",
+            "outline-primary",
+          ),
+        );
+        actions.push(
+          helpActionButton(
+            "first_metric_color",
+            "Farbe wählen",
+            "bi-circle-fill",
+            "outline-primary",
+          ),
+        );
       }
-      actions.push(helpActionButton("close_sidebar", "Sidebar schließen", "bi-layout-sidebar-inset-reverse", "secondary"));
+      actions.push(
+        helpActionButton(
+          "close_sidebar",
+          "Sidebar schließen",
+          "bi-layout-sidebar-inset-reverse",
+          "secondary",
+        ),
+      );
     } else {
-      actions.push(helpActionButton("open_y_axis", "Y-Achse", "bi-arrows-vertical", "outline-primary"));
-      actions.push(helpActionButton("open_time_range", "Zeitraum wählen", "bi-clock-history", "outline-primary"));
-      actions.push(helpActionButton("open_sidebar", "Sidebar öffnen", "bi-layout-sidebar-inset"));
+      actions.push(
+        helpActionButton(
+          "open_y_axis",
+          "Y-Achse",
+          "bi-arrows-vertical",
+          "outline-primary",
+        ),
+      );
+      actions.push(
+        helpActionButton(
+          "open_time_range",
+          "Zeitraum wählen",
+          "bi-clock-history",
+          "outline-primary",
+        ),
+      );
+      actions.push(
+        helpActionButton(
+          "open_sidebar",
+          "Sidebar öffnen",
+          "bi-layout-sidebar-inset",
+        ),
+      );
     }
 
     dom.chartHelpSections.innerHTML = actions.join("");

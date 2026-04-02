@@ -39,24 +39,6 @@
     color: #7a4f01;
 }
 
-.metric-search-help {
-    font-size: 0.74rem;
-    line-height: 1.35;
-    color: #5b6575;
-    background: #f8fbff;
-    border: 1px solid #d6e4ff;
-    border-radius: 0.5rem;
-    padding: 0.45rem 0.55rem;
-}
-
-.metric-search-help strong {
-    color: #233550;
-}
-
-.metric-search-help code {
-    font-size: 0.72rem;
-}
-
 .metric-search-reset {
     position: absolute;
     right: 0.22rem;

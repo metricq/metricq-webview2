@@ -108,30 +108,6 @@ function renderContextualHelp() {
   helpModule?.renderContextualHelp();
 }
 
-function renderMetricSearchHelp() {
-  if (!dom.metricSearchHelp) return;
-  dom.metricSearchHelp.classList.toggle("d-none", !metricSearchFocused);
-  if (!metricSearchFocused) return;
-  const currentLabel =
-    metricSearchMode === "selector"
-      ? "Regex"
-      : metricSearchMode === "description"
-        ? "Beschreibung"
-        : "Metrikname";
-  const currentUsage =
-    metricSearchMode === "selector"
-      ? `Direkt als Regex suchen. Mit <code>Backspace</code> auf leer zurück in die normale Suche.`
-      : metricSearchMode === "description"
-        ? `Sucht in <strong>Descriptions</strong> statt im Metriknamen. Mit <code>Backspace</code> auf leer zurück zur normalen Suche.`
-        : `Normale Suche im <strong>Metriknamen</strong>.`;
-  dom.metricSearchHelp.innerHTML = `
-    <div><strong>Aktueller Modus:</strong> ${currentLabel}</div>
-    <div>${currentUsage}</div>
-    <div><strong>Aktivieren:</strong> <code>/</code> f&uuml;r Regex, <code>?</code> f&uuml;r Description-Suche.</div>
-    <div><strong>Nutzen:</strong> Einfach danach tippen; das Pr&auml;fix wird aus dem Feld entfernt und links als Modus angezeigt.</div>
-  `;
-}
-
 function syncRenderModeButton() {
   if (!dom.btnRenderMode) return;
   const tiActive = state.renderMode === "ti";
@@ -665,12 +641,12 @@ function wireMetricPanelEvents() {
     minLength: 2,
     onModeChange: (mode) => {
       metricSearchMode = mode;
-      renderMetricSearchHelp();
+      renderContextualHelp();
     },
     onFocusChange: (focused, mode) => {
       metricSearchFocused = focused;
       metricSearchMode = mode;
-      renderMetricSearchHelp();
+      renderContextualHelp();
     },
     onSearch: async (query, mode) => {
       if (!query) {

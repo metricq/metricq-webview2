@@ -19,7 +19,6 @@ export const dom = {
   toInput: document.getElementById("toTime"),
   metricSearch: document.getElementById("metricSearch"),
   metricHints: document.getElementById("metricHints"),
-  metricSearchHelp: document.getElementById("metricSearchHelp"),
   metricList: document.getElementById("metricList"),
   perfBadge: document.getElementById("perfBadge"),
   aggPointsEl: document.getElementById("aggPoints"),
