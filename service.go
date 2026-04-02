@@ -60,7 +60,7 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 	if query != "" {
 		payload.Infix = query
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata, "metrics.list", "get_metrics")
+	return s.lookupMetricsByPayload(ctx, payload, metadata, "get_metrics")
 }
 
 func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
@@ -82,7 +82,7 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	if selector != nil && selector != "" {
 		payload.Selector = selector
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata, "metrics.list", "get_metrics")
+	return s.lookupMetricsByPayload(ctx, payload, metadata, "get_metrics")
 }
 
 func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcNames ...string) (map[string]map[string]any, []string, error) {
