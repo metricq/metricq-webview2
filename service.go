@@ -134,15 +134,10 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 }
 
 func (s *service) lookupMetricsByDescription(ctx context.Context, query string, limit int) ([]string, error) {
-	plainPayload := map[string]any{
-		"plain_text": query,
-		"historic":   true,
-		"limit":      limit,
-		"format":     "array",
-	}
 	searchPayload := map[string]any{
 		"query":    query,
 		"field":    "description",
+		"mode":     "phrase",
 		"historic": true,
 		"limit":    limit,
 		"format":   "array",
@@ -152,16 +147,6 @@ func (s *service) lookupMetricsByDescription(ctx context.Context, query string, 
 		searchPayload,
 		false,
 		"metrics.search",
-	)
-	if err == nil {
-		return list, nil
-	}
-	_, list, err = s.lookupMetricsByPayload(
-		ctx,
-		plainPayload,
-		false,
-		"metrics.search",
-		"get_metrics_by_description",
 	)
 	return list, err
 }
