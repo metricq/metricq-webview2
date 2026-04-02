@@ -49,7 +49,17 @@ type metricSearchRequest struct {
 	Mode     string `json:"mode,omitempty"`
 	Historic bool   `json:"historic,omitempty"`
 	Limit    int    `json:"limit,omitempty"`
-	Format   string `json:"format,omitempty"`
+}
+
+type metricSearchMatchResponse struct {
+	Name     string         `json:"name"`
+	Score    float64        `json:"score,omitempty"`
+	Matches  map[string]any `json:"matches,omitempty"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+type metricSearchResponse struct {
+	Metrics []metricSearchMatchResponse `json:"metrics"`
 }
 
 type apiQueryRequest struct {

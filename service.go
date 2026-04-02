@@ -103,10 +103,6 @@ func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metad
 
 func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[string]any, []string, error) {
 	if metadata {
-		var direct map[string]map[string]any
-		if err := json.Unmarshal(resp, &direct); err == nil && direct != nil {
-			return direct, nil, nil
-		}
 		var out struct {
 			Metrics map[string]map[string]any `json:"metrics"`
 		}
@@ -123,27 +119,11 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 		sort.Strings(listOut.Metrics)
 		return nil, listOut.Metrics, nil
 	}
-	var directList []string
-	if err := json.Unmarshal(resp, &directList); err == nil && directList != nil {
-		sort.Strings(directList)
-		return nil, directList, nil
-	}
 	var objectOut struct {
 		Metrics map[string]json.RawMessage `json:"metrics"`
 	}
 	if err := json.Unmarshal(resp, &objectOut); err != nil {
 		return nil, nil, err
-	}
-	if objectOut.Metrics == nil {
-		var directObject map[string]json.RawMessage
-		if err := json.Unmarshal(resp, &directObject); err == nil && directObject != nil {
-			list := make([]string, 0, len(directObject))
-			for key := range directObject {
-				list = append(list, key)
-			}
-			sort.Strings(list)
-			return nil, list, nil
-		}
 	}
 	list := make([]string, 0, len(objectOut.Metrics))
 	for key := range objectOut.Metrics {
@@ -151,6 +131,22 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 	}
 	sort.Strings(list)
 	return nil, list, nil
+}
+
+func decodeMetricSearchResponse(resp []byte) ([]string, error) {
+	var out metricSearchResponse
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+	list := make([]string, 0, len(out.Metrics))
+	for _, metric := range out.Metrics {
+		if metric.Name == "" {
+			continue
+		}
+		list = append(list, metric.Name)
+	}
+	sort.Strings(list)
+	return list, nil
 }
 
 func (s *service) lookupMetricsByDescription(ctx context.Context, query string, limit int) ([]string, error) {
@@ -161,15 +157,12 @@ func (s *service) lookupMetricsByDescription(ctx context.Context, query string, 
 		Mode:     "phrase",
 		Historic: true,
 		Limit:    limit,
-		Format:   "array",
 	}
-	_, list, err := s.lookupMetricsByPayload(
-		ctx,
-		searchPayload,
-		false,
-		"metrics.search",
-	)
-	return list, err
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "metrics.search", searchPayload)
+	if err != nil {
+		return nil, err
+	}
+	return decodeMetricSearchResponse(resp)
 }
 
 func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string]any, error) {
