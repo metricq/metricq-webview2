@@ -67,11 +67,6 @@ func (s *service) lookupMetricsSelector(ctx context.Context, selector string, me
 	return s.lookupMetricsSelectors(ctx, selector, metadata, limit)
 }
 
-type rpcLookupRequest interface {
-	metricq.RPCRequest
-	withFunction(string) metricq.RPCRequest
-}
-
 func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
@@ -90,13 +85,13 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	return s.lookupMetricsByPayload(ctx, payload, metadata, "metrics.list", "get_metrics")
 }
 
-func (s *service) lookupMetricsByPayload(ctx context.Context, payload rpcLookupRequest, metadata bool, rpcNames ...string) (map[string]map[string]any, []string, error) {
+func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcNames ...string) (map[string]map[string]any, []string, error) {
 	if len(rpcNames) == 0 {
 		rpcNames = []string{"get_metrics"}
 	}
 	var lastErr error
 	for _, rpcName := range rpcNames {
-		resp, err := s.agent.Rpc(ctx, "metricq.management", payload.withFunction(rpcName))
+		resp, err := s.agent.Rpc(ctx, "metricq.management", rpcName, payload)
 		if err != nil {
 			lastErr = err
 			continue
@@ -164,7 +159,7 @@ func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string
 		Selector: []string{metric},
 		Historic: true,
 	}
-	resp, err := s.agent.Rpc(ctx, "metricq.management", payload)
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "get_metrics", payload)
 	if err != nil {
 		return nil, err
 	}
