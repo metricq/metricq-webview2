@@ -85,20 +85,12 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	return s.lookupMetricsByPayload(ctx, payload, metadata, "get_metrics")
 }
 
-func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcNames ...string) (map[string]map[string]any, []string, error) {
-	if len(rpcNames) == 0 {
-		rpcNames = []string{"get_metrics"}
+func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcName string) (map[string]map[string]any, []string, error) {
+	resp, err := s.agent.Rpc(ctx, "metricq.management", rpcName, payload)
+	if err != nil {
+		return nil, nil, err
 	}
-	var lastErr error
-	for _, rpcName := range rpcNames {
-		resp, err := s.agent.Rpc(ctx, "metricq.management", rpcName, payload)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		return decodeMetricLookupResponse(resp, metadata)
-	}
-	return nil, nil, lastErr
+	return decodeMetricLookupResponse(resp, metadata)
 }
 
 func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[string]any, []string, error) {
