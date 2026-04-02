@@ -58,7 +58,8 @@ function showMetricHintHover(clientX, clientY, html, lockWidth = true) {
 }
 
 function moveMetricHintHover(clientX, clientY) {
-  if (!metricHintHoverEl || metricHintHoverEl.classList.contains("d-none")) return;
+  if (!metricHintHoverEl || metricHintHoverEl.classList.contains("d-none"))
+    return;
   positionMetricHintHover(metricHintHoverEl, clientX, clientY);
 }
 
@@ -74,8 +75,10 @@ function positionMetricHintHover(el, clientX, clientY) {
   const offsetY = 14;
   const width = el.offsetWidth || 220;
   const height = el.offsetHeight || 120;
-  const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
-  const viewportH = window.innerHeight || document.documentElement.clientHeight || 0;
+  const viewportW =
+    window.innerWidth || document.documentElement.clientWidth || 0;
+  const viewportH =
+    window.innerHeight || document.documentElement.clientHeight || 0;
 
   const preferRight = clientX + offsetX;
   const left = Math.max(pad, Math.min(preferRight, viewportW - width - pad));
@@ -88,9 +91,12 @@ function positionMetricHintHover(el, clientX, clientY) {
 }
 
 function measureMetricHintWidth(el) {
-  const viewportW = window.innerWidth || document.documentElement.clientWidth || 0;
-  const rootFontPx = parseFloat(getComputedStyle(document.documentElement).fontSize || "16") || 16;
-  const cssMaxWidth = Math.max(120, Math.min(460, viewportW - (2 * rootFontPx)));
+  const viewportW =
+    window.innerWidth || document.documentElement.clientWidth || 0;
+  const rootFontPx =
+    parseFloat(getComputedStyle(document.documentElement).fontSize || "16") ||
+    16;
+  const cssMaxWidth = Math.max(120, Math.min(460, viewportW - 2 * rootFontPx));
 
   const prevVisibility = el.style.visibility;
   const prevLeft = el.style.left;
@@ -102,7 +108,9 @@ function measureMetricHintWidth(el) {
   el.style.left = "8px";
   el.style.top = "8px";
   el.style.width = "max-content";
-  const rawWidth = Math.ceil(el.getBoundingClientRect().width || el.scrollWidth || el.offsetWidth || 0);
+  const rawWidth = Math.ceil(
+    el.getBoundingClientRect().width || el.scrollWidth || el.offsetWidth || 0,
+  );
 
   el.style.visibility = prevVisibility;
   el.style.left = prevLeft;
@@ -130,7 +138,9 @@ async function fetchMetricHintDetails(metricName) {
     return local;
   }
   try {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    const body = await apiFetch(
+      `/api/metadata?metric=${encodeURIComponent(metricName)}`,
+    );
     const details = {
       unit: normalizeSIUnit(body?.metadata?.unit),
       description: String(body?.metadata?.description || "").trim(),
@@ -149,13 +159,25 @@ function bindMetricHintHover(element, metricName) {
     const x = event.clientX || 0;
     const y = event.clientY || 0;
     hoveredHintMetricName = metricName;
-    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, null), false);
+    showMetricHintHover(
+      x,
+      y,
+      renderMetricHintHoverHtml(metricName, null),
+      false,
+    );
     const details = await fetchMetricHintDetails(metricName);
     if (hoveredHintMetricName !== metricName) return;
-    showMetricHintHover(x, y, renderMetricHintHoverHtml(metricName, details), true);
+    showMetricHintHover(
+      x,
+      y,
+      renderMetricHintHoverHtml(metricName, details),
+      true,
+    );
   };
   element.addEventListener("mouseenter", show);
-  element.addEventListener("mousemove", (event) => moveMetricHintHover(event.clientX, event.clientY));
+  element.addEventListener("mousemove", (event) =>
+    moveMetricHintHover(event.clientX, event.clientY),
+  );
   element.addEventListener("mouseleave", () => {
     if (hoveredHintMetricName === metricName) hoveredHintMetricName = "";
     hideMetricHintHover();
@@ -189,7 +211,9 @@ async function resolveExternalReferenceScale(metricName) {
 
   let unit = "";
   try {
-    const metadata = await apiFetch(`/api/metadata?metric=${encodeURIComponent(key)}`);
+    const metadata = await apiFetch(
+      `/api/metadata?metric=${encodeURIComponent(key)}`,
+    );
     unit = normalizeSIUnit(metadata?.metadata?.unit || "");
   } catch (_) {
     unit = "";
@@ -219,7 +243,7 @@ async function resolveExternalReferenceScale(metricName) {
     if (Number.isFinite(minimum) && Number.isFinite(maximum)) {
       const rep = Math.max(Math.abs(minimum), Math.abs(maximum));
       if (rep > 0) {
-        const repBase = rep * (10 ** parsedUnit.exp);
+        const repBase = rep * 10 ** parsedUnit.exp;
         const displayExp = chooseDisplayExpFromRepresentative(repBase);
         if (Number.isFinite(displayExp)) {
           normalization = 10 ** (parsedUnit.exp - displayExp);
@@ -241,9 +265,8 @@ async function resolveReferenceNormalizationInfo(metricName) {
   if (local) {
     const refUnit = String(local.unit || "").trim();
     const refDisplayUnit = String(local.displayUnit || "").trim();
-    const refManual = local.factorMode === "manual"
-      ? sanitizeFactor(local.manualFactor, 1)
-      : 1;
+    const refManual =
+      local.factorMode === "manual" ? sanitizeFactor(local.manualFactor, 1) : 1;
     const refEffective = sanitizeFactor(local.factor, 1);
     const refNormalization = sanitizeFactor(refEffective / refManual, 1);
     return {
@@ -265,7 +288,7 @@ async function resolveReferenceNormalizationInfo(metricName) {
 function createSeededRng(seed) {
   let x = seed >>> 0;
   return () => {
-    x = (x + 0x6D2B79F5) >>> 0;
+    x = (x + 0x6d2b79f5) >>> 0;
     let t = Math.imul(x ^ (x >>> 15), 1 | x);
     t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -447,14 +470,20 @@ export function clearMetrics(hooks) {
 
 export async function fetchMetadata(name, hooks) {
   try {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(name)}`);
+    const body = await apiFetch(
+      `/api/metadata?metric=${encodeURIComponent(name)}`,
+    );
     const metric = metricByName(name);
     if (!metric) return;
-    const beforeFactors = new Map(state.metrics.map((m) => [m.name, Number(m.factor) || 1]));
+    const beforeFactors = new Map(
+      state.metrics.map((m) => [m.name, Number(m.factor) || 1]),
+    );
     metric.unit = normalizeSIUnit(body?.metadata?.unit);
     metric.description = String(body.metadata.description || "");
     applyAutoScaling(state.metrics, state.series);
-    const hasExpressionMetrics = state.metrics.some((m) => String(m.expr || "").trim() !== "");
+    const hasExpressionMetrics = state.metrics.some(
+      (m) => String(m.expr || "").trim() !== "",
+    );
     const factorsChanged = state.metrics.some((m) => {
       const before = beforeFactors.get(m.name);
       const after = Number(m.factor) || 1;
@@ -472,8 +501,11 @@ export async function fetchMetadata(name, hooks) {
 export async function searchMetricHints(query, options = {}) {
   const raw = String(query || "").trim();
   if (raw.length < 2) return [];
-  const regexMode = options?.mode === "selector";
-  const mode = regexMode ? "selector" : "infix";
+  const requestedMode = String(options?.mode || "infix").trim();
+  const mode =
+    requestedMode === "selector" || requestedMode === "description"
+      ? requestedMode
+      : "infix";
   const search = raw;
   try {
     const body = await apiFetch(
@@ -512,7 +544,7 @@ export function renderMetricList(hooks) {
     const to = state.metrics.findIndex((m) => m.name === targetName);
     if (from < 0 || to < 0) return false;
     const [moved] = state.metrics.splice(from, 1);
-    let insertAt = placeAfter ? (to + 1) : to;
+    let insertAt = placeAfter ? to + 1 : to;
     if (from < insertAt) insertAt -= 1;
     state.metrics.splice(insertAt, 0, moved);
     return true;
@@ -547,7 +579,8 @@ export function renderMetricList(hooks) {
     });
     li.addEventListener("drop", (event) => {
       event.preventDefault();
-      const sourceName = event.dataTransfer.getData("text/plain") || draggingMetricName;
+      const sourceName =
+        event.dataTransfer.getData("text/plain") || draggingMetricName;
       const placeAfter = li.dataset.dropPosition === "after";
       const changed = reorderMetrics(sourceName, metric.name, placeAfter);
       clearDropMarkers();
@@ -598,7 +631,11 @@ export function renderMetricList(hooks) {
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";
     const formulaPrefix = metric.expr ? "ƒ " : "";
-    mainText.textContent = formulaPrefix + metricDisplayName(metric) + (shownUnit ? ` [${shownUnit}]` : "") + factorSuffix;
+    mainText.textContent =
+      formulaPrefix +
+      metricDisplayName(metric) +
+      (shownUnit ? ` [${shownUnit}]` : "") +
+      factorSuffix;
     center.appendChild(mainText);
     const description = String(metric.description || "").trim();
     if (description) {
@@ -611,7 +648,9 @@ export function renderMetricList(hooks) {
 
     const controls = document.createElement("div");
     controls.className = "btn-group btn-group-sm";
-    const toggleButtonClass = metric.draw ? "btn-outline-secondary" : "btn-secondary";
+    const toggleButtonClass = metric.draw
+      ? "btn-outline-secondary"
+      : "btn-secondary";
     const toggleIcon = metric.draw ? "bi-eye" : "bi-eye-slash";
     const editButton = metric.expr
       ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
@@ -651,7 +690,11 @@ export function renderMetricList(hooks) {
         hooks.loadData();
         hooks.onStateChanged?.();
       } else if (action === "edit" && metric.expr) {
-        document.dispatchEvent(new CustomEvent("metricq:edit-expression", { detail: { name: metric.name } }));
+        document.dispatchEvent(
+          new CustomEvent("metricq:edit-expression", {
+            detail: { name: metric.name },
+          }),
+        );
       } else if (action === "delete") {
         removeMetric(metric.name, hooks);
       } else if (action === "factor") {
@@ -668,7 +711,9 @@ export function renderMetricList(hooks) {
     if (!draggingMetricName) return;
     const rowTarget = event.target.closest("li.metric-draggable-row");
     if (rowTarget) return;
-    const items = Array.from(dom.metricList.querySelectorAll("li.metric-draggable-row"));
+    const items = Array.from(
+      dom.metricList.querySelectorAll("li.metric-draggable-row"),
+    );
     if (items.length === 0) return;
     event.preventDefault();
     clearDropMarkers();
@@ -686,7 +731,8 @@ export function renderMetricList(hooks) {
       last.dataset.dropPosition = "after";
     } else {
       const listRect = dom.metricList.getBoundingClientRect();
-      const chooseFirst = (event.clientY - listRect.top) < (listRect.bottom - event.clientY);
+      const chooseFirst =
+        event.clientY - listRect.top < listRect.bottom - event.clientY;
       const anchor = chooseFirst ? first : last;
       anchor.classList.add("metric-drop-target");
       anchor.dataset.dropPosition = chooseFirst ? "before" : "after";
@@ -701,7 +747,8 @@ export function renderMetricList(hooks) {
     const markerTarget = dom.metricList.querySelector("li.metric-drop-target");
     if (!markerTarget) return;
     event.preventDefault();
-    const sourceName = event.dataTransfer.getData("text/plain") || draggingMetricName;
+    const sourceName =
+      event.dataTransfer.getData("text/plain") || draggingMetricName;
     const targetName = markerTarget.dataset.metricName;
     const placeAfter = markerTarget.dataset.dropPosition === "after";
     const changed = reorderMetrics(sourceName, targetName, placeAfter);
@@ -727,7 +774,9 @@ async function openFactorModal(metricName) {
   if (!metric) return;
   factorMetricName = metricName;
   dom.factorMetricName.textContent = metricName;
-  dom.factorInput.value = formatDecimalInput(metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1);
+  dom.factorInput.value = formatDecimalInput(
+    metric.factorMode === "manual" ? (metric.manualFactor ?? 1) : 1,
+  );
   if (dom.factorAliasInput) {
     dom.factorAliasInput.value = String(metric.alias || "");
     dom.factorAliasInput.disabled = Boolean(metric.expr);
@@ -735,7 +784,8 @@ async function openFactorModal(metricName) {
 
   const unit = String(metric.unit || "").trim();
   const displayUnit = String(metric.displayUnit || "").trim();
-  const manual = metric.factorMode === "manual" ? sanitizeFactor(metric.manualFactor, 1) : 1;
+  const manual =
+    metric.factorMode === "manual" ? sanitizeFactor(metric.manualFactor, 1) : 1;
   const effective = sanitizeFactor(metric.factor, 1);
   const normalization = sanitizeFactor(effective / manual, 1);
   const shownNorm = formatFactorDisplay(normalization) || "1";
@@ -772,11 +822,14 @@ async function openFactorModal(metricName) {
           continue;
         }
         const shownNorm = formatFactorDisplay(refInfo.normalization) || "1";
-        const unitPart = refInfo.unit && refInfo.displayUnit && refInfo.unit !== refInfo.displayUnit
-          ? ` [${refInfo.unit}] -> [${refInfo.displayUnit}]`
-          : refInfo.unit
-            ? ` [${refInfo.unit}]`
-            : "";
+        const unitPart =
+          refInfo.unit &&
+          refInfo.displayUnit &&
+          refInfo.unit !== refInfo.displayUnit
+            ? ` [${refInfo.unit}] -> [${refInfo.displayUnit}]`
+            : refInfo.unit
+              ? ` [${refInfo.unit}]`
+              : "";
         row.textContent = `[${refName}]: Norm x${shownNorm}${unitPart}`;
         exprNormList.appendChild(row);
       }
@@ -794,9 +847,8 @@ export function applyFactorFromModal(hooks) {
   const metric = metricByName(factorMetricName);
   if (!metric) return;
   const rawFactor = String(dom.factorInput.value ?? "").trim();
-  metric.manualFactor = rawFactor === ""
-    ? 1
-    : sanitizeFactor(rawFactor, metric.manualFactor || 1);
+  metric.manualFactor =
+    rawFactor === "" ? 1 : sanitizeFactor(rawFactor, metric.manualFactor || 1);
   metric.factorMode = "manual";
   if (!metric.expr && dom.factorAliasInput) {
     metric.alias = String(dom.factorAliasInput.value || "").trim();

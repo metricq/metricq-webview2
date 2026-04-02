@@ -4,9 +4,14 @@ export function wireMetricSearchField(options) {
   const inputEl = options?.inputEl || null;
   const resetEl = options?.resetEl || null;
   const prefixEl = options?.prefixEl || null;
-  const onSearch = typeof options?.onSearch === "function" ? options.onSearch : (() => {});
-  const debounceMs = Number.isFinite(options?.debounceMs) ? Math.max(0, Number(options.debounceMs)) : 220;
-  const minLength = Number.isFinite(options?.minLength) ? Math.max(0, Number(options.minLength)) : 2;
+  const onSearch =
+    typeof options?.onSearch === "function" ? options.onSearch : () => {};
+  const debounceMs = Number.isFinite(options?.debounceMs)
+    ? Math.max(0, Number(options.debounceMs))
+    : 220;
+  const minLength = Number.isFinite(options?.minLength)
+    ? Math.max(0, Number(options.minLength))
+    : 2;
   const focusOnReset = options?.focusOnReset !== false;
 
   if (!inputEl) {
@@ -17,27 +22,58 @@ export function wireMetricSearchField(options) {
     };
   }
 
-  let regexMode = false;
+  let mode = "infix";
   let timer = null;
 
   const syncResetVisibility = () => {
     if (!resetEl) return;
     const hasValue = String(inputEl.value || "").trim().length > 0;
-    resetEl.classList.toggle("is-visible", hasValue || regexMode);
+    resetEl.classList.toggle("is-visible", hasValue || mode !== "infix");
   };
 
-  const setRegexMode = (enabled) => {
-    regexMode = Boolean(enabled);
-    wrapEl?.classList.toggle("regex-mode", regexMode);
-    groupEl?.classList.toggle("input-group", regexMode);
-    groupEl?.classList.toggle("input-group-sm", regexMode);
-    prefixEl?.classList.toggle("d-none", !regexMode);
+  const syncModeUi = () => {
+    const specialMode = mode !== "infix";
+    wrapEl?.classList.toggle("mode-selector", mode === "selector");
+    wrapEl?.classList.toggle("mode-description", mode === "description");
+    groupEl?.classList.toggle("input-group", specialMode);
+    groupEl?.classList.toggle("input-group-sm", specialMode);
+    prefixEl?.classList.toggle("d-none", !specialMode);
+    if (prefixEl) {
+      prefixEl.title =
+        mode === "selector"
+          ? "Regex-Suche aktiv"
+          : mode === "description"
+            ? "Beschreibungs-Suche aktiv"
+            : "";
+      prefixEl.setAttribute(
+        "aria-label",
+        mode === "selector"
+          ? "Regex-Suche aktiv"
+          : mode === "description"
+            ? "Beschreibungs-Suche aktiv"
+            : "",
+      );
+      prefixEl.innerHTML =
+        mode === "selector"
+          ? `<i class="bi bi-regex"></i>`
+          : mode === "description"
+            ? `?`
+            : "";
+    }
     syncResetVisibility();
+    options?.onModeChange?.(mode);
+  };
+
+  const setMode = (nextMode) => {
+    mode =
+      nextMode === "selector" || nextMode === "description"
+        ? nextMode
+        : "infix";
+    syncModeUi();
   };
 
   const runSearch = () => {
     const query = String(inputEl.value || "").trim();
-    const mode = regexMode ? "selector" : "infix";
     if (query.length < minLength) {
       void onSearch("", mode);
       return;
@@ -52,8 +88,11 @@ export function wireMetricSearchField(options) {
 
   const handleInput = () => {
     const current = String(inputEl.value || "");
-    if (!regexMode && current.startsWith("/")) {
-      setRegexMode(true);
+    if (mode === "infix" && current.startsWith("/")) {
+      setMode("selector");
+      inputEl.value = current.slice(1);
+    } else if (mode === "infix" && current.startsWith("?")) {
+      setMode("description");
       inputEl.value = current.slice(1);
     }
     syncResetVisibility();
@@ -61,16 +100,16 @@ export function wireMetricSearchField(options) {
   };
 
   const handleKeyDown = (event) => {
-    if (!regexMode) return;
+    if (mode === "infix") return;
     if (event.key !== "Backspace") return;
     if (String(inputEl.value || "").length !== 0) return;
-    setRegexMode(false);
+    setMode("infix");
     scheduleSearch();
   };
 
   const handleReset = (focus = false) => {
     inputEl.value = "";
-    setRegexMode(false);
+    setMode("infix");
     if (timer != null) {
       window.clearTimeout(timer);
       timer = null;
@@ -79,16 +118,23 @@ export function wireMetricSearchField(options) {
     if (focus) inputEl.focus();
   };
 
+  const handleFocus = () => options?.onFocusChange?.(true, mode);
+  const handleBlur = () => options?.onFocusChange?.(false, mode);
+
   inputEl.addEventListener("input", handleInput);
   inputEl.addEventListener("keydown", handleKeyDown);
+  inputEl.addEventListener("focus", handleFocus);
+  inputEl.addEventListener("blur", handleBlur);
   resetEl?.addEventListener("click", () => handleReset(focusOnReset));
 
-  setRegexMode(false);
+  setMode("infix");
   syncResetVisibility();
 
   return {
     reset: () => handleReset(false),
-    setRegexMode,
-    isRegexMode: () => regexMode,
+    setRegexMode: (enabled) => setMode(enabled ? "selector" : "infix"),
+    setMode,
+    isRegexMode: () => mode === "selector",
+    getMode: () => mode,
   };
 }

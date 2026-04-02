@@ -57,6 +57,11 @@ func TestResolveMetricSearchQueryMode(t *testing.T) {
 	if infix != "/foo.*/" || selector != "" {
 		t.Fatalf("unexpected default mode split: infix=%q selector=%q", infix, selector)
 	}
+
+	infix, selector = resolveMetricSearchQuery("temperatur", "description")
+	if infix != "temperatur" || selector != "" {
+		t.Fatalf("unexpected description mode split: infix=%q selector=%q", infix, selector)
+	}
 }
 
 func TestExpandHostlistQuery(t *testing.T) {

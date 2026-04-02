@@ -101,9 +101,35 @@ let wheelZoomLoadTimer = null;
 let timeDialogMode = "relative";
 let helpModule = null;
 let sharePopTimer = null;
+let metricSearchMode = "infix";
+let metricSearchFocused = false;
 
 function renderContextualHelp() {
   helpModule?.renderContextualHelp();
+}
+
+function renderMetricSearchHelp() {
+  if (!dom.metricSearchHelp) return;
+  dom.metricSearchHelp.classList.toggle("d-none", !metricSearchFocused);
+  if (!metricSearchFocused) return;
+  const currentLabel =
+    metricSearchMode === "selector"
+      ? "Regex"
+      : metricSearchMode === "description"
+        ? "Beschreibung"
+        : "Metrikname";
+  const currentUsage =
+    metricSearchMode === "selector"
+      ? `Direkt als Regex suchen. Mit <code>Backspace</code> auf leer zurück in die normale Suche.`
+      : metricSearchMode === "description"
+        ? `Sucht in <strong>Descriptions</strong> statt im Metriknamen. Mit <code>Backspace</code> auf leer zurück zur normalen Suche.`
+        : `Normale Suche im <strong>Metriknamen</strong>.`;
+  dom.metricSearchHelp.innerHTML = `
+    <div><strong>Aktueller Modus:</strong> ${currentLabel}</div>
+    <div>${currentUsage}</div>
+    <div><strong>Aktivieren:</strong> <code>/</code> f&uuml;r Regex, <code>?</code> f&uuml;r Description-Suche.</div>
+    <div><strong>Nutzen:</strong> Einfach danach tippen; das Pr&auml;fix wird aus dem Feld entfernt und links als Modus angezeigt.</div>
+  `;
 }
 
 function syncRenderModeButton() {
@@ -275,7 +301,8 @@ function showShareCopiedPop(anchorEl, text = "Kopiert.", kind = "success") {
   pop.classList.toggle("is-success", kind !== "error");
   const rect = anchorEl.getBoundingClientRect();
   const centerX = rect.left + rect.width / 2;
-  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportWidth =
+    window.innerWidth || document.documentElement.clientWidth;
   const clampedX = Math.max(24, Math.min(viewportWidth - 24, centerX));
   const top = rect.bottom + 12;
   pop.style.left = `${Math.round(clampedX)}px`;
@@ -398,7 +425,7 @@ function beginPenPan(clientX) {
 
 function zoomByFactor(factor) {
   forceAbsoluteTimeModeFromCurrentRange();
-  const center = state.from + ((state.to - state.from) / 2);
+  const center = state.from + (state.to - state.from) / 2;
   zoomAt(center, factor, () => {
     showZoomRangeBadge();
     hooks.loadData();
@@ -519,12 +546,7 @@ function wireTopBarEvents() {
     await syncUrlStateNow().catch(() => {});
     const copied = await copyTextToClipboard(window.location.href);
     if (copied) showShareCopiedPop(dom.btnShare, "Kopiert.", "success");
-    else
-      showShareCopiedPop(
-        dom.btnShare,
-        "Kopieren fehlgeschlagen.",
-        "error",
-      );
+    else showShareCopiedPop(dom.btnShare, "Kopieren fehlgeschlagen.", "error");
   });
   dom.btnShowUrlQr?.addEventListener("click", () => {
     void showUrlQrModal();
@@ -641,6 +663,15 @@ function wireMetricPanelEvents() {
     prefixEl: dom.metricSearchModePrefix,
     debounceMs: 220,
     minLength: 2,
+    onModeChange: (mode) => {
+      metricSearchMode = mode;
+      renderMetricSearchHelp();
+    },
+    onFocusChange: (focused, mode) => {
+      metricSearchFocused = focused;
+      metricSearchMode = mode;
+      renderMetricSearchHelp();
+    },
     onSearch: async (query, mode) => {
       if (!query) {
         dom.metricHints.innerHTML = "";
@@ -658,7 +689,6 @@ function wireMetricPanelEvents() {
     recolorMetricsClassic(hooks),
   );
   dom.btnRecolor.addEventListener("click", () => recolorMetrics(hooks));
-
 }
 
 function wireModalEvents() {
@@ -841,7 +871,11 @@ function wireCanvasInteractionEvents() {
         event.preventDefault();
         return;
       }
-      if (state.interactionMode === "pan" && state.isPanning && event.touches.length === 1) {
+      if (
+        state.interactionMode === "pan" &&
+        state.isPanning &&
+        event.touches.length === 1
+      ) {
         event.preventDefault();
         panByPixels(event.touches[0].clientX - state.panStartX);
         return;

@@ -76,7 +76,9 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 		list []string
 		err  error
 	)
-	if selectors, ok := expandHostlistQuery(infix, limit); ok {
+	if mode == "description" {
+		list, err = s.lookupMetricsByDescription(ctx, query, limit)
+	} else if selectors, ok := expandHostlistQuery(infix, limit); ok {
 		_, list, err = s.lookupMetricsSelectors(ctx, selectors, false, limit)
 	} else if selector != "" {
 		_, list, err = s.lookupMetricsSelector(ctx, selector, false, limit)
@@ -98,6 +100,8 @@ func resolveMetricSearchQuery(query, mode string) (infix, selector string) {
 			return "", ""
 		}
 		return "", q
+	case "description":
+		return q, ""
 	default:
 		return q, ""
 	}

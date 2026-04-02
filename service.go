@@ -60,7 +60,7 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 	if query != "" {
 		payload.Infix = query
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata)
+	return s.lookupMetricsByPayload(ctx, payload, metadata, "metrics.list", "get_metrics")
 }
 
 func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
@@ -82,16 +82,26 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	if selector != nil && selector != "" {
 		payload.Selector = selector
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata)
+	return s.lookupMetricsByPayload(ctx, payload, metadata, "metrics.list", "get_metrics")
 }
 
-func (s *service) lookupMetricsByPayload(ctx context.Context, payload metricLookupRequest, metadata bool) (map[string]map[string]any, []string, error) {
-
-	resp, err := s.agent.Rpc(ctx, "metricq.management", "get_metrics", payload)
-	if err != nil {
-		return nil, nil, err
+func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcNames ...string) (map[string]map[string]any, []string, error) {
+	if len(rpcNames) == 0 {
+		rpcNames = []string{"get_metrics"}
 	}
+	var lastErr error
+	for _, rpcName := range rpcNames {
+		resp, err := s.agent.Rpc(ctx, "metricq.management", rpcName, payload)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		return decodeMetricLookupResponse(resp, metadata)
+	}
+	return nil, nil, lastErr
+}
 
+func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[string]any, []string, error) {
 	if metadata {
 		var out struct {
 			Metrics map[string]map[string]any `json:"metrics"`
@@ -102,14 +112,58 @@ func (s *service) lookupMetricsByPayload(ctx context.Context, payload metricLook
 		return out.Metrics, nil, nil
 	}
 
-	var out struct {
+	var listOut struct {
 		Metrics []string `json:"metrics"`
 	}
-	if err := json.Unmarshal(resp, &out); err != nil {
+	if err := json.Unmarshal(resp, &listOut); err == nil && listOut.Metrics != nil {
+		sort.Strings(listOut.Metrics)
+		return nil, listOut.Metrics, nil
+	}
+	var objectOut struct {
+		Metrics map[string]json.RawMessage `json:"metrics"`
+	}
+	if err := json.Unmarshal(resp, &objectOut); err != nil {
 		return nil, nil, err
 	}
-	sort.Strings(out.Metrics)
-	return nil, out.Metrics, nil
+	list := make([]string, 0, len(objectOut.Metrics))
+	for key := range objectOut.Metrics {
+		list = append(list, key)
+	}
+	sort.Strings(list)
+	return nil, list, nil
+}
+
+func (s *service) lookupMetricsByDescription(ctx context.Context, query string, limit int) ([]string, error) {
+	plainPayload := map[string]any{
+		"plain_text": query,
+		"historic":   true,
+		"limit":      limit,
+		"format":     "array",
+	}
+	searchPayload := map[string]any{
+		"query":    query,
+		"field":    "description",
+		"historic": true,
+		"limit":    limit,
+		"format":   "array",
+	}
+	_, list, err := s.lookupMetricsByPayload(
+		ctx,
+		searchPayload,
+		false,
+		"metrics.search",
+	)
+	if err == nil {
+		return list, nil
+	}
+	_, list, err = s.lookupMetricsByPayload(
+		ctx,
+		plainPayload,
+		false,
+		"metrics.search",
+		"get_metrics_by_description",
+	)
+	return list, err
 }
 
 func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string]any, error) {
