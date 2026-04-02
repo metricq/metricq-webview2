@@ -71,6 +71,10 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 }
 
 func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
+	return s.lookupMetricsSelectors(ctx, selector, metadata, limit)
+}
+
+func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
 		Historic: true,
@@ -82,7 +86,7 @@ func (s *service) lookupMetricsSelector(ctx context.Context, selector string, me
 	} else {
 		payload.Format = "array"
 	}
-	if selector != "" {
+	if selector != nil && selector != "" {
 		payload.Selector = selector
 	}
 	return s.lookupMetricsByPayload(ctx, payload, metadata)
