@@ -7,6 +7,26 @@ import (
 	"testing"
 )
 
+func TestDecodeMetricLookupResponseAcceptsTopLevelArray(t *testing.T) {
+	_, list, err := decodeMetricLookupResponse([]byte(`["b","a"]`), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 || list[0] != "a" || list[1] != "b" {
+		t.Fatalf("unexpected list: %#v", list)
+	}
+}
+
+func TestDecodeMetricLookupResponseAcceptsTopLevelObject(t *testing.T) {
+	_, list, err := decodeMetricLookupResponse([]byte(`{"b":{},"a":{}}`), false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(list) != 2 || list[0] != "a" || list[1] != "b" {
+		t.Fatalf("unexpected list: %#v", list)
+	}
+}
+
 func TestResolveQueryTargetsFallbackMetrics(t *testing.T) {
 	targets, err := resolveQueryTargets(apiQueryRequest{Metrics: []string{"a", " b "}})
 	if err != nil {

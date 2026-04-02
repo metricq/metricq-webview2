@@ -103,6 +103,10 @@ func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metad
 
 func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[string]any, []string, error) {
 	if metadata {
+		var direct map[string]map[string]any
+		if err := json.Unmarshal(resp, &direct); err == nil && direct != nil {
+			return direct, nil, nil
+		}
 		var out struct {
 			Metrics map[string]map[string]any `json:"metrics"`
 		}
@@ -119,11 +123,27 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 		sort.Strings(listOut.Metrics)
 		return nil, listOut.Metrics, nil
 	}
+	var directList []string
+	if err := json.Unmarshal(resp, &directList); err == nil && directList != nil {
+		sort.Strings(directList)
+		return nil, directList, nil
+	}
 	var objectOut struct {
 		Metrics map[string]json.RawMessage `json:"metrics"`
 	}
 	if err := json.Unmarshal(resp, &objectOut); err != nil {
 		return nil, nil, err
+	}
+	if objectOut.Metrics == nil {
+		var directObject map[string]json.RawMessage
+		if err := json.Unmarshal(resp, &directObject); err == nil && directObject != nil {
+			list := make([]string, 0, len(directObject))
+			for key := range directObject {
+				list = append(list, key)
+			}
+			sort.Strings(list)
+			return nil, list, nil
+		}
 	}
 	list := make([]string, 0, len(objectOut.Metrics))
 	for key := range objectOut.Metrics {
