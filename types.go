@@ -42,6 +42,34 @@ type metricLookupRequest struct {
 	Limit    int    `json:"limit,omitempty"`
 }
 
+func (req metricLookupRequest) RPCFunction() string {
+	return req.Function
+}
+
+func (req metricLookupRequest) withFunction(function string) metricq.RPCRequest {
+	req.Function = function
+	return req
+}
+
+type metricSearchRequest struct {
+	Function string `json:"function"`
+	Query    string `json:"query"`
+	Field    string `json:"field,omitempty"`
+	Mode     string `json:"mode,omitempty"`
+	Historic bool   `json:"historic,omitempty"`
+	Limit    int    `json:"limit,omitempty"`
+	Format   string `json:"format,omitempty"`
+}
+
+func (req metricSearchRequest) RPCFunction() string {
+	return req.Function
+}
+
+func (req metricSearchRequest) withFunction(function string) metricq.RPCRequest {
+	req.Function = function
+	return req
+}
+
 type apiQueryRequest struct {
 	Targets       []apiQueryTarget `json:"targets,omitempty"`
 	Metrics       []string         `json:"metrics,omitempty"`
