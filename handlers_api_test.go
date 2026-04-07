@@ -111,9 +111,16 @@ func TestExpandHostlistQueryMultipleRanges(t *testing.T) {
 	}
 }
 
-func TestExpandHostlistQueryRejectsOversizedExpansion(t *testing.T) {
-	if got, ok := expandHostlistQuery("n[1-30]", 25); ok || got != nil {
-		t.Fatalf("expected oversized hostlist to fall back, got ok=%v values=%v", ok, got)
+func TestExpandHostlistQueryTruncatesOversizedExpansion(t *testing.T) {
+	got, ok := expandHostlistQuery("n[1-30]", 25)
+	if !ok {
+		t.Fatalf("expected oversized hostlist to return truncated expansion")
+	}
+	if len(got) != 25 {
+		t.Fatalf("unexpected truncated len: %d", len(got))
+	}
+	if got[0] != "n01" || got[24] != "n25" {
+		t.Fatalf("unexpected truncated values: first=%q last=%q", got[0], got[24])
 	}
 }
 

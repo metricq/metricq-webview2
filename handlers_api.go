@@ -151,10 +151,10 @@ func expandHostlistSegment(query string, limit int) ([]string, bool) {
 	out := make([]string, 0, len(items)*len(rest))
 	for _, item := range items {
 		for _, tail := range rest {
-			out = append(out, prefix+item+tail)
-			if len(out) > limit {
-				return nil, false
+			if len(out) == limit {
+				return out, true
 			}
+			out = append(out, prefix+item+tail)
 		}
 	}
 	return out, true
@@ -180,10 +180,10 @@ func expandHostlistItems(body string, limit int) ([]string, bool) {
 				width = len(endRaw)
 			}
 			for value := start; value <= end; value++ {
-				out = append(out, fmt.Sprintf("%0*d", width, value))
-				if len(out) > limit {
-					return nil, false
+				if len(out) == limit {
+					return out, true
 				}
+				out = append(out, fmt.Sprintf("%0*d", width, value))
 			}
 			continue
 		}
