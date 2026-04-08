@@ -73,7 +73,6 @@ export const dom = {
   btnShare: document.getElementById("btnShare"),
   urlQrModal: document.getElementById("urlQrModal"),
   urlQrImage: document.getElementById("urlQrImage"),
-  urlQrLink: document.getElementById("urlQrLink"),
   btnZoomIn: document.getElementById("btnZoomIn"),
   btnZoomOut: document.getElementById("btnZoomOut"),
   factorModal: document.getElementById("factorModal"),

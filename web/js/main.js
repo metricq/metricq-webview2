@@ -299,10 +299,6 @@ async function showUrlQrModal() {
     qrUrl.searchParams.set("data", currentUrl);
     dom.urlQrImage.src = qrUrl.toString();
   }
-  if (dom.urlQrLink) {
-    dom.urlQrLink.href = currentUrl;
-    dom.urlQrLink.textContent = currentUrl;
-  }
   const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.urlQrModal);
   modal?.show();
 }
