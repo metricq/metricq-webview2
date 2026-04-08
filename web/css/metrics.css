@@ -191,6 +191,40 @@
     overflow: visible;
 }
 
+.metrics-header-tools {
+    display: inline-flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.metrics-header-toolset {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.2rem;
+}
+
+.metrics-header-toolset-label {
+    padding-left: 0.1rem;
+    color: #7a8595;
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.metrics-header-toggle {
+    padding-right: 0.1rem;
+    border-right: 1px solid #d8dee8;
+}
+
+.metrics-header-actions .btn-group,
+.metrics-header-toggle .btn-group {
+    white-space: nowrap;
+}
+
 .sidebar-toggle {
     display: inline-flex;
     align-items: center;
