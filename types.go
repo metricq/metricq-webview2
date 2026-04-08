@@ -24,7 +24,14 @@ type service struct {
 	closeOnce sync.Once
 }
 
-type historyRequest = metricq.HistoryQuery
+type historyRequest struct {
+	Metric      string
+	StartTimeNS int64
+	EndTimeNS   int64
+	IntervalMax int64
+	RequestType metricq.HistoryRequestType
+	Timeout     time.Duration
+}
 
 const (
 	historyRequestTypeAggregateTimeline = metricq.HistoryRequestTypeAggregateTimeline
@@ -33,8 +40,14 @@ const (
 	historyRequestTypeFlexTimeline      = metricq.HistoryRequestTypeFlexTimeline
 )
 
-type historyAggregate = metricq.HistoryAggregate
-type historyResponse = metricq.HistoryDataResponse
+type historyAggregate = metricq.HistoryResponse_Aggregate
+
+type historyResponse struct {
+	TimeDelta []int64
+	Values    []float64
+	Agg       []historyAggregate
+	Error     string
+}
 
 type metricLookupRequest struct {
 	Function string `json:"function"`

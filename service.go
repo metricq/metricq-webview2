@@ -49,7 +49,37 @@ func (s *service) requestHistory(ctx context.Context, req historyRequest) (histo
 	if req.Timeout <= 0 {
 		req.Timeout = s.cfg.QueryTimeout
 	}
-	return s.history.Request(ctx, req)
+	callCtx := ctx
+	var cancel context.CancelFunc
+	if req.Timeout > 0 {
+		callCtx, cancel = context.WithTimeout(ctx, req.Timeout)
+		defer cancel()
+	}
+
+	resp, duration, err := s.history.Request(
+		callCtx,
+		req.Metric,
+		time.Unix(0, req.StartTimeNS),
+		time.Unix(0, req.EndTimeNS),
+		time.Duration(req.IntervalMax),
+		req.RequestType,
+	)
+	if err != nil {
+		return historyResponse{}, 0, err
+	}
+	aggs := resp.GetAggregate()
+	outAgg := make([]historyAggregate, len(aggs))
+	for i, agg := range aggs {
+		if agg != nil {
+			outAgg[i] = *agg
+		}
+	}
+	return historyResponse{
+		TimeDelta: resp.GetTimeDelta(),
+		Values:    resp.GetValue(),
+		Agg:       outAgg,
+		Error:     resp.GetError(),
+	}, duration.Seconds(), nil
 }
 
 func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
