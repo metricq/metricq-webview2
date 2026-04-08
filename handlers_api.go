@@ -742,7 +742,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 			entry.Maximum = agg.Maximum
 			entry.Sum = agg.Sum
 			entry.Count = agg.Count
-			entry.Mean = safeMean(agg.Sum, agg.Count)
+			entry.Mean = aggregateMean(agg)
 			out[i] = entry
 			continue
 		}
