@@ -136,7 +136,7 @@ func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string
 	return meta, nil
 }
 
-func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (*metricq.HistoryResponse, time.Duration, error) {
+func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (metricq.TimelineResult, error) {
 	if maxDataPoints <= 0 {
 		maxDataPoints = 1000
 	}
@@ -145,56 +145,45 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	if intervalNS <= 0 {
 		intervalNS = int64(time.Millisecond)
 	}
-	return s.history.Request(
+	return s.history.RequestTimeline(
 		ctx,
 		metric,
 		time.UnixMilli(fromMS),
 		time.UnixMilli(toMS),
 		time.Duration(intervalNS),
-		historyRequestTypeFlexTimeline,
 	)
 }
 
-func historyToSeries(metric string, hr *metricq.HistoryResponse, duration float64) apiQuerySeries {
-	series := apiQuerySeries{Metric: metric, Duration: duration, Stats: map[string]any{}}
-	if hr == nil {
+func historyToSeries(metric string, timeline metricq.TimelineResult) apiQuerySeries {
+	series := apiQuerySeries{Metric: metric, Stats: map[string]any{}}
+	switch data := timeline.(type) {
+	case nil:
 		series.Mode = "empty"
 		series.Stats["type"] = "empty"
 		return series
-	}
-	if hr.GetError() != "" {
-		series.Error = hr.GetError()
-		return series
-	}
-	timeDelta := hr.GetTimeDelta()
-	values := hr.GetValue()
-	aggs := hr.GetAggregate()
-	if len(timeDelta) == len(values) && len(values) > 0 {
+	case *metricq.TimelineValues:
+		series.Duration = data.Duration.Seconds()
 		series.Mode = "values"
-		series.Points = make([]apiPoint, 0, len(values))
-		ts := int64(0)
-		for i, value := range values {
-			ts += timeDelta[i]
-			series.Points = append(series.Points, apiPoint{T: ts / int64(time.Millisecond), V: value})
+		series.Points = make([]apiPoint, 0, len(data.Values))
+		for i, value := range data.Values {
+			series.Points = append(series.Points, apiPoint{T: data.Times[i].UnixMilli(), V: value})
 		}
 		series.SampleCount = uint64(len(series.Points))
 		series.Stats["type"] = "raw"
 		return series
-	}
-	if len(timeDelta) == len(aggs) && len(aggs) > 0 {
+	case *metricq.TimelineAggregates:
+		series.Duration = data.Duration.Seconds()
 		series.Mode = "aggregates"
-		series.AggPoints = make([]apiAggPoint, 0, len(aggs))
-		ts := int64(0)
+		series.AggPoints = make([]apiAggPoint, 0, len(data.Agg))
 		var sampleCount uint64
-		for i, agg := range aggs {
-			ts += timeDelta[i]
+		for i, agg := range data.Agg {
 			avg := aggregateMean(agg)
 			activeTimeMS := agg.ActiveTime / int64(time.Millisecond)
 			if agg.ActiveTime > 0 && activeTimeMS == 0 {
 				activeTimeMS = 1
 			}
 			series.AggPoints = append(series.AggPoints, apiAggPoint{
-				T:            ts / int64(time.Millisecond),
+				T:            data.Times[i].UnixMilli(),
 				Min:          agg.Minimum,
 				Max:          agg.Maximum,
 				Avg:          avg,
@@ -206,10 +195,10 @@ func historyToSeries(metric string, hr *metricq.HistoryResponse, duration float6
 		series.SampleCount = sampleCount
 		series.Stats["type"] = "aggregate"
 		return series
+	default:
+		series.Error = "unexpected timeline response"
+		return series
 	}
-	series.Mode = "empty"
-	series.Stats["type"] = "empty"
-	return series
 }
 
 func scaleValueByFunction(agg *metricq.HistoryResponse_Aggregate, fn string, scale float64) float64 {

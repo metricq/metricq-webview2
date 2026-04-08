@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	metricq "github.com/metricq/metricq-go"
 )
@@ -25,11 +26,15 @@ func TestScaleValueByFunction(t *testing.T) {
 }
 
 func TestHistoryToSeriesValues(t *testing.T) {
-	hr := &metricq.HistoryResponse{
-		TimeDelta: []int64{1_000_000, 2_000_000},
-		Value:     []float64{1.25, 2.5},
+	hr := &metricq.TimelineValues{
+		Times: []time.Time{
+			time.UnixMilli(1),
+			time.UnixMilli(3),
+		},
+		Values:   []float64{1.25, 2.5},
+		Duration: 500 * time.Millisecond,
 	}
-	got := historyToSeries("metric.a", hr, 0.5)
+	got := historyToSeries("metric.a", hr)
 
 	if got.Mode != "values" {
 		t.Fatalf("unexpected mode: %s", got.Mode)
@@ -40,14 +45,18 @@ func TestHistoryToSeriesValues(t *testing.T) {
 }
 
 func TestHistoryToSeriesAggregates(t *testing.T) {
-	hr := &metricq.HistoryResponse{
-		TimeDelta: []int64{1_000_000, 1_000_000},
-		Aggregate: []*metricq.HistoryResponse_Aggregate{
+	hr := &metricq.TimelineAggregates{
+		Times: []time.Time{
+			time.UnixMilli(1),
+			time.UnixMilli(2),
+		},
+		Agg: []*metricq.HistoryResponse_Aggregate{
 			{Minimum: 1, Maximum: 3, Sum: 4, Count: 2},
 			{Minimum: 2, Maximum: 6, Sum: 12, Count: 3},
 		},
+		Duration: 200 * time.Millisecond,
 	}
-	got := historyToSeries("metric.b", hr, 0.2)
+	got := historyToSeries("metric.b", hr)
 
 	if got.Mode != "aggregates" {
 		t.Fatalf("unexpected mode: %s", got.Mode)

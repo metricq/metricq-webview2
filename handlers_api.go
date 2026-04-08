@@ -356,14 +356,14 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 	sourceErrs := map[string]string{}
 	var mu sync.Mutex
 	waitGroupRun(sourceMetrics, func(_ int, metric string) {
-		hr, duration, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
+		timeline, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
 		if qErr != nil {
 			mu.Lock()
 			sourceErrs[metric] = qErr.Error()
 			mu.Unlock()
 			return
 		}
-		series := historyToSeries(metric, hr, duration.Seconds())
+		series := historyToSeries(metric, timeline)
 		mu.Lock()
 		sourceSeries[metric] = series
 		if series.Error != "" {
@@ -695,14 +695,14 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	var mu sync.Mutex
 	waitGroupRun(sourceMetrics, func(_ int, metric string) {
 		// Slightly denser timeline for stable expression stats across zoom levels.
-		hr, duration, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, 4096)
+		timeline, qErr := s.queryMetric(ctx, metric, req.FromUnixMS, req.ToUnixMS, 4096)
 		if qErr != nil {
 			mu.Lock()
 			sourceErrs[metric] = qErr.Error()
 			mu.Unlock()
 			return
 		}
-		series := historyToSeries(metric, hr, duration.Seconds())
+		series := historyToSeries(metric, timeline)
 		mu.Lock()
 		sourceSeries[metric] = series
 		if series.Error != "" {
