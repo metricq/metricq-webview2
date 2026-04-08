@@ -145,7 +145,7 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	if intervalNS <= 0 {
 		intervalNS = int64(time.Millisecond)
 	}
-	resp, duration, err := s.history.Request(
+	return s.history.Request(
 		ctx,
 		metric,
 		time.UnixMilli(fromMS),
@@ -153,10 +153,6 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 		time.Duration(intervalNS),
 		historyRequestTypeFlexTimeline,
 	)
-	if err != nil {
-		return nil, 0, err
-	}
-	return resp, duration, nil
 }
 
 func historyToSeries(metric string, hr *metricq.HistoryResponse, duration float64) apiQuerySeries {
