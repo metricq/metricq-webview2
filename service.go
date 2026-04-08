@@ -218,12 +218,11 @@ func aggregateMean(agg *metricq.HistoryResponse_Aggregate) float64 {
 	if agg == nil {
 		return 0
 	}
-	// Prefer time-weighted mean for last-semantics aggregates.
-	if agg.ActiveTime > 0 {
-		return agg.Integral / float64(agg.ActiveTime)
+	if mean, err := agg.Mean(); err == nil {
+		return mean
 	}
-	if agg.Count > 0 {
-		return agg.Sum / float64(agg.Count)
+	if mean, err := agg.MeanSum(); err == nil {
+		return mean
 	}
 	return 0
 }
