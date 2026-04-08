@@ -20,6 +20,7 @@ export const state = {
   stackedAligned: null,
   timeMode: "relative",
   renderMode: "standard",
+  renderBands: true,
   resolution: 2,
   maxPoints: 3000,
   sidebarCollapsed: false,

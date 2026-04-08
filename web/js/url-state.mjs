@@ -150,6 +150,7 @@ function buildPayload() {
     ),
   };
   if (state.renderMode === "ti") payload.rm = "ti";
+  if (!state.renderBands) payload.rb = 0;
 
   if (state.timeMode === "relative") {
     const rel = serializeRelative();
@@ -351,6 +352,7 @@ export async function applyStateFromUrl() {
     .trim()
     .toLowerCase();
   state.renderMode = renderMode === "ti" ? "ti" : "standard";
+  state.renderBands = payload?.rb !== 0;
 
   applyYAxisConfig(payload?.y);
   syncYAxisStackedState();
@@ -395,6 +397,7 @@ export function applyLegacyWebviewHashFallback() {
     .map((item, index) => parseLegacyMetricToken(item, index, false))
     .filter(Boolean);
   state.renderMode = "standard";
+  state.renderBands = true;
   syncYAxisStackedState();
 
   return state.metrics.length > 0;

@@ -115,6 +115,19 @@ function syncRenderModeButton() {
     : "Standard-Modus aktiv (Point-to-Point)";
 }
 
+function syncRenderBandsButton() {
+  if (!dom.btnRenderBands) return;
+  dom.btnRenderBands.classList.toggle("btn-secondary", state.renderBands);
+  dom.btnRenderBands.classList.toggle("btn-outline-secondary", !state.renderBands);
+  dom.btnRenderBands.title = state.renderBands
+    ? "Bänder sichtbar"
+    : "Bänder ausgeblendet";
+  dom.btnRenderBands.setAttribute(
+    "aria-pressed",
+    state.renderBands ? "true" : "false",
+  );
+}
+
 function updateSidebarToggleIcon() {
   const icon = dom.btnSidebarToggle.querySelector("i");
   if (!icon) return;
@@ -493,6 +506,12 @@ function wireTopBarEvents() {
     state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
     syncRenderModeButton();
     hooks.loadData();
+  });
+  dom.btnRenderBands?.addEventListener("click", () => {
+    state.renderBands = !state.renderBands;
+    syncRenderBandsButton();
+    renderChart();
+    syncUrlStateIfAllowed();
   });
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);
@@ -1053,6 +1072,7 @@ async function init() {
   });
   syncYAxisModalFromState();
   syncRenderModeButton();
+  syncRenderBandsButton();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();
