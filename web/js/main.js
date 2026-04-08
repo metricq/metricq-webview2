@@ -3,9 +3,11 @@ import { state } from "./model.js";
 import { loadData } from "./data.js";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
+import { fetchFrontendConfig } from "./api.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { wireExpressionModal } from "./expressions.js";
 import { createHelpModule } from "./help.js";
+import { buildLegacyChartsUrl } from "./legacy-url.mjs";
 import {
   formatDecimalInput,
   formatFixed,
@@ -126,6 +128,15 @@ function syncRenderBandsButton() {
     "aria-pressed",
     state.renderBands ? "true" : "false",
   );
+}
+
+function syncLegacyChartsButton() {
+  if (!dom.btnOpenLegacyCharts) return;
+  const hasBaseUrl = !!String(state.legacyChartsBaseUrl || "").trim();
+  dom.btnOpenLegacyCharts.disabled = !hasBaseUrl;
+  dom.btnOpenLegacyCharts.title = hasBaseUrl
+    ? "Aktuellen View in Legacy Charts öffnen"
+    : "Legacy-Charts-URL ist nicht konfiguriert";
 }
 
 function updateSidebarToggleIcon() {
@@ -501,6 +512,26 @@ function wireTopBarEvents() {
         "Kopieren fehlgeschlagen.",
         "error",
       );
+  });
+  dom.btnOpenLegacyCharts?.addEventListener("click", () => {
+    const url = buildLegacyChartsUrl(
+      state.legacyChartsBaseUrl,
+      {
+        metrics: state.metrics,
+        from: state.from,
+        to: state.to,
+      },
+      window.location.href,
+    );
+    if (!url) {
+      showShareCopiedPop(
+        dom.btnOpenLegacyCharts,
+        "Keine kompatiblen Rohmetriken im View.",
+        "error",
+      );
+      return;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   });
   dom.btnRenderMode.addEventListener("click", () => {
     state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
@@ -1073,6 +1104,13 @@ async function init() {
   syncYAxisModalFromState();
   syncRenderModeButton();
   syncRenderBandsButton();
+  try {
+    const frontendConfig = await fetchFrontendConfig();
+    state.legacyChartsBaseUrl = String(frontendConfig?.legacyChartsBaseUrl || "").trim();
+  } catch (_) {
+    state.legacyChartsBaseUrl = "";
+  }
+  syncLegacyChartsButton();
   applyResponsiveSidebarMode();
   fitContentHeight();
   wireEvents();

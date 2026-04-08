@@ -21,6 +21,7 @@ export const state = {
   timeMode: "relative",
   renderMode: "standard",
   renderBands: true,
+  legacyChartsBaseUrl: "",
   resolution: 2,
   maxPoints: 3000,
   sidebarCollapsed: false,

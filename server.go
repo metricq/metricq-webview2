@@ -30,6 +30,7 @@ func main() {
 	mux.HandleFunc("/api/health", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 	})
+	mux.HandleFunc("/api/config", svc.handleAPIConfig)
 	mux.HandleFunc("/api/metrics", svc.handleAPIMetrics)
 	mux.HandleFunc("/api/metadata", svc.handleAPIMetadata)
 	mux.HandleFunc("/api/expression/validate", svc.handleAPIExpressionValidate)

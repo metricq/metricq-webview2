@@ -43,6 +43,16 @@ func buildExprErrorInfo(err error) *apiExprError {
 	return info
 }
 
+func (s *service) handleAPIConfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"legacyChartsBaseUrl": strings.TrimSpace(s.cfg.LegacyChartsBaseURL),
+	})
+}
+
 func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

@@ -31,5 +31,8 @@ func configFromEnv() config {
 	if v := strings.TrimSpace(os.Getenv("WEB_DIR")); v != "" {
 		cfg.WebDir = v
 	}
+	if v := strings.TrimSpace(os.Getenv("LEGACY_CHARTS_BASE_URL")); v != "" {
+		cfg.LegacyChartsBaseURL = v
+	}
 	return cfg
 }

@@ -1,6 +1,11 @@
 package main
 
-import "testing"
+import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
 
 func TestResolveQueryTargetsFallbackMetrics(t *testing.T) {
 	targets, err := resolveQueryTargets(apiQueryRequest{Metrics: []string{"a", " b "}})
@@ -94,5 +99,20 @@ func TestExpandHostlistQueryMultipleRanges(t *testing.T) {
 func TestExpandHostlistQueryRejectsOversizedExpansion(t *testing.T) {
 	if got, ok := expandHostlistQuery("n[1-30]", 25); ok || got != nil {
 		t.Fatalf("expected oversized hostlist to fall back, got ok=%v values=%v", ok, got)
+	}
+}
+
+func TestHandleAPIConfigIncludesLegacyChartsBaseURL(t *testing.T) {
+	svc := &service{cfg: config{LegacyChartsBaseURL: "https://legacy.example/charts/content/index.html"}}
+	req := httptest.NewRequest(http.MethodGet, "/api/config", nil)
+	rec := httptest.NewRecorder()
+
+	svc.handleAPIConfig(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status: %d body=%s", rec.Code, rec.Body.String())
+	}
+	if body := rec.Body.String(); body == "" || !strings.Contains(body, "legacy.example/charts/content/index.html") {
+		t.Fatalf("unexpected body: %s", body)
 	}
 }

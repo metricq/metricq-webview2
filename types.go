@@ -9,11 +9,12 @@ import (
 )
 
 type config struct {
-	ListenAddr    string
-	MetricQServer string
-	MetricQToken  string
-	QueryTimeout  time.Duration
-	WebDir        string
+	ListenAddr          string
+	MetricQServer       string
+	MetricQToken        string
+	QueryTimeout        time.Duration
+	WebDir              string
+	LegacyChartsBaseURL string
 }
 
 type service struct {

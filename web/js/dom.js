@@ -68,6 +68,7 @@ export const dom = {
   btnExportPng: document.getElementById("btnExportPng"),
   btnExportCsv: document.getElementById("btnExportCsv"),
   btnExportJson: document.getElementById("btnExportJson"),
+  btnOpenLegacyCharts: document.getElementById("btnOpenLegacyCharts"),
   btnShare: document.getElementById("btnShare"),
   btnZoomIn: document.getElementById("btnZoomIn"),
   btnZoomOut: document.getElementById("btnZoomOut"),

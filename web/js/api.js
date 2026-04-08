@@ -21,3 +21,12 @@ export async function apiFetch(path, options = {}) {
     updateBackendPendingSpinner();
   }
 }
+
+let frontendConfigPromise = null;
+
+export function fetchFrontendConfig() {
+  if (!frontendConfigPromise) {
+    frontendConfigPromise = apiFetch("/api/config");
+  }
+  return frontendConfigPromise;
+}
