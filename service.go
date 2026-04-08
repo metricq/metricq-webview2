@@ -45,41 +45,32 @@ func (s *service) Close() {
 	})
 }
 
-func (s *service) requestHistory(ctx context.Context, req historyRequest) (historyResponse, float64, error) {
-	if req.Timeout <= 0 {
-		req.Timeout = s.cfg.QueryTimeout
+func (s *service) requestHistory(ctx context.Context, metric string, start, end time.Time, intervalMax time.Duration, requestType metricq.HistoryRequestType) (*metricq.HistoryResponse, float64, error) {
+	timeout := s.cfg.QueryTimeout
+	if deadline, ok := ctx.Deadline(); ok {
+		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
+			timeout = remaining
+		}
 	}
 	callCtx := ctx
 	var cancel context.CancelFunc
-	if req.Timeout > 0 {
-		callCtx, cancel = context.WithTimeout(ctx, req.Timeout)
+	if timeout > 0 {
+		callCtx, cancel = context.WithTimeout(ctx, timeout)
 		defer cancel()
 	}
 
 	resp, duration, err := s.history.Request(
 		callCtx,
-		req.Metric,
-		time.Unix(0, req.StartTimeNS),
-		time.Unix(0, req.EndTimeNS),
-		time.Duration(req.IntervalMax),
-		req.RequestType,
+		metric,
+		start,
+		end,
+		intervalMax,
+		requestType,
 	)
 	if err != nil {
-		return historyResponse{}, 0, err
+		return nil, 0, err
 	}
-	aggs := resp.GetAggregate()
-	outAgg := make([]historyAggregate, len(aggs))
-	for i, agg := range aggs {
-		if agg != nil {
-			outAgg[i] = *agg
-		}
-	}
-	return historyResponse{
-		TimeDelta: resp.GetTimeDelta(),
-		Values:    resp.GetValue(),
-		Agg:       outAgg,
-		Error:     resp.GetError(),
-	}, duration.Seconds(), nil
+	return resp, duration.Seconds(), nil
 }
 
 func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
@@ -173,7 +164,7 @@ func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string
 	return meta, nil
 }
 
-func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (historyResponse, float64, error) {
+func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (*metricq.HistoryResponse, float64, error) {
 	if maxDataPoints <= 0 {
 		maxDataPoints = 1000
 	}
@@ -182,41 +173,49 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	if intervalNS <= 0 {
 		intervalNS = int64(time.Millisecond)
 	}
-	return s.requestHistory(ctx, historyRequest{
-		Metric:      metric,
-		StartTimeNS: fromMS * int64(time.Millisecond),
-		EndTimeNS:   toMS * int64(time.Millisecond),
-		IntervalMax: intervalNS,
-		RequestType: historyRequestTypeFlexTimeline,
-		Timeout:     s.cfg.QueryTimeout,
-	})
+	return s.requestHistory(
+		ctx,
+		metric,
+		time.UnixMilli(fromMS),
+		time.UnixMilli(toMS),
+		time.Duration(intervalNS),
+		historyRequestTypeFlexTimeline,
+	)
 }
 
-func historyToSeries(metric string, hr historyResponse, duration float64) apiQuerySeries {
+func historyToSeries(metric string, hr *metricq.HistoryResponse, duration float64) apiQuerySeries {
 	series := apiQuerySeries{Metric: metric, Duration: duration, Stats: map[string]any{}}
-	if hr.Error != "" {
-		series.Error = hr.Error
+	if hr == nil {
+		series.Mode = "empty"
+		series.Stats["type"] = "empty"
 		return series
 	}
-	if len(hr.TimeDelta) == len(hr.Values) && len(hr.Values) > 0 {
+	if hr.GetError() != "" {
+		series.Error = hr.GetError()
+		return series
+	}
+	timeDelta := hr.GetTimeDelta()
+	values := hr.GetValue()
+	aggs := hr.GetAggregate()
+	if len(timeDelta) == len(values) && len(values) > 0 {
 		series.Mode = "values"
-		series.Points = make([]apiPoint, 0, len(hr.Values))
+		series.Points = make([]apiPoint, 0, len(values))
 		ts := int64(0)
-		for i, value := range hr.Values {
-			ts += hr.TimeDelta[i]
+		for i, value := range values {
+			ts += timeDelta[i]
 			series.Points = append(series.Points, apiPoint{T: ts / int64(time.Millisecond), V: value})
 		}
 		series.SampleCount = uint64(len(series.Points))
 		series.Stats["type"] = "raw"
 		return series
 	}
-	if len(hr.TimeDelta) == len(hr.Agg) && len(hr.Agg) > 0 {
+	if len(timeDelta) == len(aggs) && len(aggs) > 0 {
 		series.Mode = "aggregates"
-		series.AggPoints = make([]apiAggPoint, 0, len(hr.Agg))
+		series.AggPoints = make([]apiAggPoint, 0, len(aggs))
 		ts := int64(0)
 		var sampleCount uint64
-		for i, agg := range hr.Agg {
-			ts += hr.TimeDelta[i]
+		for i, agg := range aggs {
+			ts += timeDelta[i]
 			avg := aggregateMean(agg)
 			activeTimeMS := agg.ActiveTime / int64(time.Millisecond)
 			if agg.ActiveTime > 0 && activeTimeMS == 0 {
@@ -241,7 +240,7 @@ func historyToSeries(metric string, hr historyResponse, duration float64) apiQue
 	return series
 }
 
-func scaleValueByFunction(agg historyAggregate, fn string, scale float64) float64 {
+func scaleValueByFunction(agg *metricq.HistoryResponse_Aggregate, fn string, scale float64) float64 {
 	switch fn {
 	case "min":
 		return agg.Minimum * scale
@@ -254,7 +253,10 @@ func scaleValueByFunction(agg historyAggregate, fn string, scale float64) float6
 	}
 }
 
-func aggregateMean(agg historyAggregate) float64 {
+func aggregateMean(agg *metricq.HistoryResponse_Aggregate) float64 {
+	if agg == nil {
+		return 0
+	}
 	// Prefer time-weighted mean for last-semantics aggregates.
 	if agg.ActiveTime > 0 {
 		return agg.Integral / float64(agg.ActiveTime)

@@ -717,25 +717,27 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	for i, target := range planned {
 		entry := apiAnalyzeEntry{Metric: target.name}
 		if target.expr == "" {
-			hr, duration, reqErr := s.requestHistory(ctx, historyRequest{
-				Metric:      target.sourceMetric,
-				StartTimeNS: req.FromUnixMS * int64(time.Millisecond),
-				EndTimeNS:   req.ToUnixMS * int64(time.Millisecond),
-				RequestType: historyRequestTypeAggregate,
-				Timeout:     s.cfg.QueryTimeout,
-			})
+			hr, duration, reqErr := s.requestHistory(
+				ctx,
+				target.sourceMetric,
+				time.UnixMilli(req.FromUnixMS),
+				time.UnixMilli(req.ToUnixMS),
+				0,
+				historyRequestTypeAggregate,
+			)
 			entry.Duration = duration
 			if reqErr != nil {
 				entry.Error = reqErr.Error()
 				out[i] = entry
 				continue
 			}
-			if len(hr.Agg) != 1 {
+			aggs := hr.GetAggregate()
+			if len(aggs) != 1 {
 				entry.Error = "unexpected response"
 				out[i] = entry
 				continue
 			}
-			agg := hr.Agg[0]
+			agg := aggs[0]
 			entry.Minimum = agg.Minimum
 			entry.Maximum = agg.Maximum
 			entry.Sum = agg.Sum
@@ -863,17 +865,22 @@ func (s *service) handleAPIYRangeGlobal(w http.ResponseWriter, r *http.Request) 
 		if metric == "" {
 			return
 		}
-		hr, _, err := s.requestHistory(ctx, historyRequest{
-			Metric:      metric,
-			StartTimeNS: fromMS * int64(time.Millisecond),
-			EndTimeNS:   toMS * int64(time.Millisecond),
-			RequestType: historyRequestTypeAggregate,
-			Timeout:     s.cfg.QueryTimeout,
-		})
-		if err != nil || len(hr.Agg) != 1 || hr.Agg[0].Count == 0 {
+		hr, _, err := s.requestHistory(
+			ctx,
+			metric,
+			time.UnixMilli(fromMS),
+			time.UnixMilli(toMS),
+			0,
+			historyRequestTypeAggregate,
+		)
+		if err != nil {
 			return
 		}
-		agg := hr.Agg[0]
+		aggs := hr.GetAggregate()
+		if len(aggs) != 1 || aggs[0].Count == 0 {
+			return
+		}
+		agg := aggs[0]
 
 		mu.Lock()
 		if agg.Minimum < minY {

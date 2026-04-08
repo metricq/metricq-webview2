@@ -1,9 +1,13 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	metricq "github.com/metricq/metricq-go"
+)
 
 func TestScaleValueByFunction(t *testing.T) {
-	agg := historyAggregate{Minimum: 1.5, Maximum: 9.5, Sum: 30, Count: 10}
+	agg := metricq.HistoryResponse_Aggregate{Minimum: 1.5, Maximum: 9.5, Sum: 30, Count: 10}
 	scale := 2.0
 
 	if got := scaleValueByFunction(agg, "min", scale); got != 3.0 {
@@ -21,9 +25,9 @@ func TestScaleValueByFunction(t *testing.T) {
 }
 
 func TestHistoryToSeriesValues(t *testing.T) {
-	hr := historyResponse{
+	hr := &metricq.HistoryResponse{
 		TimeDelta: []int64{1_000_000, 2_000_000},
-		Values:    []float64{1.25, 2.5},
+		Value:     []float64{1.25, 2.5},
 	}
 	got := historyToSeries("metric.a", hr, 0.5)
 
@@ -36,9 +40,9 @@ func TestHistoryToSeriesValues(t *testing.T) {
 }
 
 func TestHistoryToSeriesAggregates(t *testing.T) {
-	hr := historyResponse{
+	hr := &metricq.HistoryResponse{
 		TimeDelta: []int64{1_000_000, 1_000_000},
-		Agg: []historyAggregate{
+		Aggregate: []*metricq.HistoryResponse_Aggregate{
 			{Minimum: 1, Maximum: 3, Sum: 4, Count: 2},
 			{Minimum: 2, Maximum: 6, Sum: 12, Count: 3},
 		},
