@@ -44,7 +44,10 @@
                 <i class="bi bi-download"></i>
               </button>
               <button class="btn btn-outline-primary" id="btnOpenLegacyCharts" type="button" title="Im Legacy-Chart öffnen">
-                <i class="bi bi-box-arrow-up-right"></i>
+                <i class="bi bi-graph-down-arrow"></i>
+              </button>
+              <button class="btn btn-outline-primary" id="btnShowUrlQr" type="button" title="Aktuelle URL als QR-Code anzeigen">
+                <i class="bi bi-qr-code"></i>
               </button>
               <button class="btn btn-outline-primary" id="btnShare" type="button" title="Link teilen">
                 <i class="bi bi-share"></i>
@@ -321,6 +324,24 @@
             <button class="btn btn-outline-primary" id="btnExportPng">PNG exportieren</button>
             <button class="btn btn-outline-primary" id="btnExportCsv">CSV exportieren</button>
             <button class="btn btn-outline-primary" id="btnExportJson">JSON exportieren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="urlQrModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">URL als QR-Code</h5>
+            <button class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body text-center d-grid gap-3">
+            <img id="urlQrImage" class="img-fluid mx-auto border rounded p-2 bg-white" alt="QR-Code für aktuelle URL" />
+            <a id="urlQrLink" class="small text-break" href="#" target="_blank" rel="noopener noreferrer"></a>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Schließen</button>
           </div>
         </div>
       </div>

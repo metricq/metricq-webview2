@@ -290,6 +290,23 @@ function showShareCopiedPop(anchorEl, text = "Kopiert.", kind = "success") {
   }, 1100);
 }
 
+async function showUrlQrModal() {
+  await syncUrlStateNow().catch(() => {});
+  const currentUrl = window.location.href;
+  if (dom.urlQrImage) {
+    const qrUrl = new URL("https://api.qrserver.com/v1/create-qr-code/");
+    qrUrl.searchParams.set("size", "320x320");
+    qrUrl.searchParams.set("data", currentUrl);
+    dom.urlQrImage.src = qrUrl.toString();
+  }
+  if (dom.urlQrLink) {
+    dom.urlQrLink.href = currentUrl;
+    dom.urlQrLink.textContent = currentUrl;
+  }
+  const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.urlQrModal);
+  modal?.show();
+}
+
 function fitContentHeight() {
   const nav = document.querySelector("nav.navbar");
   const content = document.getElementById("appContent");
@@ -512,6 +529,9 @@ function wireTopBarEvents() {
         "Kopieren fehlgeschlagen.",
         "error",
       );
+  });
+  dom.btnShowUrlQr?.addEventListener("click", () => {
+    void showUrlQrModal();
   });
   dom.btnOpenLegacyCharts?.addEventListener("click", () => {
     const url = buildLegacyChartsUrl(
