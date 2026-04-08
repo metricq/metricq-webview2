@@ -8,7 +8,14 @@ import (
 )
 
 func TestScaleValueByFunction(t *testing.T) {
-	agg := metricq.HistoryResponse_Aggregate{Minimum: 1.5, Maximum: 9.5, Sum: 30, Count: 10}
+	agg := metricq.HistoryResponse_Aggregate{
+		Minimum:    1.5,
+		Maximum:    9.5,
+		Sum:        30,
+		Count:      10,
+		Integral:   30,
+		ActiveTime: 10,
+	}
 	scale := 2.0
 
 	if got := scaleValueByFunction(&agg, "min", scale); got != 3.0 {
@@ -51,8 +58,8 @@ func TestHistoryToSeriesAggregates(t *testing.T) {
 			time.UnixMilli(2),
 		},
 		Agg: []*metricq.HistoryResponse_Aggregate{
-			{Minimum: 1, Maximum: 3, Sum: 4, Count: 2},
-			{Minimum: 2, Maximum: 6, Sum: 12, Count: 3},
+			{Minimum: 1, Maximum: 3, Sum: 4, Count: 2, Integral: 2, ActiveTime: 1},
+			{Minimum: 2, Maximum: 6, Sum: 12, Count: 3, Integral: 4, ActiveTime: 1},
 		},
 		Duration: 200 * time.Millisecond,
 	}

@@ -221,9 +221,6 @@ func aggregateMean(agg *metricq.HistoryResponse_Aggregate) float64 {
 	if mean, err := agg.Mean(); err == nil {
 		return mean
 	}
-	if mean, err := agg.MeanSum(); err == nil {
-		return mean
-	}
 	return 0
 }
 
