@@ -45,34 +45,6 @@ func (s *service) Close() {
 	})
 }
 
-func (s *service) requestHistory(ctx context.Context, metric string, start, end time.Time, intervalMax time.Duration, requestType metricq.HistoryRequestType) (*metricq.HistoryResponse, float64, error) {
-	timeout := s.cfg.QueryTimeout
-	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
-			timeout = remaining
-		}
-	}
-	callCtx := ctx
-	var cancel context.CancelFunc
-	if timeout > 0 {
-		callCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
-	resp, duration, err := s.history.Request(
-		callCtx,
-		metric,
-		start,
-		end,
-		intervalMax,
-		requestType,
-	)
-	if err != nil {
-		return nil, 0, err
-	}
-	return resp, duration.Seconds(), nil
-}
-
 func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
@@ -164,7 +136,7 @@ func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string
 	return meta, nil
 }
 
-func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (*metricq.HistoryResponse, float64, error) {
+func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (*metricq.HistoryResponse, time.Duration, error) {
 	if maxDataPoints <= 0 {
 		maxDataPoints = 1000
 	}
@@ -173,7 +145,7 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	if intervalNS <= 0 {
 		intervalNS = int64(time.Millisecond)
 	}
-	return s.requestHistory(
+	resp, duration, err := s.history.Request(
 		ctx,
 		metric,
 		time.UnixMilli(fromMS),
@@ -181,6 +153,10 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 		time.Duration(intervalNS),
 		historyRequestTypeFlexTimeline,
 	)
+	if err != nil {
+		return nil, 0, err
+	}
+	return resp, duration, nil
 }
 
 func historyToSeries(metric string, hr *metricq.HistoryResponse, duration float64) apiQuerySeries {

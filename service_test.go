@@ -10,16 +10,16 @@ func TestScaleValueByFunction(t *testing.T) {
 	agg := metricq.HistoryResponse_Aggregate{Minimum: 1.5, Maximum: 9.5, Sum: 30, Count: 10}
 	scale := 2.0
 
-	if got := scaleValueByFunction(agg, "min", scale); got != 3.0 {
+	if got := scaleValueByFunction(&agg, "min", scale); got != 3.0 {
 		t.Fatalf("min scale mismatch: got %v", got)
 	}
-	if got := scaleValueByFunction(agg, "max", scale); got != 19.0 {
+	if got := scaleValueByFunction(&agg, "max", scale); got != 19.0 {
 		t.Fatalf("max scale mismatch: got %v", got)
 	}
-	if got := scaleValueByFunction(agg, "count", scale); got != 10.0 {
+	if got := scaleValueByFunction(&agg, "count", scale); got != 10.0 {
 		t.Fatalf("count mismatch: got %v", got)
 	}
-	if got := scaleValueByFunction(agg, "avg", scale); got != 6.0 {
+	if got := scaleValueByFunction(&agg, "avg", scale); got != 6.0 {
 		t.Fatalf("avg scale mismatch: got %v", got)
 	}
 }

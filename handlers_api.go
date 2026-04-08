@@ -363,7 +363,7 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 			mu.Unlock()
 			return
 		}
-		series := historyToSeries(metric, hr, duration)
+		series := historyToSeries(metric, hr, duration.Seconds())
 		mu.Lock()
 		sourceSeries[metric] = series
 		if series.Error != "" {
@@ -702,7 +702,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 			mu.Unlock()
 			return
 		}
-		series := historyToSeries(metric, hr, duration)
+		series := historyToSeries(metric, hr, duration.Seconds())
 		mu.Lock()
 		sourceSeries[metric] = series
 		if series.Error != "" {
@@ -717,7 +717,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	for i, target := range planned {
 		entry := apiAnalyzeEntry{Metric: target.name}
 		if target.expr == "" {
-			hr, duration, reqErr := s.requestHistory(
+			hr, duration, reqErr := s.history.Request(
 				ctx,
 				target.sourceMetric,
 				time.UnixMilli(req.FromUnixMS),
@@ -725,7 +725,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 				0,
 				historyRequestTypeAggregate,
 			)
-			entry.Duration = duration
+			entry.Duration = duration.Seconds()
 			if reqErr != nil {
 				entry.Error = reqErr.Error()
 				out[i] = entry
@@ -865,7 +865,7 @@ func (s *service) handleAPIYRangeGlobal(w http.ResponseWriter, r *http.Request) 
 		if metric == "" {
 			return
 		}
-		hr, _, err := s.requestHistory(
+		hr, _, err := s.history.Request(
 			ctx,
 			metric,
 			time.UnixMilli(fromMS),
