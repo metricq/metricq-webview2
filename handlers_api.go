@@ -839,6 +839,130 @@ func analyzeValueMap(values map[int64]float64) (minimum, maximum, sum float64, c
 	return minimum, maximum, sum, count, true
 }
 
+var suggestableFields = []string{
+	"site", "room", "rack", "feed", "asset_type", "asset_id",
+	"location_code", "metric_type", "circuit", "phase", "source",
+	"cluster", "system", "service", "team", "criticality",
+}
+
+var suggestableFieldSet = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(suggestableFields))
+	for _, f := range suggestableFields {
+		m[f] = struct{}{}
+	}
+	return m
+}()
+
+func (s *service) handleAPIMetricsSuggestFields(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"fields": suggestableFields})
+}
+
+func (s *service) handleAPIMetricsSuggest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	field := strings.TrimSpace(r.URL.Query().Get("field"))
+	if field == "" {
+		writeError(w, http.StatusBadRequest, "field is required")
+		return
+	}
+	if _, ok := suggestableFieldSet[field]; !ok {
+		writeError(w, http.StatusBadRequest, "field is not suggestable")
+		return
+	}
+
+	var filter map[string]any
+	if raw := strings.TrimSpace(r.URL.Query().Get("filter")); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &filter); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid filter json")
+			return
+		}
+	}
+
+	limit := 100
+	if v := r.URL.Query().Get("limit"); v != "" {
+		if parsed, err := strconv.Atoi(v); err == nil && parsed > 0 && parsed <= 1000 {
+			limit = parsed
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	values, err := s.suggestFieldValues(ctx, field, filter, limit)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"field": field, "values": values})
+}
+
+func (s *service) handleAPIMetricsResolve(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req struct {
+		Filter map[string]any `json:"filter"`
+		Limit  int            `json:"limit"`
+		Offset int            `json:"offset"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.Limit <= 0 || req.Limit > 500 {
+		req.Limit = 200
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+
+	entries, err := s.resolveMetricsByFilter(ctx, req.Filter, req.Limit, req.Offset)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"metrics": entries})
+}
+
+func (s *service) handleAPIMetricsAdvancedSearch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var req advancedSearchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid json")
+		return
+	}
+	if req.Limit <= 0 || req.Limit > 500 {
+		req.Limit = 100
+	}
+	req.Mode = strings.ToLower(strings.TrimSpace(req.Mode))
+	if req.Mode == "" {
+		req.Mode = "infix"
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+
+	results, err := s.searchMetricsAdvanced(ctx, req.Query, req.Mode, req.Filter, req.Limit, req.Offset)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"metrics": results})
+}
+
 func (s *service) handleAPIYRangeGlobal(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

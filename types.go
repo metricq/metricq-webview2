@@ -159,3 +159,50 @@ type apiStackedSeriesResponse struct {
 	Metrics  []string     `json:"metrics"`
 	Values   [][]*float64 `json:"values"`
 }
+
+type metricSuggestRequest struct {
+	Function string         `json:"function"`
+	Field    string         `json:"field"`
+	Filter   map[string]any `json:"filter,omitempty"`
+	Limit    int            `json:"limit,omitempty"`
+}
+
+type metricSuggestValue struct {
+	Value string `json:"value"`
+	Count int    `json:"count"`
+}
+
+type metricSuggestResponse struct {
+	Field  string               `json:"field"`
+	Values []metricSuggestValue `json:"values"`
+}
+
+type metricResolveRequest struct {
+	Function string         `json:"function"`
+	Filter   map[string]any `json:"filter,omitempty"`
+	Limit    int            `json:"limit,omitempty"`
+	Offset   int            `json:"offset,omitempty"`
+}
+
+type metricResolveEntry struct {
+	Name     string         `json:"name"`
+	Metadata map[string]any `json:"metadata,omitempty"`
+}
+
+type metricResolveResponse struct {
+	Metrics []metricResolveEntry `json:"metrics"`
+}
+
+type advancedSearchRequest struct {
+	Query  string         `json:"query"`
+	Mode   string         `json:"mode"`
+	Filter map[string]any `json:"filter,omitempty"`
+	Limit  int            `json:"limit"`
+	Offset int            `json:"offset"`
+}
+
+type advancedSearchResult struct {
+	Name        string         `json:"name"`
+	Description string         `json:"description"`
+	Metadata    map[string]any `json:"metadata,omitempty"`
+}

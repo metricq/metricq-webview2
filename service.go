@@ -296,3 +296,135 @@ func avgOrNaN(sum float64, count uint64) float64 {
 	}
 	return sum / float64(count)
 }
+
+func (s *service) suggestFieldValues(ctx context.Context, field string, filter map[string]any, limit int) ([]metricSuggestValue, error) {
+	payload := metricSuggestRequest{
+		Function: "metrics.suggest",
+		Field:    field,
+		Filter:   filter,
+		Limit:    limit,
+	}
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "metrics.suggest", payload)
+	if err != nil {
+		return nil, err
+	}
+	var out metricSuggestResponse
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+	return out.Values, nil
+}
+
+func (s *service) resolveMetricsByFilter(ctx context.Context, filter map[string]any, limit, offset int) ([]metricResolveEntry, error) {
+	payload := metricResolveRequest{
+		Function: "metrics.resolve",
+		Filter:   filter,
+		Limit:    limit,
+		Offset:   offset,
+	}
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "metrics.resolve", payload)
+	if err != nil {
+		return nil, err
+	}
+	var out metricResolveResponse
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+	return out.Metrics, nil
+}
+
+func (s *service) searchMetricsAdvanced(ctx context.Context, query, mode string, filter map[string]any, limit, offset int) ([]advancedSearchResult, error) {
+	switch mode {
+	case "infix", "selector":
+		return s.advancedSearchByName(ctx, query, mode, limit)
+	case "description":
+		return s.advancedSearchByDescription(ctx, query, limit, offset)
+	default:
+		return s.advancedSearchByFilter(ctx, filter, limit, offset)
+	}
+}
+
+func (s *service) advancedSearchByName(ctx context.Context, query, mode string, limit int) ([]advancedSearchResult, error) {
+	var (
+		metaMap map[string]map[string]any
+		err     error
+	)
+	if mode == "selector" {
+		metaMap, _, err = s.lookupMetricsSelectors(ctx, query, true, limit)
+	} else {
+		metaMap, _, err = s.lookupMetrics(ctx, query, true, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	results := make([]advancedSearchResult, 0, len(metaMap))
+	for name, meta := range metaMap {
+		desc, _ := meta["description"].(string)
+		results = append(results, advancedSearchResult{
+			Name:        name,
+			Description: desc,
+			Metadata:    meta,
+		})
+	}
+	sort.Slice(results, func(i, j int) bool { return results[i].Name < results[j].Name })
+	return results, nil
+}
+
+func (s *service) advancedSearchByDescription(ctx context.Context, query string, limit, offset int) ([]advancedSearchResult, error) {
+	searchPayload := struct {
+		Function string         `json:"function"`
+		Query    string         `json:"query"`
+		Fields   []string       `json:"fields"`
+		Mode     string         `json:"mode"`
+		Filter   map[string]any `json:"filter,omitempty"`
+		Historic bool           `json:"historic"`
+		Limit    int            `json:"limit"`
+		Offset   int            `json:"offset"`
+	}{
+		Function: "metrics.search",
+		Query:    query,
+		Fields:   []string{"description"},
+		Mode:     "words",
+		Historic: true,
+		Limit:    limit,
+		Offset:   offset,
+	}
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "metrics.search", searchPayload)
+	if err != nil {
+		return nil, err
+	}
+	var out metricSearchResponse
+	if err := json.Unmarshal(resp, &out); err != nil {
+		return nil, err
+	}
+	results := make([]advancedSearchResult, 0, len(out.Metrics))
+	for _, m := range out.Metrics {
+		if m.Name == "" {
+			continue
+		}
+		desc, _ := m.Metadata["description"].(string)
+		results = append(results, advancedSearchResult{
+			Name:        m.Name,
+			Description: desc,
+			Metadata:    m.Metadata,
+		})
+	}
+	return results, nil
+}
+
+func (s *service) advancedSearchByFilter(ctx context.Context, filter map[string]any, limit, offset int) ([]advancedSearchResult, error) {
+	entries, err := s.resolveMetricsByFilter(ctx, filter, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	results := make([]advancedSearchResult, 0, len(entries))
+	for _, e := range entries {
+		desc, _ := e.Metadata["description"].(string)
+		results = append(results, advancedSearchResult{
+			Name:        e.Name,
+			Description: desc,
+			Metadata:    e.Metadata,
+		})
+	}
+	return results, nil
+}
