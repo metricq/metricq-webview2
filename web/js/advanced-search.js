@@ -58,7 +58,7 @@ function syncSearchModePrefix(mode) {
   if (mode === "description") {
     prefixEl.title = "Beschreibungs-Suche aktiv";
     prefixEl.setAttribute("aria-label", "Beschreibungs-Suche aktiv");
-    prefixEl.innerHTML = `<i class="bi bi-card-text"></i>`;
+    prefixEl.innerHTML = `?`;
     return;
   }
 
