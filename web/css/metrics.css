@@ -467,3 +467,135 @@
     flex-wrap: wrap;
     gap: 0.35rem;
 }
+
+/* Advanced Search Modal */
+
+.adv-search-mode-tabs {
+    border-bottom-color: #dee2e6;
+}
+
+.adv-search-mode-tabs .nav-link {
+    font-size: 0.82rem;
+    padding: 0.38rem 0.6rem;
+    color: #495057;
+}
+
+.adv-search-mode-tabs .nav-link.active {
+    font-weight: 600;
+}
+
+.adv-search-results-wrap {
+    min-height: 200px;
+    max-height: calc(100vh - 420px);
+}
+
+@media (max-width: 767.98px) {
+    .adv-search-results-wrap {
+        max-height: none;
+    }
+}
+
+.adv-result-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.5rem;
+    align-items: start;
+    padding: 0.55rem 0.65rem;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+.adv-result-item:hover {
+    background: #f0f4ff;
+}
+
+.adv-result-item.adv-result-selected {
+    background: #e7f1ff;
+}
+
+.adv-result-item.adv-result-already-added {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.adv-result-check {
+    margin-top: 0.2rem;
+}
+
+.adv-result-body {
+    min-width: 0;
+    overflow: hidden;
+}
+
+.adv-result-name {
+    font-weight: 600;
+    font-size: 0.84rem;
+    word-break: break-all;
+}
+
+.adv-result-desc {
+    font-size: 0.76rem;
+    color: #6c757d;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+}
+
+.adv-result-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.2rem;
+}
+
+.adv-meta-badge {
+    font-size: 0.68rem;
+    padding: 0.1rem 0.35rem;
+    border-radius: 0.2rem;
+    background: #f0f0f0;
+    color: #555;
+    white-space: nowrap;
+}
+
+.adv-meta-badge .adv-meta-key {
+    font-weight: 600;
+    color: #333;
+}
+
+.adv-result-add-btn {
+    align-self: center;
+}
+
+.adv-meta-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.adv-meta-filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+    padding: 0.2rem 0.45rem;
+    border-radius: 0.3rem;
+    background: #d9e8ff;
+    color: #084298;
+    border: 1px solid #b6d0fe;
+}
+
+.adv-meta-filter-tag button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.85em;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.adv-meta-filter-tag button:hover {
+    opacity: 1;
+}

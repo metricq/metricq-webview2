@@ -15,6 +15,7 @@ import {
   parseLocalizedNumber,
 } from "./number-format.mjs";
 import {
+  addMetric,
   clearMetrics,
   fetchMetadata,
   recolorMetricsClassic,
@@ -26,6 +27,7 @@ import {
   applyFactorFromModal,
 } from "./metrics.js";
 import { wireMetricSearchField } from "./metric-search-field.js";
+import { wireAdvancedSearch } from "./advanced-search.js";
 import {
   getPlotXBoundsInCanvas,
   hideHover,
@@ -949,6 +951,7 @@ function wireCanvasInteractionEvents() {
 
 function wireEvents() {
   wireExpressionModal(hooks);
+  wireAdvancedSearch({ addMetric: (name) => addMetric(name, hooks) });
   wireTopBarEvents();
   wireTimeDialogEvents();
   wireMetricPanelEvents();
