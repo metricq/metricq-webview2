@@ -39,6 +39,32 @@ let metaFilters = {};
 let suggestableFields = null;
 let addMetricFn = null;
 
+function syncSearchModePrefix(mode) {
+  const prefixEl = dom.advSearchModePrefix;
+  if (!prefixEl) return;
+
+  const isVisible = mode === "selector" || mode === "description";
+  prefixEl.classList.toggle("d-none", !isVisible);
+
+  if (mode === "selector") {
+    prefixEl.title = "Regex-Suche aktiv";
+    prefixEl.setAttribute("aria-label", "Regex-Suche aktiv");
+    prefixEl.innerHTML = `<i class="bi bi-regex"></i>`;
+    return;
+  }
+
+  if (mode === "description") {
+    prefixEl.title = "Beschreibungs-Suche aktiv";
+    prefixEl.setAttribute("aria-label", "Beschreibungs-Suche aktiv");
+    prefixEl.innerHTML = `<i class="bi bi-card-text"></i>`;
+    return;
+  }
+
+  prefixEl.title = "";
+  prefixEl.setAttribute("aria-label", "");
+  prefixEl.innerHTML = "";
+}
+
 export function wireAdvancedSearch(hooks) {
   addMetricFn = hooks.addMetric;
 
@@ -95,6 +121,7 @@ function setMode(mode) {
   dom.advSearchTextPanel.classList.toggle("d-none", isMeta);
   dom.advSearchMetaPanel.classList.toggle("d-none", !isMeta);
   dom.advSearchTextHint.textContent = MODE_HINTS[mode] || "";
+  syncSearchModePrefix(mode);
 
   if (!isMeta) {
     dom.advSearchInput.focus();

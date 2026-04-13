@@ -122,6 +122,7 @@ export const dom = {
   advSearchTextPanel: document.getElementById("advSearchTextPanel"),
   advSearchMetaPanel: document.getElementById("advSearchMetaPanel"),
   advSearchInput: document.getElementById("advSearchInput"),
+  advSearchModePrefix: document.getElementById("advSearchModePrefix"),
   advSearchBtn: document.getElementById("advSearchBtn"),
   advSearchTextHint: document.getElementById("advSearchTextHint"),
   advMetaFilters: document.getElementById("advMetaFilters"),
