@@ -465,29 +465,28 @@
     <div class="modal fade" id="advancedSearchModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Erweiterte Metriksuche</h5>
+          <div class="modal-header adv-search-header">
+            <div class="adv-search-header-main">
+              <h5 class="modal-title">Erweiterte Metriksuche</h5>
+              <ul class="nav nav-tabs nav-fill adv-search-mode-tabs mb-0" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" type="button" role="tab" data-mode="infix" id="advSearchModeInfix">Name (Infix)</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" type="button" role="tab" data-mode="selector" id="advSearchModeRegex">Name (Regex)</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" type="button" role="tab" data-mode="description" id="advSearchModeDesc">Beschreibung</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" type="button" role="tab" data-mode="metadata" id="advSearchModeMeta">Metadaten</button>
+                </li>
+              </ul>
+            </div>
             <button class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
           </div>
-          <div class="modal-body d-flex flex-column gap-3 p-3">
+          <div class="modal-body d-flex flex-column gap-3 p-3 pt-2">
             <div class="adv-search-controls">
-              <div class="mb-2">
-                <ul class="nav nav-tabs nav-fill adv-search-mode-tabs" role="tablist">
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link active" type="button" role="tab" data-mode="infix" id="advSearchModeInfix">Name (Infix)</button>
-                  </li>
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link" type="button" role="tab" data-mode="selector" id="advSearchModeRegex">Name (Regex)</button>
-                  </li>
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link" type="button" role="tab" data-mode="description" id="advSearchModeDesc">Beschreibung</button>
-                  </li>
-                  <li class="nav-item" role="presentation">
-                    <button class="nav-link" type="button" role="tab" data-mode="metadata" id="advSearchModeMeta">Metadaten</button>
-                  </li>
-                </ul>
-              </div>
-
               <div id="advSearchTextPanel">
                 <div class="input-group">
                   <input type="text" class="form-control" id="advSearchInput" placeholder="Suchbegriff eingeben..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
