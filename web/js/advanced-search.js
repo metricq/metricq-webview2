@@ -42,6 +42,8 @@ let addMetricFn = null;
 function syncSearchModePrefix(mode) {
   const prefixEl = dom.advSearchModePrefix;
   if (!prefixEl) return;
+  dom.advSearchInputGroup?.classList.toggle("mode-selector", mode === "selector");
+  dom.advSearchInputGroup?.classList.toggle("mode-description", mode === "description");
 
   const isVisible = mode === "selector" || mode === "description";
   prefixEl.classList.toggle("d-none", !isVisible);

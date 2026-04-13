@@ -514,6 +514,21 @@
     font-weight: 600;
 }
 
+.adv-search-input-group.mode-selector .metric-search-mode-prefix,
+.adv-search-input-group.mode-description .metric-search-mode-prefix {
+    display: inline-flex !important;
+}
+
+.adv-search-input-group.mode-selector .adv-search-input,
+.adv-search-input-group.mode-description .adv-search-input {
+    border-left: 0;
+}
+
+.adv-search-input-group:not(.mode-selector):not(.mode-description) .adv-search-input {
+    border-top-left-radius: var(--bs-border-radius);
+    border-bottom-left-radius: var(--bs-border-radius);
+}
+
 .adv-search-results-wrap {
     min-height: 200px;
     max-height: calc(100vh - 420px);
