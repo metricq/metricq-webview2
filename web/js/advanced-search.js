@@ -22,6 +22,8 @@ const DISPLAY_METADATA_KEYS = [
   "service",
   "team",
   "criticality",
+  "scope",
+  "position",
 ];
 
 const MODE_HINTS = {
