@@ -134,6 +134,14 @@ export function createHelpModule({
       );
       actions.push(
         helpActionButton(
+          "open_advanced_search",
+          "Erweiterte Suche",
+          "bi-funnel",
+          "outline-primary",
+        ),
+      );
+      actions.push(
+        helpActionButton(
           "open_expression",
           "Berechnete Metrik",
           "bi-plus-lg",
@@ -247,6 +255,12 @@ export function createHelpModule({
       ensureSidebarOpen();
       await animateCoachToTarget(sourceEl, dom.btnAddExpressionMetric);
       dom.btnAddExpressionMetric?.click();
+      return;
+    }
+    if (action === "open_advanced_search") {
+      ensureSidebarOpen();
+      await animateCoachToTarget(sourceEl, dom.btnAdvancedSearch);
+      dom.btnAdvancedSearch?.click();
       return;
     }
     if (action === "close_sidebar") {

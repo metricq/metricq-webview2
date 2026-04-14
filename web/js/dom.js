@@ -54,6 +54,7 @@ export const dom = {
   metricSearchGroup: document.getElementById("metricSearchGroup"),
   metricSearchModePrefix: document.getElementById("metricSearchModePrefix"),
   btnResetMetricSearch: document.getElementById("btnResetMetricSearch"),
+  btnAdvancedSearch: document.getElementById("btnAdvancedSearch"),
   expressionMetricSearchWrap: document.getElementById(
     "expressionMetricSearchWrap",
   ),
