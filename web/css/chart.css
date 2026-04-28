@@ -336,6 +336,11 @@
   border: 1px solid rgba(13, 110, 253, 0.16);
 }
 
+.collapsed-legend-section.is-frequency {
+  background: linear-gradient(180deg, rgba(255, 193, 7, 0.12), rgba(255, 193, 7, 0.05));
+  border: 1px solid rgba(255, 193, 7, 0.24);
+}
+
 .collapsed-legend-section + .collapsed-legend-section {
   margin-top: 0.28rem;
 }
@@ -360,6 +365,11 @@
   color: #0b5ed7;
 }
 
+.collapsed-legend-section-header.is-frequency {
+  background: rgba(255, 193, 7, 0.18);
+  color: #b86b00;
+}
+
 .collapsed-legend-section-header-icon {
   display: inline-flex;
   align-items: center;
@@ -374,6 +384,10 @@
 
 .collapsed-legend-section-header-icon.is-stacked {
   background: rgba(13, 110, 253, 0.18);
+}
+
+.collapsed-legend-section-header-icon.is-frequency {
+  background: rgba(255, 193, 7, 0.24);
 }
 
 .collapsed-legend-section-header-text {

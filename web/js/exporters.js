@@ -52,6 +52,15 @@ function drawBootstrapLayersFill(ctx, x, y, size, color) {
   ctx.restore();
 }
 
+function drawBootstrapActivityFill(ctx, x, y, size, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.font = `${size}px bootstrap-icons`;
+  ctx.textBaseline = "top";
+  ctx.fillText("\uf66b", x, y);
+  ctx.restore();
+}
+
 export function exportJSON() {
   const payload = {
     from: state.from,
@@ -122,9 +131,19 @@ function drawLegend(ctx, cssWidth, cssHeight) {
 
   const sections = (() => {
     if (!state.yAxisStacked) {
+      if (metricRenderShowsCounts()) {
+        return [{
+          title: `Frequenz (${visible.length})`,
+          stacked: false,
+          frequency: true,
+          showHeader: true,
+          rows: buildRows(visible),
+        }];
+      }
       return [{
         title: "",
         stacked: false,
+        frequency: false,
         showHeader: false,
         rows: buildRows(visible),
       }];
@@ -132,10 +151,20 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
     const out = [];
+    if (metricRenderShowsCounts()) {
+      out.push({
+        title: `Frequenz (${visible.length})`,
+        stacked: false,
+        frequency: true,
+        showHeader: true,
+        rows: [],
+      });
+    }
     if (nonStacked.length > 0) {
       out.push({
         title: "Nicht gestapelt",
         stacked: false,
+        frequency: false,
         showHeader: true,
         rows: buildRows(nonStacked, false),
       });
@@ -144,6 +173,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       out.push({
         title: `Gestapelt (${stacked.length})`,
         stacked: true,
+        frequency: false,
         showHeader: true,
         rows: buildRows(stacked, true),
       });
@@ -202,18 +232,27 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   for (let i = 0; i < sections.length; i += 1) {
     const section = sections[i];
     if (section.showHeader) {
-      ctx.fillStyle = section.stacked ? "#0b5ed7" : "#5f6b7b";
+      ctx.fillStyle = section.stacked
+        ? "#0b5ed7"
+        : section.frequency
+          ? "#b86b00"
+          : "#5f6b7b";
       ctx.font = "700 11px sans-serif";
       ctx.textBaseline = "top";
-      const headerTextX = boxX + pad + (section.stacked ? indicatorSize + 7 : 0);
+      const headerTextX =
+        boxX + pad + (section.stacked || section.frequency ? indicatorSize + 7 : 0);
       if (section.stacked) {
         drawBootstrapLayersFill(ctx, boxX + pad - 1, y + 2, indicatorSize, "#0b5ed7");
+      } else if (section.frequency) {
+        drawBootstrapActivityFill(ctx, boxX + pad - 1, y + 2, indicatorSize, "#b86b00");
       }
       ctx.fillText(section.title, headerTextX, y);
 
       ctx.strokeStyle = section.stacked
         ? "rgba(13, 110, 253, 0.28)"
-        : "rgba(108, 117, 125, 0.22)";
+        : section.frequency
+          ? "rgba(255, 193, 7, 0.42)"
+          : "rgba(108, 117, 125, 0.22)";
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(boxX + pad, y + headerHeight - 3);

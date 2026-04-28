@@ -51,19 +51,25 @@ function buildLegendRow(metric, { forceNormalIndicator = false } = {}) {
   return row;
 }
 
-function buildSectionHeader({ stacked = false, count = 0 } = {}) {
+function buildSectionHeader({ stacked = false, frequency = false, count = 0 } = {}) {
   const header = document.createElement("div");
-  header.className = `collapsed-legend-section-header${stacked ? " is-stacked" : ""}`;
+  header.className = `collapsed-legend-section-header${stacked ? " is-stacked" : ""}${frequency ? " is-frequency" : ""}`;
 
   const icon = document.createElement("span");
-  icon.className = `collapsed-legend-section-header-icon${stacked ? " is-stacked" : ""}`;
+  icon.className = `collapsed-legend-section-header-icon${stacked ? " is-stacked" : ""}${frequency ? " is-frequency" : ""}`;
   icon.innerHTML = stacked
     ? '<i class="bi bi-layers-fill" aria-hidden="true"></i>'
-    : '<i class="bi bi-dash-lg" aria-hidden="true"></i>';
+    : frequency
+      ? '<i class="bi bi-activity" aria-hidden="true"></i>'
+      : '<i class="bi bi-dash-lg" aria-hidden="true"></i>';
 
   const text = document.createElement("span");
   text.className = "collapsed-legend-section-header-text";
-  text.textContent = stacked ? `Gestapelt (${count})` : "Nicht gestapelt";
+  text.textContent = stacked
+    ? `Gestapelt (${count})`
+    : frequency
+      ? `Frequenz (${count})`
+      : "Nicht gestapelt";
 
   header.append(icon, text);
   return header;
@@ -72,12 +78,22 @@ function buildSectionHeader({ stacked = false, count = 0 } = {}) {
 function appendLegendSection(
   host,
   metrics,
-  { stacked = false, forceNormalIndicator = false, showHeader = true } = {},
+  {
+    stacked = false,
+    forceNormalIndicator = false,
+    showHeader = true,
+    frequency = false,
+    headerCount = metrics.length,
+  } = {},
 ) {
   const section = document.createElement("section");
-  section.className = `collapsed-legend-section${stacked ? " is-stacked" : ""}`;
+  section.className = `collapsed-legend-section${stacked ? " is-stacked" : ""}${frequency ? " is-frequency" : ""}`;
   if (showHeader) {
-    section.appendChild(buildSectionHeader({ stacked, count: metrics.length }));
+    section.appendChild(buildSectionHeader({
+      stacked,
+      frequency,
+      count: headerCount,
+    }));
   }
   for (const metric of metrics) {
     section.appendChild(buildLegendRow(metric, { forceNormalIndicator }));
@@ -99,6 +115,16 @@ export function renderCollapsedLegend() {
   if (visible.length === 0) {
     host.classList.add("d-none");
     return;
+  }
+
+  if (metricRenderShowsCounts()) {
+    appendLegendSection(host, [], {
+      stacked: false,
+      forceNormalIndicator: true,
+      showHeader: true,
+      frequency: true,
+      headerCount: visible.length,
+    });
   }
 
   if (state.yAxisStacked) {
