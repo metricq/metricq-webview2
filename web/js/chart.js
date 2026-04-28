@@ -319,6 +319,12 @@ function formatHoverInterval(activeTimeMs) {
   return `${Math.round(ms)} ms`;
 }
 
+function frequencyIntervalText(rateHz) {
+  const rate = Number(rateHz);
+  if (!Number.isFinite(rate) || rate <= 0) return "";
+  return formatHoverInterval(1000 / rate);
+}
+
 function sampleLastValue(samples, t) {
   if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t))
     return null;
@@ -1810,7 +1816,7 @@ function renderHoverAt(clientX, clientY) {
         sampled,
         factorText,
         unitText,
-        intervalText: formatHoverInterval(sampled.activeTimeMs),
+        intervalText: frequencyIntervalText(sampled.avg),
       });
       if (dist2 < nearestDist2) {
         nearestDist2 = dist2;
@@ -1955,7 +1961,7 @@ function renderHoverAt(clientX, clientY) {
       const shownUnit = metricShownUnit(row.metric);
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
-      const intervalText = formatHoverInterval(row.sampled.activeTimeMs);
+      const intervalText = frequencyIntervalText(row.sampled.value);
       const valueText = metricRenderShowsCounts()
         ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}${intervalText ? ` | interval <strong>${intervalText}</strong>` : ""}`
         : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
