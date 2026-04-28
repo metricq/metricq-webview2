@@ -7,7 +7,7 @@ import {
   deriveExpressionUnitsResolved,
 } from "./expression-units.mjs";
 import { renderMetricList } from "./metrics.js";
-import { state } from "./model.js";
+import { state, yAxisStackingActive } from "./model.js";
 import { formatInteger } from "./number-format.mjs";
 import { buildQueryTargetsResolved } from "./targets.mjs";
 import { parseRangeFromInputs } from "./time-range-ui.mjs";
@@ -62,7 +62,7 @@ function computeMaxDataPoints() {
 function seriesDisplayTime(points, index, series) {
   const point = points?.[index];
   if (!point) return NaN;
-  if (state.yAxisStacked) return point.t;
+  if (yAxisStackingActive()) return point.t;
   const isAggregateSeries = series?.mode === "aggregates";
   const isComputedValuesSeries =
     series?.mode === "values" &&
@@ -187,7 +187,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   }));
   const metricsKey = JSON.stringify({
     targets,
-    yAxisStacked: !!state.yAxisStacked,
+    yAxisStacked: yAxisStackingActive(),
     renderMode: state.renderMode,
     stackModes,
   });
@@ -214,7 +214,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
       .filter((metric) => metric.stackMode !== "normal")
       .map((metric) => metric.name),
   );
-  const queryTargets = state.yAxisStacked
+  const queryTargets = yAxisStackingActive()
     ? targets.filter((target) => !stackedNames.has(target.name))
     : targets;
   const stackedTargets = targets.filter((target) =>
@@ -234,7 +234,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
             body: JSON.stringify(req),
           })
         : Promise.resolve({ series: [] }),
-      state.yAxisStacked && stackedTargets.length > 0
+      yAxisStackingActive() && stackedTargets.length > 0
         ? apiFetch("/api/query/stacked", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -300,7 +300,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
         values: Array.isArray(stackedBody.values) ? stackedBody.values : [],
       }
     : null;
-  if (state.yAxisStacked && state.stackedAligned) {
+  if (yAxisStackingActive() && state.stackedAligned) {
     const times = state.stackedAligned.times || [];
     const metrics = state.stackedAligned.metrics || [];
     const values = state.stackedAligned.values || [];

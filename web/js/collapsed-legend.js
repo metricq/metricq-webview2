@@ -5,6 +5,7 @@ import {
   metricRenderShowsCounts,
   metricShownUnit,
   state,
+  yAxisStackingActive,
 } from "./model.js";
 
 function truncateMiddle(text, maxLen) {
@@ -128,7 +129,7 @@ export function renderCollapsedLegend() {
     })
     : host;
 
-  if (state.yAxisStacked) {
+  if (yAxisStackingActive()) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
     if (nonStacked.length > 0)

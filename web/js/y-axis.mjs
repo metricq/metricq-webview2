@@ -1,5 +1,5 @@
 import { apiFetch } from "./api.js";
-import { metricRenderShowsCounts, state } from "./model.js";
+import { metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
 
 function collectSeriesExtents(seriesList) {
   let minY = Number.POSITIVE_INFINITY;
@@ -92,7 +92,7 @@ function withPadding(minY, maxY, lockMin = false) {
 }
 
 export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
-  const localRaw = state.yAxisStacked
+  const localRaw = yAxisStackingActive()
     ? (collectStackedExtents(stackedByMetric) || collectSeriesExtents(seriesList))
     : collectSeriesExtents(seriesList);
   if (!localRaw) return { minY: 0, maxY: 1 };
@@ -105,7 +105,7 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
 
   if (state.yAxisMode === "global") {
     if (Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax) && state.yAxisGlobalMin < state.yAxisGlobalMax) {
-      if (state.yAxisStacked) {
+      if (yAxisStackingActive()) {
         const minY = 0;
         const maxY = Math.max(state.yAxisGlobalMax, 0);
         return withPadding(minY, maxY, true);
@@ -115,7 +115,7 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
     }
   }
 
-  if (state.yAxisStacked) {
+  if (yAxisStackingActive()) {
     const minY = 0;
     const maxY = Math.max(localRaw.maxY, 0);
     return withPadding(minY, maxY, true);
@@ -144,7 +144,7 @@ export async function ensureGlobalYAxisRange() {
     state.yAxisGlobalMetricsKey = `${visibleMetricsKey()}\nmode:count`;
     return;
   }
-  const stacked = !!state.yAxisStacked;
+  const stacked = yAxisStackingActive();
   const metrics = state.metrics
     .filter((m) => m.draw)
     .map((m) => ({

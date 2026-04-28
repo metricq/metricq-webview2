@@ -5,6 +5,7 @@ import {
   metricRenderShowsCounts,
   metricShownUnit,
   state,
+  yAxisStackingActive,
 } from "./model.js";
 
 function downloadBlob(filename, type, content) {
@@ -130,7 +131,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     });
 
   const sections = (() => {
-    if (!state.yAxisStacked) {
+    if (!yAxisStackingActive()) {
       if (metricRenderShowsCounts()) {
         return [{
           title: `Frequenz (${visible.length})`,

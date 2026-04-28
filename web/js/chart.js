@@ -6,6 +6,7 @@ import {
   metricRenderShowsCounts,
   metricShownUnit,
   state,
+  yAxisStackingActive,
 } from "./model.js";
 import { formatFixed, formatNumber } from "./number-format.mjs";
 import {
@@ -222,7 +223,7 @@ function filterSeriesForVisibleRange(seriesList, tiMode) {
 
 function seriesSampleTime(points, index, series, tiMode) {
   if (tiMode) return points?.[index]?.t;
-  if (state.yAxisStacked) return points?.[index]?.t;
+  if (yAxisStackingActive()) return points?.[index]?.t;
   const isAggregateSeries = series?.mode === "aggregates";
   const isComputedValuesSeries =
     series?.mode === "values" &&
@@ -422,7 +423,7 @@ function createSequentialStackedLookup(entry, type = "avg") {
 }
 
 function fallbackStackedLookup(stackedSeries, tx) {
-  return state.yAxisStacked && stackedSeries?.stacksInYAxis
+  return yAxisStackingActive() && stackedSeries?.stacksInYAxis
     ? stackedEntryValueAt(stackedSeries, "avg", tx)
     : null;
 }
@@ -616,7 +617,7 @@ function buildStackedSeries(seriesList, tiMode, clipToVisible = false) {
 }
 
 function stackedValueAt(metricName, type, t) {
-  if (!state.yAxisStacked || !lastStackedByMetric || !Number.isFinite(t))
+  if (!yAxisStackingActive() || !lastStackedByMetric || !Number.isFinite(t))
     return null;
   const entry = lastStackedByMetric.get(metricName);
   return stackedEntryValueAt(entry, type, t);
@@ -1211,11 +1212,11 @@ export function renderChart() {
   dom.canvas.style.cursor = "crosshair";
 
   const tiMode = state.renderMode === "ti";
-  lastStackedByMetric = state.yAxisStacked
+  lastStackedByMetric = yAxisStackingActive()
     ? buildStackedSeries(seriesList, tiMode, false)
     : null;
   const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
-  const domainStacked = state.yAxisStacked
+  const domainStacked = yAxisStackingActive()
     ? buildStackedSeries(domainSeries, tiMode, true)
     : null;
   const domain = resolveYAxisDomain(domainSeries, domainStacked);
@@ -1250,14 +1251,14 @@ export function renderChart() {
     const { metric, series } = item;
     const stackedSeries = lastStackedByMetric?.get(metric.name);
     const stackedAvgAt =
-      state.yAxisStacked && stackedSeries?.stacksInYAxis
+      yAxisStackingActive() && stackedSeries?.stacksInYAxis
         ? createSequentialStackedLookup(stackedSeries, "avg")
         : null;
     ctx.strokeStyle = metric.color;
     ctx.fillStyle = metric.color;
     ctx.lineWidth = 1.5;
 
-    if (state.yAxisStacked && stackedSeries?.stacksInYAxis && metric.drawAvg) {
+    if (yAxisStackingActive() && stackedSeries?.stacksInYAxis && metric.drawAvg) {
       if (stackedSeries.length >= 2) {
         drawStackedTimelineFill(
           ctx,
@@ -1387,7 +1388,7 @@ export function renderChart() {
 
     const showBand =
       metricRenderShowsBands() &&
-      (!state.yAxisStacked || !stackedSeries?.stacksInYAxis);
+      (!yAxisStackingActive() || !stackedSeries?.stacksInYAxis);
     if (showBand) {
       ctx.save();
       ctx.globalAlpha = 0.2;
@@ -1834,7 +1835,7 @@ function renderHoverAt(clientX, clientY) {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
         const valuesHtml = metricRenderShowsCounts()
           ? `freq <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}${row.intervalText ? ` | interval <strong>${row.intervalText}</strong>` : ""}`
-          : state.yAxisStacked
+          : yAxisStackingActive()
             ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
             : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
         return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
@@ -1933,7 +1934,7 @@ function renderHoverAt(clientX, clientY) {
   }
 
   const selected =
-    !state.yAxisStacked || !Number.isFinite(cursorValue)
+    !yAxisStackingActive() || !Number.isFinite(cursorValue)
       ? selectNearestHoverCandidate(candidates)
       : selectStackedHoverCandidate(candidates, cursorValue, maxAbsDomain);
   const hoverSnapDistancePx = Number.isFinite(selected?.snapPx)

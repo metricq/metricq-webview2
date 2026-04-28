@@ -86,3 +86,7 @@ export function metricRenderShowsBands() {
 export function metricRenderShowsCounts() {
   return state.metricRenderMode === "count";
 }
+
+export function yAxisStackingActive() {
+  return state.yAxisStacked && !metricRenderShowsCounts();
+}
