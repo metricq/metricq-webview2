@@ -1,5 +1,5 @@
 import { dom } from "./dom.js";
-import { state } from "./model.js";
+import { normalizeMetricRenderMode, state } from "./model.js";
 import { loadData } from "./data.js";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
@@ -122,16 +122,32 @@ function syncRenderModeButton() {
 }
 
 function syncRenderBandsButton() {
-  if (!dom.btnRenderBands) return;
-  dom.btnRenderBands.classList.toggle("btn-secondary", state.renderBands);
-  dom.btnRenderBands.classList.toggle("btn-outline-secondary", !state.renderBands);
-  dom.btnRenderBands.title = state.renderBands
-    ? "Bänder sichtbar"
-    : "Bänder ausgeblendet";
-  dom.btnRenderBands.setAttribute(
-    "aria-pressed",
-    state.renderBands ? "true" : "false",
-  );
+  const buttons = [
+    {
+      el: dom.btnRenderBands,
+      mode: "bands",
+      title: "Linie mit Bändern",
+    },
+    {
+      el: dom.btnRenderLine,
+      mode: "line",
+      title: "Nur Linie",
+    },
+    {
+      el: dom.btnRenderCount,
+      mode: "count",
+      title: "Count",
+    },
+  ];
+  const activeMode = normalizeMetricRenderMode(state.metricRenderMode);
+  for (const { el, mode, title } of buttons) {
+    if (!el) continue;
+    const active = activeMode === mode;
+    el.classList.toggle("btn-secondary", active);
+    el.classList.toggle("btn-outline-secondary", !active);
+    el.title = title;
+    el.setAttribute("aria-checked", active ? "true" : "false");
+  }
 }
 
 function syncLegacyChartsButton() {
@@ -554,11 +570,20 @@ function wireTopBarEvents() {
     syncRenderModeButton();
     hooks.loadData();
   });
-  dom.btnRenderBands?.addEventListener("click", () => {
-    state.renderBands = !state.renderBands;
+  const setMetricRenderMode = (mode) => {
+    state.metricRenderMode = normalizeMetricRenderMode(mode);
     syncRenderBandsButton();
     renderChart();
     syncUrlStateIfAllowed();
+  };
+  dom.btnRenderBands?.addEventListener("click", () => {
+    setMetricRenderMode("bands");
+  });
+  dom.btnRenderLine?.addEventListener("click", () => {
+    setMetricRenderMode("line");
+  });
+  dom.btnRenderCount?.addEventListener("click", () => {
+    setMetricRenderMode("count");
   });
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);

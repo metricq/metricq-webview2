@@ -1,6 +1,12 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
-import { metricDisplayName, state } from "./model.js";
+import {
+  metricDisplayName,
+  metricRenderShowsBands,
+  metricRenderShowsCounts,
+  metricShownUnit,
+  state,
+} from "./model.js";
 import { formatFixed, formatNumber } from "./number-format.mjs";
 import {
   buildXTicks,
@@ -234,7 +240,8 @@ function buildSemanticSamples(metric, series, tiMode) {
       const point = points[i];
       const t = seriesSampleTime(points, i, series, tiMode);
       if (!Number.isFinite(t)) continue;
-      const value = point.v * metric.factor;
+      const value = pointRenderValue(metric, series, point, "avg");
+      if (!Number.isFinite(value)) continue;
       samples.push({ t, avg: value, min: value, max: value });
     }
     return samples;
@@ -246,14 +253,44 @@ function buildSemanticSamples(metric, series, tiMode) {
     if (Number(point.count) === 0) continue;
     const t = seriesSampleTime(points, i, series, tiMode);
     if (!Number.isFinite(t)) continue;
+    const avg = pointRenderValue(metric, series, point, "avg");
+    const min = pointRenderValue(metric, series, point, "min");
+    const max = pointRenderValue(metric, series, point, "max");
+    if (
+      !Number.isFinite(avg) ||
+      !Number.isFinite(min) ||
+      !Number.isFinite(max)
+    ) {
+      continue;
+    }
     samples.push({
       t,
-      avg: point.avg * metric.factor,
-      min: point.min * metric.factor,
-      max: point.max * metric.factor,
+      avg,
+      min,
+      max,
     });
   }
   return samples;
+}
+
+function pointRenderValue(metric, series, point, kind = "avg") {
+  if (!point) return null;
+  if (series?.mode === "values") {
+    if (metricRenderShowsCounts()) return 1;
+    const value = Number(point.v) * metric.factor;
+    return Number.isFinite(value) ? value : null;
+  }
+  const count = Number(point.count);
+  if (!Number.isFinite(count) || count <= 0) return null;
+  if (metricRenderShowsCounts()) return count;
+  const raw =
+    kind === "min"
+      ? Number(point.min)
+      : kind === "max"
+        ? Number(point.max)
+        : Number(point.avg);
+  const value = raw * metric.factor;
+  return Number.isFinite(value) ? value : null;
 }
 
 function sampleLastValue(samples, t) {
@@ -628,12 +665,11 @@ function formatYTickLabels(ticks) {
 }
 
 function yAxisUnitsLabel(seriesList) {
+  if (metricRenderShowsCounts()) return "count";
   const units = [];
   const seen = new Set();
   for (const item of seriesList || []) {
-    const unit = String(
-      item?.metric?.displayUnit || item?.metric?.unit || "",
-    ).trim();
+    const unit = metricShownUnit(item?.metric);
     if (!unit || seen.has(unit)) continue;
     seen.add(unit);
     units.push(unit);
@@ -1318,7 +1354,7 @@ export function renderChart() {
     const runs = splitValidRuns(points, (p) => Number(p.count) > 0);
 
     const showBand =
-      state.renderBands &&
+      metricRenderShowsBands() &&
       (!state.yAxisStacked || !stackedSeries?.stacksInYAxis);
     if (showBand) {
       ctx.save();
@@ -1328,8 +1364,8 @@ export function renderChart() {
           drawLastSemanticBand(
             ctx,
             segment,
-            (p) => p.min * metric.factor,
-            (p) => p.max * metric.factor,
+            (p) => pointRenderValue(metric, series, p, "min"),
+            (p) => pointRenderValue(metric, series, p, "max"),
             sx,
             sy,
           );
@@ -1339,13 +1375,17 @@ export function renderChart() {
           for (let i = 0; i < segment.length; i += 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            if (i === 0) ctx.moveTo(sx(tx), sy(p.min * metric.factor));
-            else ctx.lineTo(sx(tx), sy(p.min * metric.factor));
+            const minValue = pointRenderValue(metric, series, p, "min");
+            if (!Number.isFinite(minValue)) continue;
+            if (i === 0) ctx.moveTo(sx(tx), sy(minValue));
+            else ctx.lineTo(sx(tx), sy(minValue));
           }
           for (let i = segment.length - 1; i >= 0; i -= 1) {
             const p = segment[i];
             const tx = aggregateDisplayTime(segment, i, series);
-            ctx.lineTo(sx(tx), sy(p.max * metric.factor));
+            const maxValue = pointRenderValue(metric, series, p, "max");
+            if (!Number.isFinite(maxValue)) continue;
+            ctx.lineTo(sx(tx), sy(maxValue));
           }
           ctx.closePath();
           ctx.fill();
@@ -1366,7 +1406,7 @@ export function renderChart() {
                 stackedAvgAt,
                 stackedSeries,
                 tx,
-                p.avg * metric.factor,
+                pointRenderValue(metric, series, p, "avg"),
               );
             },
             sx,
@@ -1382,7 +1422,7 @@ export function renderChart() {
               stackedAvgAt,
               stackedSeries,
               tx,
-              p.avg * metric.factor,
+              pointRenderValue(metric, series, p, "avg"),
             );
             if (i === 0) ctx.moveTo(sx(tx), sy(avg));
             else ctx.lineTo(sx(tx), sy(avg));
@@ -1449,10 +1489,8 @@ function seriesValueAtTime(metric, series, t) {
   if (!best || (series.mode !== "values" && Number(best.count) === 0))
     return null;
   const stacked = stackedValueAt(metric.name, "avg", bestT);
-  const rawValue =
-    series.mode === "values"
-      ? best.v * metric.factor
-      : best.avg * metric.factor;
+  const rawValue = pointRenderValue(metric, series, best, "avg");
+  if (!Number.isFinite(rawValue)) return null;
   const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
 
   return {
@@ -1465,7 +1503,7 @@ function seriesValueAtTime(metric, series, t) {
 
 function pointValue(series, point, factor) {
   if (series.mode !== "values" && Number(point?.count) === 0) return null;
-  return (series.mode === "values" ? point.v : point.avg) * factor;
+  return pointRenderValue({ factor }, series, point, "avg");
 }
 
 const HOVER_X_WEIGHT = 1.4;
@@ -1644,7 +1682,8 @@ function sampleTIAtTime(metric, series, t) {
     const prev = points[idx - 1];
     const curr = points[idx];
     if (t < prev.t || t > curr.t) return null;
-    const rawValue = curr.v * metric.factor;
+    const rawValue = pointRenderValue(metric, series, curr, "avg");
+    if (!Number.isFinite(rawValue)) return null;
     const stacked = stackedValueAt(metric.name, "avg", curr.t);
     const plotAvg = Number.isFinite(stacked) ? stacked : rawValue;
     return { min: rawValue, avg: rawValue, max: rawValue, plotAvg };
@@ -1664,9 +1703,16 @@ function sampleTIAtTime(metric, series, t) {
   const prev = points[idx - 1];
   const curr = points[idx];
   if (t < prev.t || t > curr.t || Number(curr.count) === 0) return null;
-  const rawMin = curr.min * metric.factor;
-  const rawAvg = curr.avg * metric.factor;
-  const rawMax = curr.max * metric.factor;
+  const rawMin = pointRenderValue(metric, series, curr, "min");
+  const rawAvg = pointRenderValue(metric, series, curr, "avg");
+  const rawMax = pointRenderValue(metric, series, curr, "max");
+  if (
+    !Number.isFinite(rawMin) ||
+    !Number.isFinite(rawAvg) ||
+    !Number.isFinite(rawMax)
+  ) {
+    return null;
+  }
   const stackedAvg = stackedValueAt(metric.name, "avg", curr.t);
   return {
     min: rawMin,
@@ -1719,10 +1765,11 @@ function renderHoverAt(clientX, clientY) {
       if (!series || series.error) continue;
       const sampled = sampleTIAtTime(metric, series, t);
       if (!sampled) continue;
-      const shownUnit = metric.displayUnit || metric.unit;
-      const factor = shownMetricFactor(metric);
+      const shownUnit = metricShownUnit(metric);
+      const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
-      const unitText = shownUnit ? ` ${shownUnit}` : "";
+      const unitText =
+        shownUnit && !metricRenderShowsCounts() ? ` ${shownUnit}` : "";
       const yPx = lastLayout.sy(
         Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg,
       );
@@ -1750,9 +1797,11 @@ function renderHoverAt(clientX, clientY) {
     const rowsHtml = rows
       .map((row, idx) => {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
-        const valuesHtml = state.yAxisStacked
-          ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
-          : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
+        const valuesHtml = metricRenderShowsCounts()
+          ? `count <strong>${formatFixed(row.sampled.avg, 3)}</strong>`
+          : state.yAxisStacked
+            ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
+            : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
         return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
       })
       .join("");
@@ -1813,10 +1862,8 @@ function renderHoverAt(clientX, clientY) {
           ? series.points || []
           : series.aggregatePoints || [];
       const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
-      const rawValue =
-        series.mode === "values"
-          ? nearestPoint.v * metric.factor
-          : nearestPoint.avg * metric.factor;
+      const rawValue = pointRenderValue(metric, series, nearestPoint, "avg");
+      if (!Number.isFinite(rawValue)) continue;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
       const yPx = lastLayout.sy(plotValue);
@@ -1869,10 +1916,13 @@ function renderHoverAt(clientX, clientY) {
   const rows = samePixel.length > 1 ? samePixel : [selected];
   const rowHtml = rows
     .map((row) => {
-      const shownUnit = row.metric.displayUnit || row.metric.unit;
-      const factor = shownMetricFactor(row.metric);
+      const shownUnit = metricShownUnit(row.metric);
+      const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
-      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}</div>`;
+      const valueText = metricRenderShowsCounts()
+        ? `<strong>${formatFixed(row.sampled.value, 3)}</strong> count`
+        : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
+      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueText}</div>`;
     })
     .join("");
   setHoverBoxHtml(

@@ -1,5 +1,5 @@
 import { apiFetch } from "./api.js";
-import { state } from "./model.js";
+import { metricRenderShowsCounts, state } from "./model.js";
 
 function collectSeriesExtents(seriesList) {
   let minY = Number.POSITIVE_INFINITY;
@@ -8,13 +8,18 @@ function collectSeriesExtents(seriesList) {
   for (const item of seriesList) {
     if (item.series.mode === "values") {
       for (const p of item.series.points || []) {
-        const y = p.v * item.metric.factor;
+        const y = metricRenderShowsCounts() ? 1 : (p.v * item.metric.factor);
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
       }
     } else {
       for (const p of item.series.aggregatePoints || []) {
         if (Number(p.count) === 0) continue;
+        if (metricRenderShowsCounts()) {
+          minY = Math.min(minY, Number(p.count));
+          maxY = Math.max(maxY, Number(p.count));
+          continue;
+        }
         minY = Math.min(minY, p.min * item.metric.factor);
         maxY = Math.max(maxY, p.max * item.metric.factor);
       }
@@ -123,6 +128,18 @@ export function visibleMetricsKey() {
 
 export async function ensureGlobalYAxisRange() {
   if (state.yAxisMode !== "global") return;
+  if (metricRenderShowsCounts()) {
+    const visibleSeries = state.metrics
+      .filter((metric) => metric.draw)
+      .map((metric) => ({ metric, series: state.series.get(metric.name) }))
+      .filter((item) => item.series && !item.series.error);
+    const extents = collectSeriesExtents(visibleSeries);
+    if (!extents) return;
+    state.yAxisGlobalMin = extents.minY;
+    state.yAxisGlobalMax = extents.maxY;
+    state.yAxisGlobalMetricsKey = `${visibleMetricsKey()}\nmode:count`;
+    return;
+  }
   const stacked = !!state.yAxisStacked;
   const metrics = state.metrics
     .filter((m) => m.draw)

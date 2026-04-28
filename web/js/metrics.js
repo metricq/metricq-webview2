@@ -9,6 +9,8 @@ import {
   colors,
   metricByName,
   metricDisplayName,
+  metricRenderShowsCounts,
+  metricShownUnit,
   state,
   syncYAxisStackedState,
 } from "./model.js";
@@ -625,8 +627,8 @@ export function renderMetricList(hooks) {
 
     const center = document.createElement("div");
     center.className = "metric-name";
-    const shownUnit = metric.displayUnit || metric.unit;
-    const shownFactor = shownMetricFactor(metric);
+    const shownUnit = metricShownUnit(metric);
+    const shownFactor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
     const factorSuffix = shownFactor ? ` x${shownFactor}` : "";
     const mainText = document.createElement("div");
     mainText.className = "metric-name-main";

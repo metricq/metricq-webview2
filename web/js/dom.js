@@ -27,6 +27,8 @@ export const dom = {
   btnYAxis: document.getElementById("btnYAxis"),
   btnRenderMode: document.getElementById("btnRenderMode"),
   btnRenderBands: document.getElementById("btnRenderBands"),
+  btnRenderLine: document.getElementById("btnRenderLine"),
+  btnRenderCount: document.getElementById("btnRenderCount"),
   yAxisModal: document.getElementById("yAxisModal"),
   yAxisModeLocal: document.getElementById("yAxisModeLocal"),
   yAxisModeGlobal: document.getElementById("yAxisModeGlobal"),

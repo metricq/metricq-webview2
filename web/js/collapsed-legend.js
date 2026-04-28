@@ -1,6 +1,11 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
-import { metricDisplayName, state } from "./model.js";
+import {
+  metricDisplayName,
+  metricRenderShowsCounts,
+  metricShownUnit,
+  state,
+} from "./model.js";
 
 function truncateMiddle(text, maxLen) {
   const raw = String(text || "");
@@ -27,8 +32,8 @@ function buildLegendRow(metric, { forceNormalIndicator = false } = {}) {
   labelWrap.className = "collapsed-legend-label";
   const label = document.createElement("div");
   label.className = "collapsed-legend-main";
-  const unit = metric.displayUnit || metric.unit || "";
-  const factor = shownMetricFactor(metric);
+  const unit = metricShownUnit(metric);
+  const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
   const formulaPrefix = metric.expr ? "ƒ " : "";
   label.textContent = formulaPrefix + metricDisplayName(metric) + (unit ? ` [${unit}]` : "") + (factor ? ` x${factor}` : "");
   labelWrap.appendChild(label);

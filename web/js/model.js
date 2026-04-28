@@ -20,7 +20,7 @@ export const state = {
   stackedAligned: null,
   timeMode: "relative",
   renderMode: "standard",
-  renderBands: true,
+  metricRenderMode: "bands",
   legacyChartsBaseUrl: "",
   resolution: 2,
   maxPoints: 3000,
@@ -66,4 +66,23 @@ export function metricDisplayName(metric) {
   const expr = String(metric?.expr || "").trim();
   if (!expr && alias) return alias;
   return String(metric?.name || "");
+}
+
+export function normalizeMetricRenderMode(value) {
+  const mode = String(value || "").trim().toLowerCase();
+  if (mode === "line" || mode === "count") return mode;
+  return "bands";
+}
+
+export function metricShownUnit(metric) {
+  if (state.metricRenderMode === "count") return "count";
+  return String(metric?.displayUnit || metric?.unit || "").trim();
+}
+
+export function metricRenderShowsBands() {
+  return state.metricRenderMode === "bands";
+}
+
+export function metricRenderShowsCounts() {
+  return state.metricRenderMode === "count";
 }

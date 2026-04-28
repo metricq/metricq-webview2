@@ -1,6 +1,11 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
-import { metricDisplayName, state } from "./model.js";
+import {
+  metricDisplayName,
+  metricRenderShowsCounts,
+  metricShownUnit,
+  state,
+} from "./model.js";
 
 function downloadBlob(filename, type, content) {
   const blob = new Blob([content], { type });
@@ -107,8 +112,8 @@ function drawLegend(ctx, cssWidth, cssHeight) {
 
   const buildRows = (metrics, stacked = false) =>
     metrics.map((metric) => {
-      const unit = metric.displayUnit || metric.unit || "";
-      const factor = shownMetricFactor(metric);
+      const unit = metricShownUnit(metric);
+      const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
       const formulaPrefix = metric.expr ? "ƒ " : "";
       const main = `${formulaPrefix}${metricDisplayName(metric)}${unit ? ` [${unit}]` : ""}${factor ? ` x${factor}` : ""}`;
       const desc = truncateMiddle(String(metric.description || "").trim(), 84);

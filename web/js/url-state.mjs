@@ -1,5 +1,10 @@
 import { dom } from "./dom.js";
-import { colors, state, syncYAxisStackedState } from "./model.js";
+import {
+  colors,
+  normalizeMetricRenderMode,
+  state,
+  syncYAxisStackedState,
+} from "./model.js";
 import { applyTokenOffset, relativeRangeStart } from "./time-range.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./time-range-ui.mjs";
 
@@ -150,7 +155,9 @@ function buildPayload() {
     ),
   };
   if (state.renderMode === "ti") payload.rm = "ti";
-  if (!state.renderBands) payload.rb = 0;
+  if (state.metricRenderMode !== "bands") {
+    payload.rv = normalizeMetricRenderMode(state.metricRenderMode);
+  }
 
   if (state.timeMode === "relative") {
     const rel = serializeRelative();
@@ -352,7 +359,10 @@ export async function applyStateFromUrl() {
     .trim()
     .toLowerCase();
   state.renderMode = renderMode === "ti" ? "ti" : "standard";
-  state.renderBands = payload?.rb !== 0;
+  state.metricRenderMode =
+    payload?.rv != null
+      ? normalizeMetricRenderMode(payload.rv)
+      : (payload?.rb === 0 ? "line" : "bands");
 
   applyYAxisConfig(payload?.y);
   syncYAxisStackedState();
@@ -397,7 +407,7 @@ export function applyLegacyWebviewHashFallback() {
     .map((item, index) => parseLegacyMetricToken(item, index, false))
     .filter(Boolean);
   state.renderMode = "standard";
-  state.renderBands = true;
+  state.metricRenderMode = "bands";
   syncYAxisStackedState();
 
   return state.metrics.length > 0;
