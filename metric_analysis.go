@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-func (s *service) executeAPIAnalyze(ctx context.Context, req apiAnalyzeRequest, targets []apiQueryTarget) []apiAnalyzeEntry {
-	planned, sourceMetrics := planEvalTargets(targets, false)
-	source := s.loadExpressionSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, 4096)
+func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest, targets []apiQueryTarget) []apiAnalyzeEntry {
+	planned, sourceMetrics := planQueryTargets(targets, false)
+	source := s.loadMetricSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, 4096)
 
 	out := make([]apiAnalyzeEntry, len(planned))
 	for i, target := range planned {
@@ -23,12 +23,12 @@ func (s *service) executeAPIAnalyze(ctx context.Context, req apiAnalyzeRequest, 
 		}
 		if target.parseErr != nil {
 			entry.Error = fmt.Sprintf("invalid expression: %v", target.parseErr)
-			entry.ErrorInfo = buildExprErrorInfo(target.parseErr)
+			entry.ErrorInfo = expressionErrorInfo(target.parseErr)
 			out[i] = entry
 			continue
 		}
 
-		inputs, depDuration, missingMetric, missingErr := buildEvalInputs(target, source)
+		inputs, depDuration, missingMetric, missingErr := buildQueryInputs(target, source)
 		entry.Duration = depDuration
 		if missingMetric != "" {
 			entry.Error = fmt.Sprintf("source metric %q failed: %s", missingMetric, missingErr)

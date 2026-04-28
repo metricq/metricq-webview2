@@ -105,7 +105,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
 	defer cancel()
 
-	results, err := s.executeAPIQuery(ctx, req, targets)
+	results, err := s.resolveQuerySeries(ctx, req, targets)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -144,7 +144,7 @@ func (s *service) handleAPIExpressionValidate(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusOK, apiExpressionValidateResponse{
 			Valid:     false,
 			Error:     err.Error(),
-			ErrorInfo: buildExprErrorInfo(err),
+			ErrorInfo: expressionErrorInfo(err),
 		})
 		return
 	}
@@ -175,7 +175,7 @@ func (s *service) handleAPIQueryStacked(w http.ResponseWriter, r *http.Request) 
 	ctx, cancel := context.WithTimeout(r.Context(), s.cfg.QueryTimeout)
 	defer cancel()
 
-	results, err := s.executeAPIQuery(ctx, req, targets)
+	results, err := s.resolveQuerySeries(ctx, req, targets)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
@@ -216,7 +216,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"entries": s.executeAPIAnalyze(ctx, req, targets),
+		"entries": s.analyzeQueryTargets(ctx, req, targets),
 	})
 }
 

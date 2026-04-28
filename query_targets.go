@@ -5,21 +5,6 @@ import (
 	"strings"
 )
 
-func resolveMetricSearchQuery(query, mode string) (infix, selector string) {
-	q := strings.TrimSpace(query)
-	switch strings.ToLower(strings.TrimSpace(mode)) {
-	case "selector", "regex":
-		if q == "" {
-			return "", ""
-		}
-		return "", q
-	case "description":
-		return q, ""
-	default:
-		return q, ""
-	}
-}
-
 func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
 	if len(req.Targets) == 0 {
 		targets := make([]apiQueryTarget, 0, len(req.Metrics))

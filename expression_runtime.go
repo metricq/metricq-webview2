@@ -2,13 +2,13 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sort"
 	"strings"
 	"sync"
 )
 
-type plannedEvalTarget struct {
+type plannedQueryTarget struct {
 	name         string
 	sourceMetric string
 	expr         string
@@ -17,18 +17,46 @@ type plannedEvalTarget struct {
 	dependencies []string
 }
 
-type expressionSourceData struct {
+type metricSourceData struct {
 	series map[string]apiQuerySeries
 	values map[string]map[int64]evalSample
 	errs   map[string]string
 }
 
-func planEvalTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]plannedEvalTarget, []string) {
-	planned := make([]plannedEvalTarget, len(targets))
+func expressionErrorInfo(err error) *apiExprError {
+	if err == nil {
+		return nil
+	}
+	info := &apiExprError{
+		Type:    "expression_error",
+		Message: strings.TrimSpace(err.Error()),
+	}
+	var parseErr *exprParseError
+	if errors.As(err, &parseErr) {
+		info.Type = strings.TrimSpace(parseErr.Code)
+		if info.Type == "" {
+			info.Type = "expression_parse_error"
+		}
+		if msg := strings.TrimSpace(parseErr.Message); msg != "" {
+			info.Message = msg
+		}
+		if tok := strings.TrimSpace(parseErr.Token); tok != "" {
+			info.Token = tok
+		}
+		pos := parseErr.Pos
+		end := parseErr.End
+		info.Position = &pos
+		info.End = &end
+	}
+	return info
+}
+
+func planQueryTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]plannedQueryTarget, []string) {
+	planned := make([]plannedQueryTarget, len(targets))
 	sourceMetricSet := map[string]struct{}{}
 
 	for i, target := range targets {
-		planned[i] = plannedEvalTarget{
+		planned[i] = plannedQueryTarget{
 			name:         target.Name,
 			sourceMetric: target.Metric,
 			expr:         target.Expr,
@@ -61,14 +89,14 @@ func planEvalTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]pla
 	return planned, sourceMetrics
 }
 
-func (s *service) loadExpressionSourceData(
+func (s *service) loadMetricSourceData(
 	ctx context.Context,
 	metrics []string,
 	fromMS int64,
 	toMS int64,
 	maxDataPoints int,
-) expressionSourceData {
-	data := expressionSourceData{
+) metricSourceData {
+	data := metricSourceData{
 		series: map[string]apiQuerySeries{},
 		values: map[string]map[int64]evalSample{},
 		errs:   map[string]string{},
@@ -97,9 +125,9 @@ func (s *service) loadExpressionSourceData(
 	return data
 }
 
-func buildEvalInputs(
-	target plannedEvalTarget,
-	source expressionSourceData,
+func buildQueryInputs(
+	target plannedQueryTarget,
+	source metricSourceData,
 ) (map[string]map[int64]evalSample, float64, string, string) {
 	inputs := make(map[string]map[int64]evalSample, len(target.dependencies))
 	depDuration := 0.0
@@ -119,52 +147,4 @@ func buildEvalInputs(
 	}
 
 	return inputs, depDuration, "", ""
-}
-
-func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targets []apiQueryTarget) ([]apiQuerySeries, error) {
-	planned, sourceMetrics := planEvalTargets(targets, true)
-	source := s.loadExpressionSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
-
-	results := make([]apiQuerySeries, len(planned))
-	for i, target := range planned {
-		if target.expr == "" {
-			base, ok := source.series[target.sourceMetric]
-			if !ok {
-				results[i] = apiQuerySeries{Metric: target.name, Error: source.errs[target.sourceMetric]}
-				continue
-			}
-			base.Metric = target.name
-			results[i] = base
-			continue
-		}
-		if target.parseErr != nil {
-			results[i] = apiQuerySeries{
-				Metric:    target.name,
-				Error:     fmt.Sprintf("invalid expression: %v", target.parseErr),
-				ErrorInfo: buildExprErrorInfo(target.parseErr),
-			}
-			continue
-		}
-
-		inputs, depDuration, missingMetric, missingErr := buildEvalInputs(target, source)
-		if missingMetric != "" {
-			results[i] = apiQuerySeries{
-				Metric: target.name,
-				Error:  fmt.Sprintf("source metric %q failed: %s", missingMetric, missingErr),
-			}
-			continue
-		}
-
-		values, evalErr := evalExpressionSamples(target.root, inputs)
-		if evalErr != nil {
-			results[i] = apiQuerySeries{
-				Metric: target.name,
-				Error:  fmt.Sprintf("failed to evaluate expression: %v", evalErr),
-			}
-			continue
-		}
-		results[i] = samplesToAggregateSeries(target.name, values, depDuration)
-	}
-
-	return results, nil
 }
