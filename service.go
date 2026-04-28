@@ -60,7 +60,7 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 	if query != "" {
 		payload.Infix = query
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata, "get_metrics")
+	return s.lookupMetricsByPayload(ctx, payload, metadata)
 }
 
 func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
@@ -82,11 +82,11 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	if selector != nil && selector != "" {
 		payload.Selector = selector
 	}
-	return s.lookupMetricsByPayload(ctx, payload, metadata, "get_metrics")
+	return s.lookupMetricsByPayload(ctx, payload, metadata)
 }
 
-func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool, rpcName string) (map[string]map[string]any, []string, error) {
-	resp, err := s.agent.Rpc(ctx, "metricq.management", rpcName, payload)
+func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool) (map[string]map[string]any, []string, error) {
+	resp, err := s.agent.Rpc(ctx, "metricq.management", "get_metrics", payload)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -107,22 +107,12 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 	var listOut struct {
 		Metrics []string `json:"metrics"`
 	}
-	if err := json.Unmarshal(resp, &listOut); err == nil && listOut.Metrics != nil {
+	if err := json.Unmarshal(resp, &listOut); err == nil {
 		sort.Strings(listOut.Metrics)
 		return nil, listOut.Metrics, nil
+	} else {
+		return nil, nil, fmt.Errorf("failed to parse metrik lookup response: %w", err)
 	}
-	var objectOut struct {
-		Metrics map[string]json.RawMessage `json:"metrics"`
-	}
-	if err := json.Unmarshal(resp, &objectOut); err != nil {
-		return nil, nil, err
-	}
-	list := make([]string, 0, len(objectOut.Metrics))
-	for key := range objectOut.Metrics {
-		list = append(list, key)
-	}
-	sort.Strings(list)
-	return nil, list, nil
 }
 
 func decodeMetricSearchResponse(resp []byte) ([]string, error) {
