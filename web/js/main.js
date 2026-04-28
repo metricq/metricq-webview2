@@ -136,7 +136,7 @@ function syncRenderBandsButton() {
     {
       el: dom.btnRenderCount,
       mode: "count",
-      title: "Count",
+      title: "Frequenz",
     },
   ];
   const activeMode = normalizeMetricRenderMode(state.metricRenderMode);
