@@ -1801,7 +1801,7 @@ function renderHoverAt(clientX, clientY) {
       .map((row, idx) => {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
         const valuesHtml = metricRenderShowsCounts()
-          ? `count <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
+          ? `freq <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
           : state.yAxisStacked
             ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
             : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
@@ -1923,7 +1923,7 @@ function renderHoverAt(clientX, clientY) {
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
       const valueText = metricRenderShowsCounts()
-        ? `count <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`
+        ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`
         : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
       return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueText}</div>`;
     })
