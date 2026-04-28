@@ -669,7 +669,7 @@ function formatYTickLabels(ticks) {
 }
 
 function yAxisUnitsLabel(seriesList) {
-  if (metricRenderShowsCounts()) return "#/s";
+  if (metricRenderShowsCounts()) return "Hz";
   const units = [];
   const seen = new Set();
   for (const item of seriesList || []) {

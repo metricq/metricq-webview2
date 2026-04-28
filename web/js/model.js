@@ -75,7 +75,7 @@ export function normalizeMetricRenderMode(value) {
 }
 
 export function metricShownUnit(metric) {
-  if (state.metricRenderMode === "count") return "#/s";
+  if (state.metricRenderMode === "count") return "Hz";
   return String(metric?.displayUnit || metric?.unit || "").trim();
 }
 
