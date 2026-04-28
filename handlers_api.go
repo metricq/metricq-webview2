@@ -349,7 +349,7 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 			continue
 		}
 
-		values, evalErr := evalExpressionWithSamples(target.root, inputs)
+		values, evalErr := evalExpressionSamples(target.root, inputs)
 		if evalErr != nil {
 			results[i] = apiQuerySeries{
 				Metric: target.name,
@@ -357,7 +357,7 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 			}
 			continue
 		}
-		results[i] = valuesToAggregateSeries(target.name, values, depDuration)
+		results[i] = samplesToAggregateSeries(target.name, values, depDuration)
 	}
 	return results, nil
 }

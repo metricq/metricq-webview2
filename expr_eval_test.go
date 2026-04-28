@@ -1,8 +1,8 @@
 package main
 
 import (
-	"math"
 	"errors"
+	"math"
 	"testing"
 )
 
@@ -228,22 +228,28 @@ func TestSeriesToEvalInputMapAndAggregateConversion(t *testing.T) {
 	if mapped[1].min != 9 || mapped[2].max != 22 {
 		t.Fatalf("unexpected mapped min/max values: %#v", mapped)
 	}
+	if mapped[1].count != 2 || mapped[2].count != 3 {
+		t.Fatalf("unexpected mapped counts: %#v", mapped)
+	}
 	if _, exists := mapped[3]; exists {
 		t.Fatalf("count==0 aggregate point must be skipped: %#v", mapped)
 	}
 
-	converted := valuesToAggregateSeries("expr.total", map[int64]float64{2000: 2, 1000: 1}, 0.42)
+	converted := samplesToAggregateSeries("expr.total", map[int64]evalSample{
+		2000: {avg: 2, min: 2, max: 2, count: 7, activeTimeMS: 500},
+		1000: {avg: 1, min: 1, max: 1, count: 4},
+	}, 0.42)
 	if converted.Mode != "aggregates" || len(converted.AggPoints) != 2 {
 		t.Fatalf("unexpected converted metadata: %#v", converted)
 	}
 	if converted.AggPoints[0].T != 1000 || converted.AggPoints[1].T != 2000 {
 		t.Fatalf("expected sorted timestamps, got: %#v", converted.AggPoints)
 	}
-	if converted.AggPoints[0].ActiveTimeMS != 1000 || converted.AggPoints[1].ActiveTimeMS != 1000 {
+	if converted.AggPoints[0].ActiveTimeMS != 1000 || converted.AggPoints[1].ActiveTimeMS != 500 {
 		t.Fatalf("expected derived active times, got: %#v", converted.AggPoints)
 	}
-	if converted.AggPoints[0].Count != 1 || converted.AggPoints[1].Count != 1 {
-		t.Fatalf("expected synthetic count=1, got: %#v", converted.AggPoints)
+	if converted.AggPoints[0].Count != 4 || converted.AggPoints[1].Count != 7 {
+		t.Fatalf("expected propagated counts, got: %#v", converted.AggPoints)
 	}
 }
 
@@ -267,5 +273,39 @@ func TestEvalExpressionWithSamplesMinMaxUsesAggregateBounds(t *testing.T) {
 	// max() should use aggregate.max and min() aggregate.min => 12 - 5 = 7
 	if got[1000] != 7 {
 		t.Fatalf("expected 7, got %#v", got)
+	}
+}
+
+func TestEvalExpressionSamplesPropagatesSupportFromDependencies(t *testing.T) {
+	node, err := parseExpression("[a]+[b]")
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	inputs := map[string]map[int64]evalSample{
+		"a": {
+			1000: {avg: 10, min: 10, max: 10, count: 10, activeTimeMS: 1000},
+		},
+		"b": {
+			1000: {avg: 2, min: 2, max: 2, count: 6, activeTimeMS: 2000},
+		},
+	}
+
+	got, err := evalExpressionSamples(node, inputs)
+	if err != nil {
+		t.Fatalf("eval failed: %v", err)
+	}
+
+	sample, ok := got[1000]
+	if !ok {
+		t.Fatalf("expected output sample at 1000, got %#v", got)
+	}
+	if sample.avg != 12 {
+		t.Fatalf("expected avg 12, got %#v", sample)
+	}
+	if sample.count != 6 {
+		t.Fatalf("expected count=min dependencies=6, got %#v", sample)
+	}
+	if sample.activeTimeMS != 1000 {
+		t.Fatalf("expected activeTime=min dependencies=1000, got %#v", sample)
 	}
 }

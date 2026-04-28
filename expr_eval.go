@@ -659,9 +659,11 @@ type tsValue struct {
 }
 
 type evalSample struct {
-	avg float64
-	min float64
-	max float64
+	avg          float64
+	min          float64
+	max          float64
+	count        uint64
+	activeTimeMS int64
 }
 
 type metricCursor struct {
@@ -763,12 +765,24 @@ func evalNodeAt(
 }
 
 func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]float64, error) {
+	samples, err := evalExpressionSamples(root, inputs)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[int64]float64, len(samples))
+	for ts, sample := range samples {
+		out[ts] = sample.avg
+	}
+	return out, nil
+}
+
+func evalExpressionSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]evalSample, error) {
 	if root == nil {
 		return nil, fmt.Errorf("empty expression")
 	}
 	metrics := metricsInExpression(root)
 	if len(metrics) == 0 {
-		return map[int64]float64{}, nil
+		return map[int64]evalSample{}, nil
 	}
 
 	cursors := make(map[string]*metricCursor, len(metrics))
@@ -797,7 +811,7 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 	}
 	sort.Slice(timestamps, func(i, j int) bool { return timestamps[i] < timestamps[j] })
 	if len(timestamps) == 0 {
-		return map[int64]float64{}, nil
+		return map[int64]evalSample{}, nil
 	}
 
 	values := make(map[string]float64, len(metrics))
@@ -808,7 +822,7 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 		hasValues[metric] = false
 	}
 
-	out := make(map[int64]float64, len(timestamps))
+	out := make(map[int64]evalSample, len(timestamps))
 	for _, ts := range timestamps {
 		for _, metric := range metrics {
 			cursor := cursors[metric]
@@ -836,7 +850,33 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 			return nil, err
 		}
 		if ok {
-			out[ts] = v
+			count := uint64(0)
+			activeTimeMS := int64(0)
+			for _, metric := range metrics {
+				if !hasValues[metric] {
+					continue
+				}
+				sample, exists := inputs[metric][ts]
+				if !exists {
+					continue
+				}
+				if sample.count > 0 && (count == 0 || sample.count < count) {
+					count = sample.count
+				}
+				if sample.activeTimeMS > 0 && (activeTimeMS == 0 || sample.activeTimeMS < activeTimeMS) {
+					activeTimeMS = sample.activeTimeMS
+				}
+			}
+			if count == 0 {
+				count = 1
+			}
+			out[ts] = evalSample{
+				avg:          v,
+				min:          v,
+				max:          v,
+				count:        count,
+				activeTimeMS: activeTimeMS,
+			}
 		}
 	}
 	return out, nil
@@ -844,9 +884,10 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 
 func evalSampleFromValue(v float64) evalSample {
 	return evalSample{
-		avg: v,
-		min: v,
-		max: v,
+		avg:   v,
+		min:   v,
+		max:   v,
+		count: 1,
 	}
 }
 
@@ -880,16 +921,18 @@ func seriesToEvalInputMap(series apiQuerySeries) map[int64]evalSample {
 				continue
 			}
 			out[p.T] = evalSample{
-				avg: p.Avg,
-				min: p.Min,
-				max: p.Max,
+				avg:          p.Avg,
+				min:          p.Min,
+				max:          p.Max,
+				count:        p.Count,
+				activeTimeMS: p.ActiveTimeMS,
 			}
 		}
 	}
 	return out
 }
 
-func valuesToAggregateSeries(name string, values map[int64]float64, duration float64) apiQuerySeries {
+func samplesToAggregateSeries(name string, values map[int64]evalSample, duration float64) apiQuerySeries {
 	keys := make([]int64, 0, len(values))
 	for t := range values {
 		keys = append(keys, t)
@@ -898,25 +941,31 @@ func valuesToAggregateSeries(name string, values map[int64]float64, duration flo
 
 	points := make([]apiAggPoint, 0, len(keys))
 	for i, t := range keys {
-		v := values[t]
-		activeTimeMS := int64(0)
-		if len(keys) > 1 {
-			switch {
-			case i > 0:
-				activeTimeMS = t - keys[i-1]
-			case i+1 < len(keys):
-				activeTimeMS = keys[i+1] - t
+		sample := values[t]
+		activeTimeMS := sample.activeTimeMS
+		if activeTimeMS <= 0 {
+			if len(keys) > 1 {
+				switch {
+				case i > 0:
+					activeTimeMS = t - keys[i-1]
+				case i+1 < len(keys):
+					activeTimeMS = keys[i+1] - t
+				}
+			}
+			if activeTimeMS < 0 {
+				activeTimeMS = 0
 			}
 		}
-		if activeTimeMS < 0 {
-			activeTimeMS = 0
+		count := sample.count
+		if count == 0 {
+			count = 1
 		}
 		points = append(points, apiAggPoint{
 			T:            t,
-			Min:          v,
-			Max:          v,
-			Avg:          v,
-			Count:        1,
+			Min:          sample.min,
+			Max:          sample.max,
+			Avg:          sample.avg,
+			Count:        count,
 			ActiveTimeMS: activeTimeMS,
 		})
 	}
