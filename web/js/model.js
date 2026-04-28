@@ -75,7 +75,7 @@ export function normalizeMetricRenderMode(value) {
 }
 
 export function metricShownUnit(metric) {
-  if (state.metricRenderMode === "count") return "1/s";
+  if (state.metricRenderMode === "count") return "#/s";
   return String(metric?.displayUnit || metric?.unit || "").trim();
 }
 

@@ -18,6 +18,6 @@ test("normalizeMetricRenderMode falls back to bands", () => {
 test("metricShownUnit uses per-second unit in count mode", () => {
   const previous = state.metricRenderMode;
   state.metricRenderMode = "count";
-  assert.equal(metricShownUnit({ unit: "kW", displayUnit: "kW" }), "1/s");
+  assert.equal(metricShownUnit({ unit: "kW", displayUnit: "kW" }), "#/s");
   state.metricRenderMode = previous;
 });
