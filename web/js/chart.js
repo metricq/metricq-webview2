@@ -241,7 +241,10 @@ function buildSemanticSamples(metric, series, tiMode) {
       const point = points[i];
       const t = seriesSampleTime(points, i, series, tiMode);
       if (!Number.isFinite(t)) continue;
-      const value = pointRenderValue(metric, series, point, "avg");
+      const value = pointRenderValue(metric, series, point, "avg", {
+        points,
+        index: i,
+      });
       if (!Number.isFinite(value)) continue;
       samples.push({ t, avg: value, min: value, max: value });
     }
@@ -274,10 +277,26 @@ function buildSemanticSamples(metric, series, tiMode) {
   return samples;
 }
 
-function pointRenderValue(metric, series, point, kind = "avg") {
+function valueSeriesFrequency(points, index) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const curr = points[index];
+  if (!curr) return null;
+  const candidateDeltas = [];
+  if (index > 0) candidateDeltas.push(Number(curr.t) - Number(points[index - 1]?.t));
+  if (index + 1 < points.length) candidateDeltas.push(Number(points[index + 1]?.t) - Number(curr.t));
+  for (const deltaMs of candidateDeltas) {
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) continue;
+    return 1000 / deltaMs;
+  }
+  return null;
+}
+
+function pointRenderValue(metric, series, point, kind = "avg", context = {}) {
   if (!point) return null;
   if (series?.mode === "values") {
-    if (metricRenderShowsCounts()) return null;
+    if (metricRenderShowsCounts()) {
+      return valueSeriesFrequency(context.points, context.index);
+    }
     const value = Number(point.v) * metric.factor;
     return Number.isFinite(value) ? value : null;
   }
@@ -1293,13 +1312,18 @@ export function renderChart() {
           for (let i = 0; i < points.length; i += 1) {
             const p = points[i];
             const tx = p.t;
+            const rawValue = pointRenderValue(metric, series, p, "avg", {
+              points,
+              index: i,
+            });
+            if (!Number.isFinite(rawValue)) continue;
             const x = sx(tx);
             const y = sy(
               resolveSeriesValueForRender(
                 stackedAvgAt,
                 stackedSeries,
                 tx,
-                p.v * metric.factor,
+                rawValue,
               ),
             );
             ctx.beginPath();
@@ -1311,12 +1335,17 @@ export function renderChart() {
             ctx,
             points,
             (p) => {
+              const idx = points.indexOf(p);
               const tx = p.t;
+              const rawValue = pointRenderValue(metric, series, p, "avg", {
+                points,
+                index: idx,
+              });
               return resolveSeriesValueForRender(
                 stackedAvgAt,
                 stackedSeries,
                 tx,
-                p.v * metric.factor,
+                rawValue,
               );
             },
             sx,
@@ -1324,13 +1353,18 @@ export function renderChart() {
           );
         } else {
           const p = points[0];
+          const rawValue = pointRenderValue(metric, series, p, "avg", {
+            points,
+            index: 0,
+          });
+          if (!Number.isFinite(rawValue)) continue;
           const x = sx(p.t);
           const y = sy(
             resolveSeriesValueForRender(
               stackedAvgAt,
               stackedSeries,
               p.t,
-              p.v * metric.factor,
+              rawValue,
             ),
           );
           ctx.beginPath();
@@ -1345,13 +1379,18 @@ export function renderChart() {
         for (let i = 0; i < points.length; i += 1) {
           const p = points[i];
           const tx = aggregateDisplayTime(points, i, series);
+          const rawValue = pointRenderValue(metric, series, p, "avg", {
+            points,
+            index: i,
+          });
+          if (!Number.isFinite(rawValue)) continue;
           const x = sx(tx);
           const y = sy(
             resolveSeriesValueForRender(
               stackedAvgAt,
               stackedSeries,
               tx,
-              p.v * metric.factor,
+              rawValue,
             ),
           );
           if (i === 0) ctx.moveTo(x, y);
@@ -1365,13 +1404,18 @@ export function renderChart() {
       for (let i = 0; i < points.length; i += 1) {
         const p = points[i];
         const tx = p.t;
+        const rawValue = pointRenderValue(metric, series, p, "avg", {
+          points,
+          index: i,
+        });
+        if (!Number.isFinite(rawValue)) continue;
         const x = sx(tx);
         const y = sy(
           resolveSeriesValueForRender(
             stackedAvgAt,
             stackedSeries,
             tx,
-            p.v * metric.factor,
+            rawValue,
           ),
         );
         ctx.beginPath();
@@ -1522,7 +1566,10 @@ function seriesValueAtTime(metric, series, t) {
   if (!best || (series.mode !== "values" && Number(best.count) === 0))
     return null;
   const stacked = stackedValueAt(metric.name, "avg", bestT);
-  const rawValue = pointRenderValue(metric, series, best, "avg");
+  const rawValue = pointRenderValue(metric, series, best, "avg", {
+    points,
+    index: bestIndex,
+  });
   if (!Number.isFinite(rawValue)) return null;
   const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
 
@@ -1536,9 +1583,12 @@ function seriesValueAtTime(metric, series, t) {
   };
 }
 
-function pointValue(series, point, factor) {
+function pointValue(series, point, factor, points, index) {
   if (series.mode !== "values" && Number(point?.count) === 0) return null;
-  return pointRenderValue({ factor }, series, point, "avg");
+  return pointRenderValue({ factor }, series, point, "avg", {
+    points,
+    index,
+  });
 }
 
 const HOVER_X_WEIGHT = 1.4;
@@ -1569,7 +1619,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const value = Number.isFinite(stacked)
         ? stacked
-        : pointValue(series, p, metric.factor);
+        : pointValue(series, p, metric.factor, points, i);
       if (!Number.isFinite(value)) continue;
       const y = sy(value);
       const dx = x - cursorX;
@@ -1606,7 +1656,7 @@ function nearestPointByProximity(metric, series, t, cursorX, cursorY, sx, sy) {
     const stacked = stackedValueAt(metric.name, "avg", sampleT);
     const value = Number.isFinite(stacked)
       ? stacked
-      : pointValue(series, p, metric.factor);
+      : pointValue(series, p, metric.factor, points, i);
     if (!Number.isFinite(value)) continue;
     const y = sy(value);
     const dx = x - cursorX;
@@ -1717,7 +1767,10 @@ function sampleTIAtTime(metric, series, t) {
     const prev = points[idx - 1];
     const curr = points[idx];
     if (t < prev.t || t > curr.t) return null;
-    const rawValue = pointRenderValue(metric, series, curr, "avg");
+    const rawValue = pointRenderValue(metric, series, curr, "avg", {
+      points,
+      index: idx,
+    });
     if (!Number.isFinite(rawValue)) return null;
     const stacked = stackedValueAt(metric.name, "avg", curr.t);
     const plotAvg = Number.isFinite(stacked) ? stacked : rawValue;
@@ -1898,7 +1951,10 @@ function renderHoverAt(clientX, clientY) {
           ? series.points || []
           : series.aggregatePoints || [];
       const sampleT = aggregateDisplayTime(samplePoints, nearestIndex, series);
-      const rawValue = pointRenderValue(metric, series, nearestPoint, "avg");
+      const rawValue = pointRenderValue(metric, series, nearestPoint, "avg", {
+        points: samplePoints,
+        index: nearestIndex,
+      });
       if (!Number.isFinite(rawValue)) continue;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;

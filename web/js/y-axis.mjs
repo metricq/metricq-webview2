@@ -1,15 +1,33 @@
 import { apiFetch } from "./api.js";
 import { metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
 
+function valueSeriesFrequency(points, index) {
+  if (!Array.isArray(points) || points.length < 2) return null;
+  const curr = points[index];
+  if (!curr) return null;
+  const candidateDeltas = [];
+  if (index > 0) candidateDeltas.push(Number(curr.t) - Number(points[index - 1]?.t));
+  if (index + 1 < points.length) candidateDeltas.push(Number(points[index + 1]?.t) - Number(curr.t));
+  for (const deltaMs of candidateDeltas) {
+    if (!Number.isFinite(deltaMs) || deltaMs <= 0) continue;
+    return 1000 / deltaMs;
+  }
+  return null;
+}
+
 function collectSeriesExtents(seriesList) {
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
 
   for (const item of seriesList) {
     if (item.series.mode === "values") {
-      if (metricRenderShowsCounts()) continue;
-      for (const p of item.series.points || []) {
-        const y = p.v * item.metric.factor;
+      const points = item.series.points || [];
+      for (let i = 0; i < points.length; i += 1) {
+        const p = points[i];
+        const y = metricRenderShowsCounts()
+          ? valueSeriesFrequency(points, i)
+          : p.v * item.metric.factor;
+        if (!Number.isFinite(y)) continue;
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
       }
