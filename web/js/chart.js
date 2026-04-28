@@ -297,6 +297,28 @@ function pointRenderValue(metric, series, point, kind = "avg") {
   return Number.isFinite(value) ? value : null;
 }
 
+function formatHoverInterval(activeTimeMs) {
+  const ms = Number(activeTimeMs);
+  if (!Number.isFinite(ms) || ms <= 0) return "";
+  const units = [
+    { size: 24 * 60 * 60 * 1000, label: "d" },
+    { size: 60 * 60 * 1000, label: "h" },
+    { size: 60 * 1000, label: "min" },
+    { size: 1000, label: "s" },
+    { size: 1, label: "ms" },
+  ];
+  for (const unit of units) {
+    if (ms < unit.size && unit.label !== "ms") continue;
+    const raw = ms / unit.size;
+    const rounded =
+      raw >= 10 || Math.abs(raw - Math.round(raw)) < 1e-9
+        ? Math.round(raw)
+        : Math.round(raw * 10) / 10;
+    return `${rounded} ${unit.label}`;
+  }
+  return `${Math.round(ms)} ms`;
+}
+
 function sampleLastValue(samples, t) {
   if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t))
     return null;
@@ -1502,6 +1524,8 @@ function seriesValueAtTime(metric, series, t) {
     value: rawValue,
     plotValue,
     index: bestIndex,
+    activeTimeMs:
+      series.mode === "aggregates" ? Number(best.activeTimeMs) || null : null,
   };
 }
 
@@ -1723,6 +1747,7 @@ function sampleTIAtTime(metric, series, t) {
     avg: rawAvg,
     max: rawMax,
     plotAvg: Number.isFinite(stackedAvg) ? stackedAvg : rawAvg,
+    activeTimeMs: Number(curr.activeTimeMs) || null,
   };
 }
 
@@ -1785,6 +1810,7 @@ function renderHoverAt(clientX, clientY) {
         sampled,
         factorText,
         unitText,
+        intervalText: formatHoverInterval(sampled.activeTimeMs),
       });
       if (dist2 < nearestDist2) {
         nearestDist2 = dist2;
@@ -1801,7 +1827,7 @@ function renderHoverAt(clientX, clientY) {
       .map((row, idx) => {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
         const valuesHtml = metricRenderShowsCounts()
-          ? `freq <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
+          ? `freq <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}${row.intervalText ? ` | interval <strong>${row.intervalText}</strong>` : ""}`
           : state.yAxisStacked
             ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
             : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
@@ -1881,7 +1907,14 @@ function renderHoverAt(clientX, clientY) {
         const dy = yPx - cursorY;
         candidates.push({
           metric,
-          sampled: { t: sampleT, value: rawValue },
+          sampled: {
+            t: sampleT,
+            value: rawValue,
+            activeTimeMs:
+              series.mode === "aggregates"
+                ? Number(nearestPoint.activeTimeMs) || null
+                : null,
+          },
           xPx,
           yPx,
           snapPx:
@@ -1922,8 +1955,9 @@ function renderHoverAt(clientX, clientY) {
       const shownUnit = metricShownUnit(row.metric);
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
+      const intervalText = formatHoverInterval(row.sampled.activeTimeMs);
       const valueText = metricRenderShowsCounts()
-        ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`
+        ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}${intervalText ? ` | interval <strong>${intervalText}</strong>` : ""}`
         : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
       return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueText}</div>`;
     })
