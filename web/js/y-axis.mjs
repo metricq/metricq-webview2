@@ -7,8 +7,9 @@ function collectSeriesExtents(seriesList) {
 
   for (const item of seriesList) {
     if (item.series.mode === "values") {
+      if (metricRenderShowsCounts()) continue;
       for (const p of item.series.points || []) {
-        const y = metricRenderShowsCounts() ? 1 : (p.v * item.metric.factor);
+        const y = p.v * item.metric.factor;
         minY = Math.min(minY, y);
         maxY = Math.max(maxY, y);
       }
@@ -16,8 +17,11 @@ function collectSeriesExtents(seriesList) {
       for (const p of item.series.aggregatePoints || []) {
         if (Number(p.count) === 0) continue;
         if (metricRenderShowsCounts()) {
-          minY = Math.min(minY, Number(p.count));
-          maxY = Math.max(maxY, Number(p.count));
+          const activeTimeMs = Number(p.activeTimeMs);
+          if (!Number.isFinite(activeTimeMs) || activeTimeMs <= 0) continue;
+          const rate = Number(p.count) / (activeTimeMs / 1000);
+          minY = Math.min(minY, rate);
+          maxY = Math.max(maxY, rate);
           continue;
         }
         minY = Math.min(minY, p.min * item.metric.factor);

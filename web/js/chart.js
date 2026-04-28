@@ -276,13 +276,17 @@ function buildSemanticSamples(metric, series, tiMode) {
 function pointRenderValue(metric, series, point, kind = "avg") {
   if (!point) return null;
   if (series?.mode === "values") {
-    if (metricRenderShowsCounts()) return 1;
+    if (metricRenderShowsCounts()) return null;
     const value = Number(point.v) * metric.factor;
     return Number.isFinite(value) ? value : null;
   }
   const count = Number(point.count);
   if (!Number.isFinite(count) || count <= 0) return null;
-  if (metricRenderShowsCounts()) return count;
+  if (metricRenderShowsCounts()) {
+    const activeTimeMs = Number(point.activeTimeMs);
+    if (!Number.isFinite(activeTimeMs) || activeTimeMs <= 0) return null;
+    return count / (activeTimeMs / 1000);
+  }
   const raw =
     kind === "min"
       ? Number(point.min)
@@ -1768,8 +1772,7 @@ function renderHoverAt(clientX, clientY) {
       const shownUnit = metricShownUnit(metric);
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
-      const unitText =
-        shownUnit && !metricRenderShowsCounts() ? ` ${shownUnit}` : "";
+      const unitText = shownUnit ? ` ${shownUnit}` : "";
       const yPx = lastLayout.sy(
         Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg,
       );
@@ -1798,7 +1801,7 @@ function renderHoverAt(clientX, clientY) {
       .map((row, idx) => {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
         const valuesHtml = metricRenderShowsCounts()
-          ? `count <strong>${formatFixed(row.sampled.avg, 3)}</strong>`
+          ? `count <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
           : state.yAxisStacked
             ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
             : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
@@ -1920,7 +1923,7 @@ function renderHoverAt(clientX, clientY) {
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
       const valueText = metricRenderShowsCounts()
-        ? `<strong>${formatFixed(row.sampled.value, 3)}</strong> count`
+        ? `count <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`
         : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
       return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueText}</div>`;
     })
