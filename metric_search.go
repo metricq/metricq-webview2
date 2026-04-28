@@ -17,6 +17,7 @@ var suggestableFieldSet = func() map[string]struct{} {
 	return m
 }()
 
+// resolveMetricSearchQuery normalizes the user search query into infix or selector mode.
 func resolveMetricSearchQuery(query, mode string) (infix, selector string) {
 	q := strings.TrimSpace(query)
 	switch strings.ToLower(strings.TrimSpace(mode)) {

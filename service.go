@@ -12,6 +12,7 @@ import (
 	metricq "github.com/metricq/metricq-go"
 )
 
+// newService constructs the MetricQ-backed application service.
 func newService(ctx context.Context, cfg config) (*service, error) {
 	agent, err := metricq.NewAgent(cfg.MetricQToken, cfg.MetricQServer)
 	if err != nil {
@@ -34,6 +35,7 @@ func newService(ctx context.Context, cfg config) (*service, error) {
 	}, nil
 }
 
+// Close releases service-owned resources.
 func (s *service) Close() {
 	s.closeOnce.Do(func() {
 		if s.history != nil {
@@ -45,6 +47,7 @@ func (s *service) Close() {
 	})
 }
 
+// lookupMetrics resolves metrics by infix query through the history service.
 func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
@@ -63,10 +66,12 @@ func (s *service) lookupMetrics(ctx context.Context, query string, metadata bool
 	return s.lookupMetricsByPayload(ctx, payload, metadata)
 }
 
+// lookupMetricsSelector resolves metrics for one selector expression.
 func (s *service) lookupMetricsSelector(ctx context.Context, selector string, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	return s.lookupMetricsSelectors(ctx, selector, metadata, limit)
 }
 
+// lookupMetricsSelectors resolves metrics for one or more selector payloads.
 func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, metadata bool, limit int) (map[string]map[string]any, []string, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
@@ -85,6 +90,7 @@ func (s *service) lookupMetricsSelectors(ctx context.Context, selector any, meta
 	return s.lookupMetricsByPayload(ctx, payload, metadata)
 }
 
+// lookupMetricsByPayload performs the shared metadata query call used by metric lookup helpers.
 func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metadata bool) (map[string]map[string]any, []string, error) {
 	resp, err := s.agent.Rpc(ctx, "metricq.management", "get_metrics", payload)
 	if err != nil {
@@ -93,6 +99,7 @@ func (s *service) lookupMetricsByPayload(ctx context.Context, payload any, metad
 	return decodeMetricLookupResponse(resp, metadata)
 }
 
+// decodeMetricLookupResponse parses metric lookup responses with optional metadata.
 func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[string]any, []string, error) {
 	if metadata {
 		var out struct {
@@ -115,6 +122,7 @@ func decodeMetricLookupResponse(resp []byte, metadata bool) (map[string]map[stri
 	}
 }
 
+// decodeMetricSearchResponse parses description search responses into a metric list.
 func decodeMetricSearchResponse(resp []byte) ([]string, error) {
 	var out metricSearchResponse
 	if err := json.Unmarshal(resp, &out); err != nil {
@@ -131,6 +139,7 @@ func decodeMetricSearchResponse(resp []byte) ([]string, error) {
 	return list, nil
 }
 
+// lookupMetricsByDescription resolves metrics by searching textual descriptions.
 func (s *service) lookupMetricsByDescription(ctx context.Context, query string, limit int) ([]string, error) {
 	searchPayload := metricSearchRequest{
 		Function: "metrics.search",
@@ -147,6 +156,7 @@ func (s *service) lookupMetricsByDescription(ctx context.Context, query string, 
 	return decodeMetricSearchResponse(resp)
 }
 
+// lookupMetadata fetches metadata for a single metric.
 func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string]any, error) {
 	payload := metricLookupRequest{
 		Function: "get_metrics",
@@ -171,6 +181,7 @@ func (s *service) lookupMetadata(ctx context.Context, metric string) (map[string
 	return meta, nil
 }
 
+// queryMetric fetches a timeline with raw or aggregate data depending on zoom level.
 func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS int64, maxDataPoints int) (metricq.TimelineResult, error) {
 	if maxDataPoints <= 0 {
 		maxDataPoints = 1000
@@ -189,6 +200,7 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	)
 }
 
+// historyToSeries converts a MetricQ timeline result into the API wire format.
 func historyToSeries(metric string, timeline metricq.TimelineResult) apiQuerySeries {
 	series := apiQuerySeries{Metric: metric, Stats: map[string]any{}}
 	switch data := timeline.(type) {
@@ -236,6 +248,7 @@ func historyToSeries(metric string, timeline metricq.TimelineResult) apiQuerySer
 	}
 }
 
+// scaleValueByFunction extracts and scales one aggregate statistic.
 func scaleValueByFunction(agg *metricq.HistoryResponse_Aggregate, fn string, scale float64) float64 {
 	switch fn {
 	case "min":
@@ -249,6 +262,7 @@ func scaleValueByFunction(agg *metricq.HistoryResponse_Aggregate, fn string, sca
 	}
 }
 
+// aggregateMean returns the arithmetic mean for an aggregate response.
 func aggregateMean(agg *metricq.HistoryResponse_Aggregate) float64 {
 	if agg == nil {
 		return 0
@@ -259,6 +273,7 @@ func aggregateMean(agg *metricq.HistoryResponse_Aggregate) float64 {
 	return 0
 }
 
+// safeMean divides sum by count while handling empty inputs.
 func safeMean(sum float64, count uint64) float64 {
 	if count == 0 {
 		return 0
@@ -266,6 +281,7 @@ func safeMean(sum float64, count uint64) float64 {
 	return sum / float64(count)
 }
 
+// waitGroupRun executes a metric callback in parallel and waits for completion.
 func waitGroupRun(metrics []string, fn func(i int, metric string)) {
 	var wg sync.WaitGroup
 	wg.Add(len(metrics))
@@ -280,6 +296,7 @@ func waitGroupRun(metrics []string, fn func(i int, metric string)) {
 	wg.Wait()
 }
 
+// avgOrNaN returns the average or NaN when the count is zero.
 func avgOrNaN(sum float64, count uint64) float64 {
 	if count == 0 {
 		return math.NaN()
@@ -287,6 +304,7 @@ func avgOrNaN(sum float64, count uint64) float64 {
 	return sum / float64(count)
 }
 
+// suggestFieldValues returns suggested metadata values for one field.
 func (s *service) suggestFieldValues(ctx context.Context, field string, filter map[string]any, limit int) ([]metricSuggestValue, error) {
 	payload := metricSuggestRequest{
 		Function: "metrics.suggest",
@@ -305,6 +323,7 @@ func (s *service) suggestFieldValues(ctx context.Context, field string, filter m
 	return out.Values, nil
 }
 
+// resolveMetricsByFilter resolves metrics that match a structured metadata filter.
 func (s *service) resolveMetricsByFilter(ctx context.Context, filter map[string]any, limit, offset int) ([]metricResolveEntry, error) {
 	payload := metricResolveRequest{
 		Function: "metrics.resolve",
@@ -323,6 +342,7 @@ func (s *service) resolveMetricsByFilter(ctx context.Context, filter map[string]
 	return out.Metrics, nil
 }
 
+// searchMetricsAdvanced dispatches advanced metric search by mode and filter state.
 func (s *service) searchMetricsAdvanced(ctx context.Context, query, mode string, filter map[string]any, limit, offset int) ([]advancedSearchResult, error) {
 	switch mode {
 	case "infix", "selector":
@@ -334,6 +354,7 @@ func (s *service) searchMetricsAdvanced(ctx context.Context, query, mode string,
 	}
 }
 
+// advancedSearchByName searches metrics by name or selector semantics.
 func (s *service) advancedSearchByName(ctx context.Context, query, mode string, limit int) ([]advancedSearchResult, error) {
 	var (
 		metaMap map[string]map[string]any
@@ -360,6 +381,7 @@ func (s *service) advancedSearchByName(ctx context.Context, query, mode string, 
 	return results, nil
 }
 
+// advancedSearchByDescription searches metrics by textual descriptions.
 func (s *service) advancedSearchByDescription(ctx context.Context, query string, limit, offset int) ([]advancedSearchResult, error) {
 	searchPayload := struct {
 		Function string         `json:"function"`
@@ -402,6 +424,7 @@ func (s *service) advancedSearchByDescription(ctx context.Context, query string,
 	return results, nil
 }
 
+// advancedSearchByFilter searches metrics by structured metadata filters only.
 func (s *service) advancedSearchByFilter(ctx context.Context, filter map[string]any, limit, offset int) ([]advancedSearchResult, error) {
 	entries, err := s.resolveMetricsByFilter(ctx, filter, limit, offset)
 	if err != nil {

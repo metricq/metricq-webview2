@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// analyzeQueryTargets computes summary statistics for direct and computed targets.
 func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest, targets []apiQueryTarget) []apiAnalyzeEntry {
 	planned, sourceMetrics := planQueryTargets(targets, false)
 	source := s.loadMetricSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, 4096)
@@ -59,6 +60,7 @@ func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest
 	return out
 }
 
+// populateAnalyzeEntryFromMetric fills an analysis entry from a single aggregate history request.
 func (s *service) populateAnalyzeEntryFromMetric(
 	ctx context.Context,
 	entry *apiAnalyzeEntry,
@@ -93,6 +95,7 @@ func (s *service) populateAnalyzeEntryFromMetric(
 	entry.Mean = aggregateMean(agg)
 }
 
+// analyzeValueMap reduces a timestamped value map to summary statistics.
 func analyzeValueMap(values map[int64]float64) (minimum, maximum, sum float64, count uint64, ok bool) {
 	minimum = math.Inf(1)
 	maximum = math.Inf(-1)
@@ -117,6 +120,7 @@ func analyzeValueMap(values map[int64]float64) (minimum, maximum, sum float64, c
 	return minimum, maximum, sum, count, true
 }
 
+// computeGlobalYRange queries aggregate bounds for a metric set over a time range.
 func (s *service) computeGlobalYRange(ctx context.Context, metrics []string, fromMS, toMS int64) (apiYRangeGlobalResponse, error) {
 	minY := math.Inf(1)
 	maxY := math.Inf(-1)

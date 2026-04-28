@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// resolveQuerySeries resolves request targets into API series, including expression targets.
 func (s *service) resolveQuerySeries(ctx context.Context, req apiQueryRequest, targets []apiQueryTarget) ([]apiQuerySeries, error) {
 	planned, sourceMetrics := planQueryTargets(targets, true)
 	source := s.loadMetricSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)

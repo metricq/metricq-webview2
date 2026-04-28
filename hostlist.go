@@ -9,6 +9,7 @@ import (
 
 var hostlistRangePattern = regexp.MustCompile(`^(\d+)-(\d+)$`)
 
+// expandHostlistQuery expands a hostlist expression into individual selectors.
 func expandHostlistQuery(query string, limit int) ([]string, bool) {
 	q := strings.TrimSpace(query)
 	if q == "" || !strings.Contains(q, "[") || !strings.Contains(q, "]") {
@@ -24,6 +25,7 @@ func expandHostlistQuery(query string, limit int) ([]string, bool) {
 	return values, true
 }
 
+// expandHostlistSegment expands a single bracket segment within a hostlist expression.
 func expandHostlistSegment(query string, limit int) ([]string, bool) {
 	if query == "" {
 		return []string{""}, true
@@ -60,6 +62,7 @@ func expandHostlistSegment(query string, limit int) ([]string, bool) {
 	return out, true
 }
 
+// expandHostlistItems expands the comma-separated items inside a bracket expression.
 func expandHostlistItems(body string, limit int) ([]string, bool) {
 	parts := strings.Split(body, ",")
 	out := make([]string, 0, len(parts))

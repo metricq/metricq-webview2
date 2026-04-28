@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// resolveQueryTargets normalizes legacy metric lists and explicit targets into one target list.
 func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
 	if len(req.Targets) == 0 {
 		targets := make([]apiQueryTarget, 0, len(req.Metrics))

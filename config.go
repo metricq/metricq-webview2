@@ -7,6 +7,7 @@ import (
 	"time"
 )
 
+// configFromEnv reads the process environment into the runtime config.
 func configFromEnv() config {
 	cfg := config{
 		ListenAddr:    ":80",

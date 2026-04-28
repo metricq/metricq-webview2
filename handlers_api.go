@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// handleAPIConfig serves static frontend configuration values.
 func (s *service) handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -19,6 +20,7 @@ func (s *service) handleAPIConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleAPIMetrics serves metric lookup results for the search UI.
 func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -58,6 +60,7 @@ func (s *service) handleAPIMetrics(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"metrics": list})
 }
 
+// handleAPIMetadata serves metadata for a single metric.
 func (s *service) handleAPIMetadata(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -81,6 +84,7 @@ func (s *service) handleAPIMetadata(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"metric": metric, "metadata": meta})
 }
 
+// handleAPIQuery serves time-series query results for direct and computed targets.
 func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -113,6 +117,7 @@ func (s *service) handleAPIQuery(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"series": results})
 }
 
+// handleAPIExpressionValidate validates an expression and returns structured parse errors.
 func (s *service) handleAPIExpressionValidate(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -151,6 +156,7 @@ func (s *service) handleAPIExpressionValidate(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, apiExpressionValidateResponse{Valid: true})
 }
 
+// handleAPIQueryStacked serves query results aligned for stacked rendering.
 func (s *service) handleAPIQueryStacked(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -188,6 +194,7 @@ func (s *service) handleAPIQueryStacked(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, resp)
 }
 
+// handleAPIAnalyze serves summary statistics for direct and computed targets.
 func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -220,6 +227,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleAPIMetricsSuggestFields lists filter fields that support value suggestions.
 func (s *service) handleAPIMetricsSuggestFields(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -228,6 +236,7 @@ func (s *service) handleAPIMetricsSuggestFields(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusOK, map[string]any{"fields": suggestableFields})
 }
 
+// handleAPIMetricsSuggest serves suggested values for one filter field.
 func (s *service) handleAPIMetricsSuggest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -270,6 +279,7 @@ func (s *service) handleAPIMetricsSuggest(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{"field": field, "values": values})
 }
 
+// handleAPIMetricsResolve resolves metrics from a structured metadata filter.
 func (s *service) handleAPIMetricsResolve(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -300,6 +310,7 @@ func (s *service) handleAPIMetricsResolve(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{"metrics": entries})
 }
 
+// handleAPIMetricsAdvancedSearch serves advanced metric search results.
 func (s *service) handleAPIMetricsAdvancedSearch(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
@@ -330,6 +341,7 @@ func (s *service) handleAPIMetricsAdvancedSearch(w http.ResponseWriter, r *http.
 	writeJSON(w, http.StatusOK, map[string]any{"metrics": results})
 }
 
+// handleAPIYRangeGlobal serves aggregate y-axis bounds for a metric set.
 func (s *service) handleAPIYRangeGlobal(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method not allowed")

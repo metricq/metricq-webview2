@@ -23,6 +23,7 @@ type metricSourceData struct {
 	errs   map[string]string
 }
 
+// expressionErrorInfo converts parser and evaluation errors into the API error payload shape.
 func expressionErrorInfo(err error) *apiExprError {
 	if err == nil {
 		return nil
@@ -51,6 +52,7 @@ func expressionErrorInfo(err error) *apiExprError {
 	return info
 }
 
+// planQueryTargets parses expression targets and collects the source metrics they need.
 func planQueryTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]plannedQueryTarget, []string) {
 	planned := make([]plannedQueryTarget, len(targets))
 	sourceMetricSet := map[string]struct{}{}
@@ -89,6 +91,7 @@ func planQueryTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]pl
 	return planned, sourceMetrics
 }
 
+// loadMetricSourceData fetches source series and expression inputs for a metric set.
 func (s *service) loadMetricSourceData(
 	ctx context.Context,
 	metrics []string,
@@ -125,6 +128,7 @@ func (s *service) loadMetricSourceData(
 	return data
 }
 
+// buildQueryInputs assembles the evaluated dependency inputs for one computed target.
 func buildQueryInputs(
 	target plannedQueryTarget,
 	source metricSourceData,

@@ -14,11 +14,13 @@ type evalValue struct {
 	series map[int64]float64
 }
 
+// scalarEvalValue wraps a scalar value for the expression evaluator.
 func scalarEvalValue(v float64) evalValue {
 	copyV := v
 	return evalValue{scalar: &copyV}
 }
 
+// seriesEvalValue copies a timeline map into an evaluator value.
 func seriesEvalValue(src map[int64]float64) evalValue {
 	out := make(map[int64]float64, len(src))
 	for t, v := range src {
@@ -27,6 +29,7 @@ func seriesEvalValue(src map[int64]float64) evalValue {
 	return evalValue{series: out}
 }
 
+// isScalar reports whether the evaluator value is a scalar.
 func (v evalValue) isScalar() bool {
 	return v.scalar != nil
 }
@@ -40,6 +43,7 @@ type metricNode struct {
 	name string
 }
 
+// eval resolves a metric node against the current input timelines.
 func (n metricNode) eval(inputs map[string]map[int64]float64) (evalValue, error) {
 	series, ok := inputs[n.name]
 	if !ok {
@@ -48,6 +52,7 @@ func (n metricNode) eval(inputs map[string]map[int64]float64) (evalValue, error)
 	return seriesEvalValue(series), nil
 }
 
+// collectMetrics records the metric dependencies referenced by this node.
 func (n metricNode) collectMetrics(dst map[string]struct{}) {
 	dst[n.name] = struct{}{}
 }
@@ -56,10 +61,12 @@ type numberNode struct {
 	value float64
 }
 
+// eval returns the literal numeric value of a number node.
 func (n numberNode) eval(_ map[string]map[int64]float64) (evalValue, error) {
 	return scalarEvalValue(n.value), nil
 }
 
+// collectMetrics is a no-op for numeric literals.
 func (n numberNode) collectMetrics(_ map[string]struct{}) {}
 
 type unaryNode struct {
@@ -67,6 +74,7 @@ type unaryNode struct {
 	child exprNode
 }
 
+// eval applies the unary operator to a scalar or series child value.
 func (n unaryNode) eval(inputs map[string]map[int64]float64) (evalValue, error) {
 	child, err := n.child.eval(inputs)
 	if err != nil {
@@ -103,6 +111,7 @@ func (n unaryNode) eval(inputs map[string]map[int64]float64) (evalValue, error) 
 	return evalValue{series: out}, nil
 }
 
+// collectMetrics forwards metric collection into the unary child.
 func (n unaryNode) collectMetrics(dst map[string]struct{}) {
 	n.child.collectMetrics(dst)
 }
@@ -112,6 +121,7 @@ type binaryNode struct {
 	left, right exprNode
 }
 
+// applyBinary applies one binary arithmetic operator and reports invalid operations.
 func applyBinary(op string, lv, rv float64) (float64, bool, error) {
 	switch op {
 	case "+":
@@ -130,6 +140,7 @@ func applyBinary(op string, lv, rv float64) (float64, bool, error) {
 	}
 }
 
+// eval applies a binary operator to scalar and series inputs.
 func (n binaryNode) eval(inputs map[string]map[int64]float64) (evalValue, error) {
 	left, err := n.left.eval(inputs)
 	if err != nil {
@@ -199,6 +210,7 @@ func (n binaryNode) eval(inputs map[string]map[int64]float64) (evalValue, error)
 	return evalValue{series: out}, nil
 }
 
+// collectMetrics forwards metric collection into both binary operands.
 func (n binaryNode) collectMetrics(dst map[string]struct{}) {
 	n.left.collectMetrics(dst)
 	n.right.collectMetrics(dst)
@@ -209,6 +221,7 @@ type funcNode struct {
 	args []exprNode
 }
 
+// foldValues reduces a value list with one supported aggregate function.
 func foldValues(name string, values []float64) (float64, error) {
 	switch name {
 	case "min":
@@ -238,6 +251,7 @@ func foldValues(name string, values []float64) (float64, error) {
 	}
 }
 
+// eval evaluates a variadic function node over scalar and series arguments.
 func (n funcNode) eval(inputs map[string]map[int64]float64) (evalValue, error) {
 	if len(n.args) == 0 {
 		return evalValue{}, fmt.Errorf("function %s requires arguments", n.name)
@@ -296,6 +310,7 @@ func (n funcNode) eval(inputs map[string]map[int64]float64) (evalValue, error) {
 	return evalValue{series: out}, nil
 }
 
+// collectMetrics forwards metric collection into all function arguments.
 func (n funcNode) collectMetrics(dst map[string]struct{}) {
 	for _, arg := range n.args {
 		arg.collectMetrics(dst)
@@ -317,6 +332,7 @@ type exprParseError struct {
 	End     int
 }
 
+// Error returns the user-facing parse error message.
 func (e *exprParseError) Error() string {
 	if e == nil {
 		return "invalid expression"
@@ -324,10 +340,12 @@ func (e *exprParseError) Error() string {
 	return e.Message
 }
 
+// newExprParseError constructs a parse error without a token payload.
 func newExprParseError(code, message string, pos, end int) error {
 	return newExprParseErrorWithToken(code, message, "", pos, end)
 }
 
+// newExprParseErrorWithToken constructs a parse error with token location metadata.
 func newExprParseErrorWithToken(code, message, token string, pos, end int) error {
 	if pos < 0 {
 		pos = 0
@@ -344,6 +362,7 @@ func newExprParseErrorWithToken(code, message, token string, pos, end int) error
 	}
 }
 
+// isNumericToken reports whether a token can be parsed as a numeric literal.
 func isNumericToken(word string) bool {
 	if word == "" {
 		return false
@@ -366,6 +385,7 @@ func isNumericToken(word string) bool {
 	return err == nil
 }
 
+// tokenizeExpr converts an expression string into parser tokens.
 func tokenizeExpr(input string) ([]exprToken, error) {
 	out := make([]exprToken, 0, len(input)+1)
 	runes := []rune(input)
@@ -463,6 +483,7 @@ type exprParser struct {
 	pos    int
 }
 
+// parseExpression parses an input string into an evaluable expression tree.
 func parseExpression(input string) (exprNode, error) {
 	tokens, err := tokenizeExpr(input)
 	if err != nil {
@@ -480,6 +501,7 @@ func parseExpression(input string) (exprNode, error) {
 	return node, nil
 }
 
+// peek returns the current parser token without consuming it.
 func (p *exprParser) peek() exprToken {
 	if p.pos >= len(p.tokens) {
 		return exprToken{kind: "eof"}
@@ -487,12 +509,14 @@ func (p *exprParser) peek() exprToken {
 	return p.tokens[p.pos]
 }
 
+// take returns the current parser token and advances the parser.
 func (p *exprParser) take() exprToken {
 	tok := p.peek()
 	p.pos++
 	return tok
 }
 
+// parseSum parses addition and subtraction expressions.
 func (p *exprParser) parseSum() (exprNode, error) {
 	left, err := p.parseProduct()
 	if err != nil {
@@ -513,6 +537,7 @@ func (p *exprParser) parseSum() (exprNode, error) {
 	return left, nil
 }
 
+// parseProduct parses multiplication and division expressions.
 func (p *exprParser) parseProduct() (exprNode, error) {
 	left, err := p.parseUnary()
 	if err != nil {
@@ -533,6 +558,7 @@ func (p *exprParser) parseProduct() (exprNode, error) {
 	return left, nil
 }
 
+// parseUnary parses unary operators and delegates to primary expressions.
 func (p *exprParser) parseUnary() (exprNode, error) {
 	tok := p.peek()
 	if tok.kind == "-" {
@@ -554,6 +580,7 @@ func (p *exprParser) parseUnary() (exprNode, error) {
 	return p.parsePrimary()
 }
 
+// parsePrimary parses literals, metric references, parentheses, and function calls.
 func (p *exprParser) parsePrimary() (exprNode, error) {
 	tok := p.peek()
 	if tok.kind == "(" {
@@ -597,6 +624,7 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 	return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 }
 
+// parseFunctionCall parses one supported function call expression.
 func (p *exprParser) parseFunctionCall(fnToken exprToken) (exprNode, error) {
 	name := strings.TrimSpace(fnToken.val)
 	fn := strings.ToLower(name)
@@ -642,6 +670,7 @@ func (p *exprParser) parseFunctionCall(fnToken exprToken) (exprNode, error) {
 	return funcNode{name: fn, args: args}, nil
 }
 
+// metricsInExpression returns the sorted set of metric dependencies in an expression.
 func metricsInExpression(root exprNode) []string {
 	set := map[string]struct{}{}
 	root.collectMetrics(set)
@@ -671,6 +700,7 @@ type metricCursor struct {
 	index  int
 }
 
+// sortedSeriesPoints converts a sample map into a sorted timestamp/value slice.
 func sortedSeriesPoints(series map[int64]evalSample, selector func(evalSample) float64) []tsValue {
 	points := make([]tsValue, 0, len(series))
 	for t, sample := range series {
@@ -680,6 +710,7 @@ func sortedSeriesPoints(series map[int64]evalSample, selector func(evalSample) f
 	return points
 }
 
+// evalNodeAt evaluates one expression node at a single timestamp snapshot.
 func evalNodeAt(
 	node exprNode,
 	values map[string]float64,
@@ -764,6 +795,7 @@ func evalNodeAt(
 	}
 }
 
+// evalExpressionWithSamples evaluates an expression and returns only its average values.
 func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]float64, error) {
 	samples, err := evalExpressionSamples(root, inputs)
 	if err != nil {
@@ -776,6 +808,7 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 	return out, nil
 }
 
+// evalExpressionSamples evaluates an expression and preserves sample support metadata.
 func evalExpressionSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]evalSample, error) {
 	if root == nil {
 		return nil, fmt.Errorf("empty expression")
@@ -882,6 +915,7 @@ func evalExpressionSamples(root exprNode, inputs map[string]map[int64]evalSample
 	return out, nil
 }
 
+// evalSampleFromValue wraps one raw value as a degenerate aggregate sample.
 func evalSampleFromValue(v float64) evalSample {
 	return evalSample{
 		avg:   v,
@@ -891,6 +925,7 @@ func evalSampleFromValue(v float64) evalSample {
 	}
 }
 
+// evalInputFromValueMap converts raw value timelines into evaluator samples.
 func evalInputFromValueMap(values map[int64]float64) map[int64]evalSample {
 	out := make(map[int64]evalSample, len(values))
 	for t, v := range values {
@@ -899,6 +934,7 @@ func evalInputFromValueMap(values map[int64]float64) map[int64]evalSample {
 	return out
 }
 
+// evalExpression evaluates an expression over raw value timelines.
 func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int64]float64, error) {
 	converted := make(map[string]map[int64]evalSample, len(inputs))
 	for name, series := range inputs {
@@ -907,6 +943,7 @@ func evalExpression(root exprNode, inputs map[string]map[int64]float64) (map[int
 	return evalExpressionWithSamples(root, converted)
 }
 
+// seriesToEvalInputMap converts an API series into evaluator samples.
 func seriesToEvalInputMap(series apiQuerySeries) map[int64]evalSample {
 	out := map[int64]evalSample{}
 	if series.Mode == "values" {
@@ -932,6 +969,7 @@ func seriesToEvalInputMap(series apiQuerySeries) map[int64]evalSample {
 	return out
 }
 
+// samplesToAggregateSeries converts evaluator samples into an aggregate API series.
 func samplesToAggregateSeries(name string, values map[int64]evalSample, duration float64) apiQuerySeries {
 	keys := make([]int64, 0, len(values))
 	for t := range values {
@@ -982,6 +1020,7 @@ func samplesToAggregateSeries(name string, values map[int64]evalSample, duration
 	}
 }
 
+// minInt returns the smaller of two integers.
 func minInt(a, b int) int {
 	if a < b {
 		return a

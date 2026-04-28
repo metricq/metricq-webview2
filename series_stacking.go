@@ -15,6 +15,7 @@ type stackedValuePoint struct {
 
 const stackedNoLowerBound int64 = -1 << 63
 
+// seriesToStackedPoints converts a query series into points that can be aligned under last semantics.
 func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 	switch series.Mode {
 	case "values":
@@ -44,6 +45,7 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 	}
 }
 
+// stackedValueAtLastSemantics returns the first value that is valid at the requested timestamp.
 func stackedValueAtLastSemantics(points []stackedValuePoint, t int64) (float64, bool) {
 	if len(points) == 0 {
 		return 0, false
@@ -59,6 +61,7 @@ func stackedValueAtLastSemantics(points []stackedValuePoint, t int64) (float64, 
 	return 0, false
 }
 
+// buildStackedTimeline creates the shared output timeline for stacked rendering.
 func buildStackedTimeline(fromMS, toMS int64, maxDataPoints int) []int64 {
 	if toMS <= fromMS {
 		return []int64{}
@@ -82,6 +85,7 @@ func buildStackedTimeline(fromMS, toMS int64, maxDataPoints int) []int64 {
 	return timeline
 }
 
+// alignStackedSeries aligns multiple series onto one timeline for stacked rendering.
 func alignStackedSeries(series []apiQuerySeries, fromMS, toMS int64, maxDataPoints int) (apiStackedSeriesResponse, error) {
 	pointsByMetric := make([][]stackedValuePoint, 0, len(series))
 	metricHasData := make([]bool, 0, len(series))

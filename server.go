@@ -14,6 +14,7 @@ import (
 //go:embed web/*
 var webFS embed.FS
 
+// main initializes the service and starts the HTTP server.
 func main() {
 	cfg := configFromEnv()
 	ctx, cancel := context.WithCancel(context.Background())
