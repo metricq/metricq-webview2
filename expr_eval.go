@@ -889,24 +889,43 @@ func seriesToEvalInputMap(series apiQuerySeries) map[int64]evalSample {
 	return out
 }
 
-func valuesToPointSeries(name string, values map[int64]float64, duration float64) apiQuerySeries {
+func valuesToAggregateSeries(name string, values map[int64]float64, duration float64) apiQuerySeries {
 	keys := make([]int64, 0, len(values))
 	for t := range values {
 		keys = append(keys, t)
 	}
 	sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 
-	points := make([]apiPoint, 0, len(keys))
-	for _, t := range keys {
+	points := make([]apiAggPoint, 0, len(keys))
+	for i, t := range keys {
 		v := values[t]
-		points = append(points, apiPoint{T: t, V: v})
+		activeTimeMS := int64(0)
+		if len(keys) > 1 {
+			switch {
+			case i > 0:
+				activeTimeMS = t - keys[i-1]
+			case i+1 < len(keys):
+				activeTimeMS = keys[i+1] - t
+			}
+		}
+		if activeTimeMS < 0 {
+			activeTimeMS = 0
+		}
+		points = append(points, apiAggPoint{
+			T:            t,
+			Min:          v,
+			Max:          v,
+			Avg:          v,
+			Count:        1,
+			ActiveTimeMS: activeTimeMS,
+		})
 	}
 
 	return apiQuerySeries{
 		Metric:      name,
-		Mode:        "values",
+		Mode:        "aggregates",
 		Duration:    duration,
-		Points:      points,
+		AggPoints:   points,
 		SampleCount: uint64(len(points)),
 		Stats: map[string]any{
 			"type": "computed",

@@ -232,12 +232,18 @@ func TestSeriesToEvalInputMapAndAggregateConversion(t *testing.T) {
 		t.Fatalf("count==0 aggregate point must be skipped: %#v", mapped)
 	}
 
-	converted := valuesToPointSeries("expr.total", map[int64]float64{2000: 2, 1000: 1}, 0.42)
-	if converted.Mode != "values" || len(converted.Points) != 2 {
+	converted := valuesToAggregateSeries("expr.total", map[int64]float64{2000: 2, 1000: 1}, 0.42)
+	if converted.Mode != "aggregates" || len(converted.AggPoints) != 2 {
 		t.Fatalf("unexpected converted metadata: %#v", converted)
 	}
-	if converted.Points[0].T != 1000 || converted.Points[1].T != 2000 {
-		t.Fatalf("expected sorted timestamps, got: %#v", converted.Points)
+	if converted.AggPoints[0].T != 1000 || converted.AggPoints[1].T != 2000 {
+		t.Fatalf("expected sorted timestamps, got: %#v", converted.AggPoints)
+	}
+	if converted.AggPoints[0].ActiveTimeMS != 1000 || converted.AggPoints[1].ActiveTimeMS != 1000 {
+		t.Fatalf("expected derived active times, got: %#v", converted.AggPoints)
+	}
+	if converted.AggPoints[0].Count != 1 || converted.AggPoints[1].Count != 1 {
+		t.Fatalf("expected synthetic count=1, got: %#v", converted.AggPoints)
 	}
 }
 

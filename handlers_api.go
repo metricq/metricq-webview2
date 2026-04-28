@@ -357,7 +357,7 @@ func (s *service) executeAPIQuery(ctx context.Context, req apiQueryRequest, targ
 			}
 			continue
 		}
-		results[i] = valuesToPointSeries(target.name, values, depDuration)
+		results[i] = valuesToAggregateSeries(target.name, values, depDuration)
 	}
 	return results, nil
 }
