@@ -345,6 +345,10 @@
   margin-top: 0.28rem;
 }
 
+.collapsed-legend-section.is-frequency > .collapsed-legend-section {
+  margin-top: 0.28rem;
+}
+
 .collapsed-legend-section-header {
   display: inline-flex;
   align-items: center;

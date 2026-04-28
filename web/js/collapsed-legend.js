@@ -99,6 +99,7 @@ function appendLegendSection(
     section.appendChild(buildLegendRow(metric, { forceNormalIndicator }));
   }
   host.appendChild(section);
+  return section;
 }
 
 export function renderCollapsedLegend() {
@@ -117,26 +118,26 @@ export function renderCollapsedLegend() {
     return;
   }
 
-  if (metricRenderShowsCounts()) {
-    appendLegendSection(host, [], {
+  const targetHost = metricRenderShowsCounts()
+    ? appendLegendSection(host, [], {
       stacked: false,
       forceNormalIndicator: true,
       showHeader: true,
       frequency: true,
       headerCount: visible.length,
-    });
-  }
+    })
+    : host;
 
   if (state.yAxisStacked) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
     if (nonStacked.length > 0)
-      appendLegendSection(host, nonStacked, { stacked: false });
+      appendLegendSection(targetHost, nonStacked, { stacked: false });
     if (stacked.length > 0)
-      appendLegendSection(host, stacked, { stacked: true });
+      appendLegendSection(targetHost, stacked, { stacked: true });
   } else {
     appendLegendSection(
-      host,
+      targetHost,
       visible,
       { stacked: false, forceNormalIndicator: true, showHeader: false },
     );
