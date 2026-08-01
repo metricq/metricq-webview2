@@ -306,28 +306,3 @@ body {
     grid-template-columns: 1fr;
   }
 }
-
-/*
- * Explain-on-hover: active while the help overlay is open (see
- * setHelpHoverModeActive in help-hover.js). Reuses each control's own
- * title/data-help text instead of the browser's native title tooltip,
- * which is suppressed for the duration so the two don't fight for space.
- */
-body.help-hover-mode [title],
-body.help-hover-mode [data-help] {
-  cursor: help;
-}
-
-.help-hover-tooltip {
-  position: fixed;
-  z-index: 1250;
-  max-width: min(320px, calc(100vw - 16px));
-  padding: 0.4rem 0.65rem;
-  border-radius: 0.45rem;
-  background: var(--mq-navy-deep);
-  color: #f2f6fb;
-  font-size: 0.8rem;
-  line-height: 1.35;
-  box-shadow: 0 0.4rem 1rem rgba(8, 42, 64, 0.35);
-  pointer-events: none;
-}

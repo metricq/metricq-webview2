@@ -138,6 +138,49 @@
   --bs-btn-font-size: 0.82rem;
 }
 
+.chart-help-reference {
+  margin-top: 0.9rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e3e8f2;
+  max-height: 260px;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.chart-help-reference-group + .chart-help-reference-group {
+  margin-top: 0.65rem;
+}
+
+.chart-help-reference-group-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #8a94a6;
+  margin-bottom: 0.25rem;
+}
+
+.chart-help-reference-list {
+  margin: 0;
+}
+
+.chart-help-reference-list dt {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-top: 0.4rem;
+}
+
+.chart-help-reference-list dt:first-child {
+  margin-top: 0;
+}
+
+.chart-help-reference-list dd {
+  margin: 0.05rem 0 0;
+  font-size: 0.8rem;
+  color: #5f6b7b;
+}
+
 .chart-empty-minimize-ghost {
   position: fixed;
   border: 1px solid #d4dceb;

@@ -7,7 +7,6 @@ import { fetchFrontendConfig } from "./api.js";
 import { renderCollapsedLegend } from "./collapsed-legend.js";
 import { wireExpressionModal } from "./expressions.js";
 import { createHelpModule } from "./help.js";
-import { initHelpHoverMode } from "./help-hover.js";
 import { buildLegacyChartsUrl } from "./legacy-url.mjs";
 import {
   formatDecimalInput,
@@ -1148,7 +1147,6 @@ async function init() {
     showUrlStateErrorModal(urlStateError);
   }
   if (!restoredFromUrl) setInitialRange();
-  initHelpHoverMode();
   helpModule = createHelpModule({
     setSidebarCollapsed,
     toggleTimePopup,

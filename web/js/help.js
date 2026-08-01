@@ -79,6 +79,87 @@ function helpActionButton(
   return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}>${iconHtml}${label}</button>`;
 }
 
+// Reuses each control's own title/data-help text as the single source of
+// truth, so this reference list can't drift out of sync with the tooltips
+// those same buttons already show natively.
+const CONTROL_REFERENCE_GROUPS = [
+  {
+    label: "Navigation",
+    selectors: [
+      "#btnAnalyze",
+      "#btnExport",
+      "#btnOpenLegacyCharts",
+      "#btnShowUrlQr",
+      "#btnShare",
+      "#btnZoomIn",
+      "#btnZoomOut",
+      "#btnShiftBack",
+      "#btnTimeRange",
+      "#btnShiftForward",
+    ],
+  },
+  {
+    label: "Metrikleiste",
+    selectors: [
+      "#btnSidebarToggle",
+      "#btnSidebarClose",
+      "#btnYAxis",
+      "#btnRenderBands",
+      "#btnRenderLine",
+      "#btnRenderCount",
+      "#btnRenderTi",
+      "#btnRenderCandles",
+      "#btnHideAll",
+      "#btnShowAll",
+      "#btnRecolorClassic",
+      "#btnRecolor",
+      "#btnClear",
+    ],
+  },
+];
+
+function renderControlReference() {
+  if (!dom.chartHelpReference) return;
+  dom.chartHelpReference.replaceChildren();
+  for (const group of CONTROL_REFERENCE_GROUPS) {
+    const entries = group.selectors
+      .map((selector) => document.querySelector(selector))
+      .filter((el) => el)
+      .map((el) => {
+        const term = (el.getAttribute("title") || "").trim();
+        const desc = (
+          el.getAttribute("data-help") ||
+          el.getAttribute("title") ||
+          ""
+        ).trim();
+        return term && desc ? { term, desc } : null;
+      })
+      .filter((entry) => entry);
+    if (entries.length === 0) continue;
+
+    const groupEl = document.createElement("div");
+    groupEl.className = "chart-help-reference-group";
+
+    const labelEl = document.createElement("div");
+    labelEl.className = "chart-help-reference-group-label";
+    labelEl.textContent = group.label;
+    groupEl.appendChild(labelEl);
+
+    const listEl = document.createElement("dl");
+    listEl.className = "chart-help-reference-list";
+    for (const { term, desc } of entries) {
+      const dt = document.createElement("dt");
+      dt.textContent = term;
+      const dd = document.createElement("dd");
+      dd.textContent = desc;
+      listEl.appendChild(dt);
+      listEl.appendChild(dd);
+    }
+    groupEl.appendChild(listEl);
+    dom.chartHelpReference.appendChild(groupEl);
+  }
+}
+
 export function createHelpModule({
   setSidebarCollapsed,
   toggleTimePopup,
@@ -345,6 +426,7 @@ export function createHelpModule({
       if (!action) return;
       void runHelpAction(action, target);
     });
+    renderControlReference();
   }
 
   return {
