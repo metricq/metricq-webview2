@@ -1,3 +1,4 @@
+import { LEGEND_MIN_VIEWPORT_PX } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
@@ -2141,7 +2142,11 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.style.top = `${top}px`;
     return;
   }
-  if (dom.collapsedLegend && state.sidebarCollapsed)
+  if (
+    dom.collapsedLegend &&
+    state.sidebarCollapsed &&
+    window.innerWidth >= LEGEND_MIN_VIEWPORT_PX
+  )
     dom.collapsedLegend.classList.remove("d-none");
   hideHoverCursorLine();
   const candidates = [];

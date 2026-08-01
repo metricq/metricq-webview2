@@ -103,12 +103,17 @@ function appendLegendSection(
   return section;
 }
 
+// Bootstrap's md breakpoint (768px) — "sm or below" is everything under it.
+// Below that width the legend has nowhere to sit that doesn't just cover
+// the chart, so it's not worth rendering at all.
+export const LEGEND_MIN_VIEWPORT_PX = 768;
+
 export function renderCollapsedLegend() {
   const host = dom.collapsedLegend;
   if (!host) return;
   host.innerHTML = "";
 
-  if (!state.sidebarCollapsed) {
+  if (!state.sidebarCollapsed || window.innerWidth < LEGEND_MIN_VIEWPORT_PX) {
     host.classList.add("d-none");
     return;
   }
