@@ -12,66 +12,73 @@
       href="/vendor/bootstrap-icons/1.13.1/css/bootstrap-icons.min.css"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="/style.css" />
+    <link rel="stylesheet" href="/style.css?v=15" />
   </head>
   <body>
     <div class="app-shell">
-      <nav class="navbar navbar-expand-lg app-navbar sticky-top">
+      <nav class="navbar navbar-expand-lg app-navbar sticky-top" data-bs-theme="dark">
         <div class="container-fluid px-3 navbar-top-container">
           <a class="navbar-brand d-flex align-items-center gap-2" href="/">
             <img src="/img/metricq-logo.png" width="34" height="34" alt="MetricQ" class="rounded-2" />
-            <span class="fw-semibold">MetricQ</span>
+            <span class="fw-semibold navbar-brand-text d-none d-sm-inline">MetricQ</span>
           </a>
-          <button class="btn btn-outline-primary btn-sm navbar-help-toggle" id="btnHelpOverlayToggle" type="button" title="Hilfe anzeigen" aria-label="Hilfe anzeigen">
-            ?
-          </button>
-          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
-            <span class="navbar-toggler-icon"></span>
-          </button>
 
-          <div class="collapse navbar-collapse justify-content-end" id="topNav">
-            <div class="top-controls d-flex flex-nowrap gap-2 py-2 py-lg-0 align-items-center">
-              <button class="btn btn-outline-primary" id="btnRenderMode" type="button" title="Rendering-Modus umschalten">
-                TI
-              </button>
-              <button class="btn btn-outline-primary ms-auto" id="btnYAxis" data-bs-toggle="modal" data-bs-target="#yAxisModal" title="Y-Achse konfigurieren">
-                <i class="bi bi-rulers d-inline-block" style="transform: rotate(-90deg)"></i>
-              </button>
-              <button class="btn btn-outline-primary" id="btnAnalyze" data-bs-toggle="modal" data-bs-target="#analyzeModal">
-                <i class="bi bi-table"></i>
-              </button>
-              <button class="btn btn-outline-primary" id="btnExport" data-bs-toggle="modal" data-bs-target="#exportModal">
-                <i class="bi bi-download"></i>
-              </button>
-              <button class="btn btn-outline-primary" id="btnOpenLegacyCharts" type="button" title="Im Legacy-Chart öffnen">
-                <i class="bi bi-graph-down-arrow"></i>
-              </button>
-              <button class="btn btn-outline-primary" id="btnShowUrlQr" type="button" title="Aktuelle URL als QR-Code anzeigen">
-                <i class="bi bi-qr-code"></i>
-              </button>
-              <button class="btn btn-outline-primary" id="btnShare" type="button" title="Link teilen">
-                <i class="bi bi-share"></i>
-              </button>
-              <div class="btn-group">
-                <button class="btn btn-outline-primary" id="btnZoomIn" type="button" title="Einen Schritt hineinzoomen">
-                  <i class="bi bi-zoom-in"></i>
+          <!--
+            Single wrapper so the outer navbar row still only has two flex
+            items (brand vs. this), matching the original layout exactly —
+            adding a third top-level item would space-between into a gap
+            that shoves things out of their original left-to-right order.
+            Inside, only the lowest-priority "rest" group (Analyze/Export/
+            LegacyCharts/QR/Share) is collapsible into the burger menu; time
+            range and zoom stay put in their original position and order.
+          -->
+          <div class="navbar-right-group d-flex flex-nowrap align-items-center gap-2 ms-auto">
+            <button class="btn btn-outline-primary btn-sm navbar-help-toggle" id="btnHelpOverlayToggle" type="button" title="Hilfe anzeigen" aria-label="Hilfe anzeigen">
+              ?
+            </button>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#topNav">
+              <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="topNav">
+              <div class="top-controls d-flex flex-nowrap gap-2 py-2 py-lg-0 align-items-center">
+                <button class="btn btn-outline-primary" id="btnAnalyze" data-bs-toggle="modal" data-bs-target="#analyzeModal">
+                  <i class="bi bi-table"></i>
                 </button>
-                <button class="btn btn-outline-primary" id="btnZoomOut" type="button" title="Einen Schritt herauszoomen">
-                  <i class="bi bi-zoom-out"></i>
+                <button class="btn btn-outline-primary" id="btnExport" data-bs-toggle="modal" data-bs-target="#exportModal">
+                  <i class="bi bi-download"></i>
                 </button>
-              </div>
-              <div class="btn-group">
-                <button class="btn btn-outline-primary" id="btnShiftBack" type="button" title="Zeitraum 50% zurück">
-                  <i class="bi bi-chevron-left"></i>
+                <button class="btn btn-outline-primary" id="btnOpenLegacyCharts" type="button" title="Im Legacy-Chart öffnen">
+                  <i class="bi bi-graph-down-arrow"></i>
                 </button>
-                <button class="btn btn-outline-primary time-range-group" id="btnTimeRange" type="button">
-                  <i class="bi bi-clock-history me-1"></i>
-                  Zeitraum
+                <button class="btn btn-outline-primary" id="btnShowUrlQr" type="button" title="Aktuelle URL als QR-Code anzeigen">
+                  <i class="bi bi-qr-code"></i>
                 </button>
-                <button class="btn btn-outline-primary" id="btnShiftForward" type="button" title="Zeitraum 50% vor">
-                  <i class="bi bi-chevron-right"></i>
+                <button class="btn btn-outline-primary" id="btnShare" type="button" title="Link teilen">
+                  <i class="bi bi-share"></i>
                 </button>
               </div>
+            </div>
+
+            <div class="btn-group">
+              <button class="btn btn-outline-primary" id="btnZoomIn" type="button" title="Einen Schritt hineinzoomen">
+                <i class="bi bi-zoom-in"></i>
+              </button>
+              <button class="btn btn-outline-primary" id="btnZoomOut" type="button" title="Einen Schritt herauszoomen">
+                <i class="bi bi-zoom-out"></i>
+              </button>
+            </div>
+            <div class="btn-group">
+              <button class="btn btn-outline-primary" id="btnShiftBack" type="button" title="Zeitraum 50% zurück">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button class="btn btn-outline-primary time-range-group" id="btnTimeRange" type="button">
+                <i class="bi bi-clock-history me-1"></i>
+                Zeitraum
+              </button>
+              <button class="btn btn-outline-primary" id="btnShiftForward" type="button" title="Zeitraum 50% vor">
+                <i class="bi bi-chevron-right"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -107,15 +114,30 @@
               <i class="bi bi-chevron-bar-right"></i>
             </button>
             <div class="card shadow-sm h-100 d-flex flex-column metrics-card">
-              <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold">Metriken</span>
+              <div class="card-header d-flex flex-column gap-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="fw-semibold">Metriken</span>
+                  <button class="btn btn-sm sidebar-close-btn ms-auto" id="btnSidebarClose" type="button" title="Metrikleiste schließen" aria-label="Metrikleiste schließen">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </div>
                 <div class="metrics-header-tools">
+                  <div class="metrics-header-toolset metrics-header-axis">
+                    <span class="metrics-header-toolset-label">Achsen</span>
+                    <div class="btn-group btn-group-sm metrics-toolset-pill">
+                      <button class="btn btn-outline-secondary" id="btnYAxis" data-bs-toggle="modal" data-bs-target="#yAxisModal" title="Y-Achse konfigurieren">
+                        <i class="bi bi-rulers d-inline-block" style="transform: rotate(-90deg)"></i>
+                      </button>
+                    </div>
+                  </div>
                   <div class="metrics-header-toolset metrics-header-toggle">
                     <span class="metrics-header-toolset-label">Ansicht</span>
                     <div class="btn-group btn-group-sm metrics-toolset-pill" role="radiogroup" aria-label="Metrikdarstellung">
                       <button class="btn btn-outline-secondary" id="btnRenderBands" type="button" role="radio" title="Linie mit Bändern" aria-label="Linie mit Bändern"><i class="bi bi-chevron-bar-expand"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRenderLine" type="button" role="radio" title="Nur Linie" aria-label="Nur Linie"><i class="bi bi-dash-lg"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRenderCount" type="button" role="radio" title="Frequenz" aria-label="Frequenz"><i class="bi bi-activity"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderTi" type="button" role="radio" title="TI-Modus (Last-Semantik)" aria-label="TI-Modus (Last-Semantik)"><i class="bi bi-bar-chart-line-fill"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderCandles" type="button" role="radio" title="Kerzenchart (OHLC)" aria-label="Kerzenchart (OHLC)"><i class="bi bi-reception-2"></i></button>
                     </div>
                   </div>
                   <div class="metrics-header-toolset metrics-header-actions">
@@ -573,6 +595,6 @@
     <script
       src="/vendor/bootstrap/5.3.8/js/bootstrap.bundle.min.js"
     ></script>
-    <script type="module" src="/js/main.js"></script>
+    <script type="module" src="/js/main.js?v=1"></script>
   </body>
 </html>

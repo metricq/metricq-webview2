@@ -209,6 +209,25 @@
 #metricsCol {
     position: relative;
     overflow: visible;
+    /*
+     * col-xxl-3 alone gets too narrow to fit the header toolbar (Achsen /
+     * Ansicht / Aktionen) without horizontal scrolling at the lower end of
+     * the xxl range. Clamp the flex-basis instead of a fixed 25% so the
+     * sidebar grows relatively wider as the viewport shrinks (chartCol
+     * gives up the difference) while still capping how wide it gets on
+     * very large screens. Overridden by .sidebar-collapsed / .compact-
+     * sidebar-mode, which are more specific and take over below xxl.
+     *
+     * 480px measured to the pixel as exactly enough for the toolbar (0px
+     * spare) in one browser — real-world font metrics/scrollbars push it
+     * into overflow below 1920px. Bumped to 520px/560px for actual margin.
+     */
+    flex: 0 1 clamp(520px, 25vw, 560px);
+}
+
+#chartCol {
+    flex: 1 1 0%;
+    min-width: 0;
 }
 
 .metrics-card {
@@ -216,14 +235,77 @@
     overflow: visible;
 }
 
+.metrics-card .card-header {
+    background: linear-gradient(180deg, var(--mq-navy), var(--mq-navy-deep));
+    border-bottom: 3px solid var(--mq-teal);
+    color: #ffffff;
+}
+
+.metrics-card .card-header .fw-semibold {
+    color: #ffffff;
+}
+
+.sidebar-close-btn {
+    color: rgba(255, 255, 255, 0.75);
+    background: transparent;
+    border: none;
+    padding: 0.15rem 0.35rem;
+    line-height: 1;
+    border-radius: 0.35rem;
+}
+
+.sidebar-close-btn:hover,
+.sidebar-close-btn:focus {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.metrics-card .card-header .metrics-header-toolset-label {
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.metrics-card .card-header .metrics-header-tools > .metrics-header-toolset:not(:last-child)::after {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.metrics-card .card-header .metrics-toolset-pill {
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.metrics-card .card-header .metrics-toolset-pill .btn + .btn {
+    border-left-color: rgba(255, 255, 255, 0.25);
+}
+
+.metrics-card .card-header .metrics-toolset-pill .btn-outline-secondary {
+    --bs-btn-color: #e7eef5;
+    --bs-btn-bg: rgba(255, 255, 255, 0.08);
+    --bs-btn-hover-color: #ffffff;
+    --bs-btn-hover-bg: rgba(255, 255, 255, 0.18);
+    --bs-btn-active-color: #ffffff;
+    --bs-btn-active-bg: rgba(255, 255, 255, 0.18);
+    --bs-btn-disabled-color: rgba(255, 255, 255, 0.5);
+}
+
+.metrics-card .card-header .metrics-toolset-pill .btn-outline-danger {
+    --bs-btn-hover-bg: #c23b4a;
+    --bs-btn-hover-border-color: #c23b4a;
+}
+
 .metrics-header-tools {
-    display: inline-flex;
+    display: flex;
+    flex-wrap: nowrap;
     align-items: flex-start;
-    gap: 0.75rem;
+    gap: 1.1rem;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.1rem;
 }
 
 .metrics-header-toolset {
+    position: relative;
     display: inline-flex;
+    flex: 0 0 auto;
     flex-direction: column;
     align-items: stretch;
     gap: 0.2rem;
@@ -240,9 +322,21 @@
     user-select: none;
 }
 
-.metrics-header-toggle {
-    padding-right: 0.1rem;
-    border-right: 1px solid var(--mq-line);
+/*
+ * The divider is a pseudo-element centered in the flex gap rather than a
+ * border on the toolset itself: a border sits flush against the button
+ * pill's own (rounded) border, and the two visually clash/overlap at the
+ * pill's corners. Floating it in open space keeps it a clean, independent
+ * line regardless of the pill's shape.
+ */
+.metrics-header-tools > .metrics-header-toolset:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: -0.55rem;
+    width: 1px;
+    background: var(--mq-line);
 }
 
 .metrics-toolset-pill {

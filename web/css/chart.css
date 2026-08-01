@@ -246,6 +246,16 @@
   z-index: 8;
 }
 
+.hover-candle {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid #111111;
+  border-radius: 0.15rem;
+  background: rgba(17, 17, 17, 0.08);
+  pointer-events: none;
+  z-index: 9;
+}
+
 .drag-select-box {
   position: absolute;
   top: 12px;
@@ -528,5 +538,51 @@
 
   .chart-empty-card {
     padding: 0.95rem 0.85rem 0.85rem;
+  }
+}
+
+/*
+ * The navbar's zoom/time-range/help controls stay visible (not collapsed
+ * into the burger menu) below lg, so the full "from - to" label no longer
+ * has room to spell itself out — it used to force the button (and
+ * everything after it) off-screen with no way to reach it, anywhere from
+ * ~560px up through the lg breakpoint itself (78vw is wide enough at those
+ * sizes to never actually trigger the max-width/ellipsis truncation, so the
+ * button just rendered at its full natural width and overflowed). Matching
+ * the lg breakpoint (991.98px, same as Bootstrap's navbar-expand-lg) makes
+ * this one cohesive "compact toolbar" treatment for the whole range where
+ * the burger/toggler is in play, rather than guessing at an intermediate
+ * width. Placed after the (max-width: 991px) block above so it wins the
+ * cascade (equal specificity, later source order wins).
+ *
+ * Extended to 1039.98px, past the lg breakpoint itself: at exactly
+ * >=992px the toggler hides and the 5 "Rest" buttons (Analyze/Export/...)
+ * join the row inline, needing more room than is actually available
+ * until ~1040px wide — the icon-only time-range button is what closes
+ * that gap (confirmed clean via a width sweep; full text fits fine again
+ * once >=1040px).
+ */
+@media (max-width: 1039.98px) {
+  .time-range-group {
+    min-width: 0;
+    max-width: 25vw;
+  }
+
+  /*
+   * Text-truncating an arbitrary "from - to" date string via max-width is
+   * fragile — it depends on font metrics matching the vw guess closely
+   * enough to actually trigger the ellipsis instead of just overflowing.
+   * Drop the text outright for a fixed, predictable icon-only footprint
+   * matching the zoom/shift buttons next to it; the icon glyph gets its
+   * own font-size back since it renders via ::before.
+   */
+  #btnTimeRange {
+    font-size: 0;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+
+  #btnTimeRange i {
+    font-size: 1rem;
   }
 }

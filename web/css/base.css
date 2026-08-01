@@ -72,6 +72,65 @@ body {
 
 .navbar-top-container {
   position: relative;
+  /*
+   * Bootstrap's own .navbar-expand-lg default is flex-wrap:wrap below the
+   * lg breakpoint (that's how the classic brand+toggler-stays/collapse-
+   * drops-below pattern works). Since navbar-right-group now also carries
+   * zoom/time-range/help (not just the collapse), letting it wrap dumps
+   * that whole bundle onto a second line — leaving line 1 mostly empty
+   * (just the logo) and line 2 just as crowded as before. Keep it a single
+   * row always; overflow is handled by shrinking content instead.
+   *
+   * !important is needed here: Bootstrap's own
+   * `.navbar > .container-fluid { flex-wrap: inherit }` rule has higher
+   * specificity (two classes + combinator) than a plain `.navbar-top-
+   * container` selector, so it silently won and re-inherited `wrap` from
+   * the <nav> below lg — this only became visible once content actually
+   * stopped fitting on one line (below ~437px).
+   */
+  flex-wrap: nowrap !important;
+}
+
+.navbar-right-group {
+  min-width: 0;
+  overflow-x: auto;
+}
+
+@media (max-width: 360px) {
+  .navbar-right-group {
+    gap: 0.35rem;
+  }
+
+  .navbar-toggler {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+/*
+ * #topNav sits inside a flex-nowrap row alongside zoom/time-range, which
+ * always stay visible (see index.html) — unlike Bootstrap's default navbar
+ * layout, where the collapse is the sole trailing item and can freely grow
+ * downward when opened. A flex row can't let one item "drop below" while
+ * keeping siblings on the same line, so instead of participating in that
+ * row when open, it becomes an absolutely positioned dropdown anchored to
+ * the full-width .navbar-top-container (already position:relative).
+ */
+@media (max-width: 991.98px) {
+  #topNav.show,
+  #topNav.collapsing {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1040;
+    background: var(--mq-navy-deep);
+    box-shadow: 0 0.6rem 1.2rem rgba(8, 42, 64, 0.35);
+  }
+
+  #topNav .top-controls {
+    justify-content: flex-end;
+    padding: 0.6rem 1rem;
+  }
 }
 
 .app-navbar {
@@ -152,10 +211,15 @@ body {
 }
 
 .navbar-help-toggle {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%) scale(0.72);
+  /*
+   * A normal flex-flow button, not an overlay: it used to be absolutely
+   * centered on the whole navbar width regardless of viewport, which let
+   * other buttons render straight through it and made it float at an odd
+   * vertical position whenever the navbar's own height changed (e.g. the
+   * mobile menu open state). animateEmptyStateToNavbarHelpButton() reads
+   * this button's live position via getBoundingClientRect() at animation
+   * time, so it still animates correctly toward wherever it sits in flow.
+   */
   width: 30px;
   height: 30px;
   padding: 0;
@@ -164,14 +228,14 @@ body {
   line-height: 1;
   opacity: 0;
   pointer-events: none;
+  flex: 0 0 auto;
   transition: opacity 700ms ease, transform 700ms ease;
-  z-index: 1050;
 }
 
 .navbar-help-toggle.is-visible {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%) scale(1);
+  transform: scale(1);
 }
 
 .navbar-help-toggle.is-pop {
@@ -180,13 +244,13 @@ body {
 
 @keyframes navbarHelpPop {
   0% {
-    transform: translate(-50%, -50%) scale(0.86);
+    transform: scale(0.86);
   }
   55% {
-    transform: translate(-50%, -50%) scale(1.12);
+    transform: scale(1.12);
   }
   100% {
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
   }
 }
 
