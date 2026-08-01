@@ -110,36 +110,21 @@ function renderContextualHelp() {
   helpModule?.renderContextualHelp();
 }
 
-function syncRenderModeButton() {
-  if (!dom.btnRenderMode) return;
-  const tiActive = state.renderMode === "ti";
-  dom.btnRenderMode.classList.toggle("btn-primary", tiActive);
-  dom.btnRenderMode.classList.toggle("btn-outline-primary", !tiActive);
-  dom.btnRenderMode.textContent = tiActive ? "TI" : "STD";
-  dom.btnRenderMode.title = tiActive
-    ? "TI-Modus aktiv (Last-Semantik)"
-    : "Standard-Modus aktiv (Point-to-Point)";
+function activeViewMode() {
+  if (state.renderMode === "ti") return "ti";
+  if (state.renderMode === "candlestick") return "candlestick";
+  return normalizeMetricRenderMode(state.metricRenderMode);
 }
 
-function syncRenderBandsButton() {
+function syncViewButtons() {
   const buttons = [
-    {
-      el: dom.btnRenderBands,
-      mode: "bands",
-      title: "Linie mit Bändern",
-    },
-    {
-      el: dom.btnRenderLine,
-      mode: "line",
-      title: "Nur Linie",
-    },
-    {
-      el: dom.btnRenderCount,
-      mode: "count",
-      title: "Frequenz",
-    },
+    { el: dom.btnRenderBands, mode: "bands", title: "Linie mit Bändern" },
+    { el: dom.btnRenderLine, mode: "line", title: "Nur Linie" },
+    { el: dom.btnRenderCount, mode: "count", title: "Frequenz" },
+    { el: dom.btnRenderTi, mode: "ti", title: "TI-Modus (Last-Semantik)" },
+    { el: dom.btnRenderCandles, mode: "candlestick", title: "Kerzenchart (OHLC)" },
   ];
-  const activeMode = normalizeMetricRenderMode(state.metricRenderMode);
+  const activeMode = activeViewMode();
   for (const { el, mode, title } of buttons) {
     if (!el) continue;
     const active = activeMode === mode;
@@ -179,7 +164,7 @@ function setSidebarCollapsed(collapsed) {
     !state.sidebarCollapsed && !state.compactSidebarMode,
   );
   updateSidebarToggleIcon();
-  syncRenderModeButton();
+  syncViewButtons();
   renderCollapsedLegend();
   renderContextualHelp();
   renderChart();
@@ -567,28 +552,38 @@ function wireTopBarEvents() {
     }
     window.open(url, "_blank", "noopener,noreferrer");
   });
-  dom.btnRenderMode.addEventListener("click", () => {
-    state.renderMode = state.renderMode === "ti" ? "standard" : "ti";
-    syncRenderModeButton();
-    hooks.loadData();
-  });
-  const setMetricRenderMode = (mode) => {
-    state.metricRenderMode = normalizeMetricRenderMode(mode);
-    syncRenderBandsButton();
-    renderChart();
-    syncUrlStateIfAllowed();
+  const setView = (renderMode, metricRenderMode) => {
+    const renderModeChanged = state.renderMode !== renderMode;
+    state.renderMode = renderMode;
+    state.metricRenderMode = normalizeMetricRenderMode(metricRenderMode);
+    syncViewButtons();
+    if (renderModeChanged) {
+      hooks.loadData();
+    } else {
+      renderChart();
+      syncUrlStateIfAllowed();
+    }
   };
   dom.btnRenderBands?.addEventListener("click", () => {
-    setMetricRenderMode("bands");
+    setView("standard", "bands");
   });
   dom.btnRenderLine?.addEventListener("click", () => {
-    setMetricRenderMode("line");
+    setView("standard", "line");
   });
   dom.btnRenderCount?.addEventListener("click", () => {
-    setMetricRenderMode("count");
+    setView("standard", "count");
+  });
+  dom.btnRenderTi?.addEventListener("click", () => {
+    setView("ti", "bands");
+  });
+  dom.btnRenderCandles?.addEventListener("click", () => {
+    setView("candlestick", "bands");
   });
   dom.btnSidebarToggle.addEventListener("click", () => {
     setSidebarCollapsed(!state.sidebarCollapsed);
+  });
+  dom.btnSidebarClose?.addEventListener("click", () => {
+    setSidebarCollapsed(true);
   });
 }
 
@@ -1158,8 +1153,7 @@ async function init() {
     renderChart,
   });
   syncYAxisModalFromState();
-  syncRenderModeButton();
-  syncRenderBandsButton();
+  syncViewButtons();
   try {
     const frontendConfig = await fetchFrontendConfig();
     state.legacyChartsBaseUrl = String(frontendConfig?.legacyChartsBaseUrl || "").trim();

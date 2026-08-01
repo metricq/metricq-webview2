@@ -180,6 +180,20 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     },
   );
   if (requestSeq !== latestLoadRequestSeq) return;
+  // Candlesticks are a whole-series display; a stacked metric has nothing
+  // resembling OHLC once merged into the stack, so only non-stacked metrics
+  // get candlestick treatment even while other metrics are stacked normally.
+  if (state.renderMode === "candlestick") {
+    const stackedMetricNames = new Set(
+      state.metrics
+        .filter((metric) => metric.stackMode !== "normal")
+        .map((metric) => metric.name),
+    );
+    for (const target of targets) {
+      if (target.expr || stackedMetricNames.has(target.name)) continue;
+      target.render = "candlestick";
+    }
+  }
   const stackModes = state.metrics.map((metric) => ({
     name: metric.name,
     stackMode: metric.stackMode === "normal" ? "normal" : "stack",
@@ -274,7 +288,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   for (const series of seriesEntries) {
     state.series.set(series.metric, series);
     if (String(series?.error || "").trim()) failedSeries.push(series);
-    if (series.mode === "aggregates")
+    if (series.mode === "aggregates" || series.mode === "candlestick")
       aggPoints += (series.aggregatePoints || []).length;
     rawPoints += Number(series.sampleCount || 0);
     totalDbMs += Number(series.duration || 0) * 1000;

@@ -21,12 +21,21 @@ import { resolveYAxisDomain } from "./y-axis.mjs";
 export const MIN_ZOOM_RANGE_MS = 1000;
 export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
 
+const CANDLE_DOWN_ALPHA = 0.35;
+
+function hexToRgb(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ""));
+  if (!m) return { r: 38, g: 67, b: 233 };
+  return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
+}
+
 let lastHoverClientX = null;
 let lastHoverClientY = null;
 let lastLayout = null;
 let lastStackedByMetric = null;
 let hoverPointEl = null;
 let hoverCursorLineEl = null;
+let hoverCandleEls = [];
 let chartLoadingEl = null;
 let chartErrorEl = null;
 let hoverRafId = 0;
@@ -101,6 +110,35 @@ function positionHoverCursorLine(x, top, height) {
 
 function hideHoverCursorLine() {
   if (hoverCursorLineEl) hoverCursorLineEl.classList.add("d-none");
+}
+
+// A pool of highlight boxes, one per hovered candle. Candlestick mode is
+// commonly used with several overlaid metrics, and each one can have its own
+// candle under the cursor, so a single reused element isn't enough.
+function ensureHoverCandleEl(index) {
+  while (hoverCandleEls.length <= index) {
+    const el = document.createElement("div");
+    el.className = "hover-candle d-none";
+    dom.chartWrap.appendChild(el);
+    hoverCandleEls.push(el);
+  }
+  return hoverCandleEls[index];
+}
+
+function positionHoverCandle(index, x, top, width, height, color) {
+  const box = ensureHoverCandleEl(index);
+  box.classList.remove("d-none");
+  box.style.left = `${x - width / 2}px`;
+  box.style.top = `${top}px`;
+  box.style.width = `${width}px`;
+  box.style.height = `${height}px`;
+  box.style.borderColor = color || "#111111";
+}
+
+function hideHoverCandle(fromIndex = 0) {
+  for (let i = fromIndex; i < hoverCandleEls.length; i += 1) {
+    hoverCandleEls[i].classList.add("d-none");
+  }
 }
 
 function setHoverBoxHtml(html) {
@@ -1425,6 +1463,40 @@ export function renderChart() {
       continue;
     }
 
+    if (series.mode === "candlestick") {
+      const candles = series.aggregatePoints || [];
+      if (!metric.drawAvg || candles.length === 0) continue;
+      const widthMs = Number(series.candleWidthMs) || 0;
+      const fullWidthPx = widthMs > 0 ? sx(xMin + widthMs) - sx(xMin) : 4;
+      const halfWidthPx = Math.max(1, (fullWidthPx * 0.7) / 2);
+      const { r, g, b } = hexToRgb(metric.color);
+      const upColor = `rgba(${r}, ${g}, ${b}, 1)`;
+      const downColor = `rgba(${r}, ${g}, ${b}, ${CANDLE_DOWN_ALPHA})`;
+      for (const p of candles) {
+        if (Number(p.count) === 0) continue;
+        const open = Number(p.open);
+        const close = Number(p.close);
+        if (!Number.isFinite(open) || !Number.isFinite(close)) continue;
+        const x = sx(p.t);
+        const color = close >= open ? upColor : downColor;
+        const yHigh = sy(p.max * metric.factor);
+        const yLow = sy(p.min * metric.factor);
+        const yOpen = sy(open * metric.factor);
+        const yClose = sy(close * metric.factor);
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x, yHigh);
+        ctx.lineTo(x, yLow);
+        ctx.stroke();
+        const bodyTop = Math.min(yOpen, yClose);
+        const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
+        ctx.fillRect(x - halfWidthPx, bodyTop, halfWidthPx * 2, bodyHeight);
+      }
+      continue;
+    }
+
     const points = series.aggregatePoints || [];
     if (points.length === 0) continue;
 
@@ -1802,10 +1874,14 @@ function sampleTIAtTime(metric, series, t) {
     return null;
   }
   const stackedAvg = stackedValueAt(metric.name, "avg", curr.t);
+  const open = Number(curr.open);
+  const close = Number(curr.close);
   return {
     min: rawMin,
     avg: rawAvg,
     max: rawMax,
+    open: Number.isFinite(open) ? open * metric.factor : null,
+    close: Number.isFinite(close) ? close * metric.factor : null,
     plotAvg: Number.isFinite(stackedAvg) ? stackedAvg : rawAvg,
     activeTimeMs: Number(curr.activeTimeMs) || null,
   };
@@ -1829,6 +1905,149 @@ function aggregateDisplayTime(points, index, series = null) {
   return p.t;
 }
 
+// Finds the point nearest to t purely by time, ignoring y position entirely.
+// Candlesticks span a vertical range (the wick), so snapping by 2D distance
+// to a single value (as line/aggregate hover does) makes no sense for them.
+function nearestPointIndexByTime(points, t) {
+  if (!points || points.length === 0) return -1;
+  let lo = 0;
+  let hi = points.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (points[mid].t < t) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0 && Math.abs(points[lo - 1].t - t) < Math.abs(points[lo].t - t)) {
+    return lo - 1;
+  }
+  return lo;
+}
+
+function candlestickHalfWidthPx(series) {
+  const widthMs = Number(series.candleWidthMs) || 0;
+  const fullWidthPx =
+    widthMs > 0
+      ? lastLayout.sx(state.from + widthMs) - lastLayout.sx(state.from)
+      : 4;
+  return Math.max(1, (fullWidthPx * 0.7) / 2);
+}
+
+function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX) {
+  const plotRight = margin.left + lastLayout.plotW;
+
+  // Collect every metric's candle nearest the cursor time, then keep only
+  // the one whose center is closest to the cursor overall (ties broken by
+  // exact-same center time keep all of them) so exactly one moment in time
+  // is highlighted, not one candle per metric independently.
+  const candidates = [];
+  const lineRows = [];
+
+  for (const metric of state.metrics) {
+    if (!metric.draw) continue;
+    const series = state.series.get(metric.name);
+    if (!series || series.error) continue;
+
+    if (series.mode === "candlestick") {
+      const points = series.aggregatePoints || [];
+      const idx = nearestPointIndexByTime(points, t);
+      if (idx < 0) continue;
+      const p = points[idx];
+      if (Number(p.count) === 0) continue;
+      const xPx = lastLayout.sx(p.t);
+      if (xPx < margin.left || xPx > plotRight) continue;
+      const open = Number(p.open);
+      const close = Number(p.close);
+      if (!Number.isFinite(open) || !Number.isFinite(close)) continue;
+      candidates.push({
+        metric,
+        point: p,
+        xPx,
+        halfWidthPx: candlestickHalfWidthPx(series),
+        dx: Math.abs(xPx - cursorX),
+        open: open * metric.factor,
+        high: p.max * metric.factor,
+        low: p.min * metric.factor,
+        close: close * metric.factor,
+      });
+    } else {
+      const sampled = seriesValueAtTime(metric, series, t);
+      if (!sampled) continue;
+      lineRows.push({ metric, sampled });
+    }
+  }
+
+  let nearest = null;
+  for (const candidate of candidates) {
+    if (!nearest || candidate.dx < nearest.dx) nearest = candidate;
+  }
+  const candleSnapPx = nearest ? nearest.halfWidthPx + 6 : 0;
+  const hits =
+    nearest && nearest.dx <= candleSnapPx
+      ? candidates.filter((c) => c.point.t === nearest.point.t)
+      : [];
+
+  if (hits.length === 0 && lineRows.length === 0) {
+    dom.hoverBox.classList.add("d-none");
+    hideHoverPoint();
+    hideHoverCandle();
+    hideHoverCursorLine();
+    return;
+  }
+
+  hideHoverPoint();
+  hits.forEach((hit, i) => {
+    const yHigh = lastLayout.sy(hit.high);
+    const yLow = lastLayout.sy(hit.low);
+    positionHoverCandle(
+      i,
+      hit.xPx,
+      Math.min(yHigh, yLow),
+      hit.halfWidthPx * 2,
+      Math.max(2, Math.abs(yLow - yHigh)),
+      hit.metric.color,
+    );
+  });
+  hideHoverCandle(hits.length);
+
+  const refT = hits.length > 0 ? hits[0].point.t : t;
+  positionHoverCursorLine(lastLayout.sx(refT), margin.top, lastLayout.plotH);
+
+  const candleHtml = hits
+    .map((row) => {
+      const shownUnit = metricShownUnit(row.metric);
+      const factor = shownMetricFactor(row.metric);
+      const factorText = factor ? ` x${factor}` : "";
+      const unitSuffix = shownUnit ? ` ${shownUnit}` : "";
+      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: O <strong>${formatFixed(row.open, 3)}</strong>${unitSuffix} | H <strong>${formatFixed(row.high, 3)}</strong>${unitSuffix} | L <strong>${formatFixed(row.low, 3)}</strong>${unitSuffix} | C <strong>${formatFixed(row.close, 3)}</strong>${unitSuffix}</div>`;
+    })
+    .join("");
+  const lineHtml = lineRows
+    .map((row) => {
+      const shownUnit = metricShownUnit(row.metric);
+      const factor = shownMetricFactor(row.metric);
+      const factorText = factor ? ` x${factor}` : "";
+      const unitSuffix = shownUnit ? ` ${shownUnit}` : "";
+      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: <strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}</div>`;
+    })
+    .join("");
+  setHoverBoxHtml(
+    `<div class=\"fw-semibold mb-1\">${formatAbsoluteTime(refT)}</div>${candleHtml}${lineHtml}`,
+  );
+
+  const rect = dom.chartWrap.getBoundingClientRect();
+  const cursorXWrap = clientX - rect.left;
+  const preferredRight = cursorXWrap + 12;
+  const overflowRight = preferredRight + hoverBoxWidth > rect.width - 8;
+  const left = overflowRight
+    ? Math.max(8, cursorXWrap - hoverBoxWidth - 12)
+    : preferredRight;
+  dom.hoverBox.style.left = `${left}px`;
+  const preferredTop = clientY - rect.top - 16;
+  const maxTop = rect.height - hoverBoxHeight - 8;
+  const top = Math.max(8, Math.min(preferredTop, maxTop));
+  dom.hoverBox.style.top = `${top}px`;
+}
+
 function renderHoverAt(clientX, clientY) {
   if (!lastLayout) return;
   updateCollapsedLegendFade(clientX, clientY);
@@ -1837,6 +2056,10 @@ function renderHoverAt(clientX, clientY) {
   const canvasRect = dom.canvas.getBoundingClientRect();
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
+  if (state.renderMode === "candlestick") {
+    renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX);
+    return;
+  }
   const cursorValue = (() => {
     if (!Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY))
       return null;
@@ -1886,11 +2109,15 @@ function renderHoverAt(clientX, clientY) {
     const rowsHtml = rows
       .map((row, idx) => {
         const activeClass = idx === nearestRowIndex ? " hover-row-active" : "";
+        const hasOhlc =
+          row.sampled.open != null && row.sampled.close != null;
         const valuesHtml = metricRenderShowsCounts()
           ? `freq <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}${row.intervalText ? ` | interval <strong>${row.intervalText}</strong>` : ""}`
           : yAxisStackingActive()
             ? `avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText}`
-            : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
+            : hasOhlc
+              ? `O <strong>${formatFixed(row.sampled.open, 3)}</strong>${row.unitText} | H <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText} | L <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | C <strong>${formatFixed(row.sampled.close, 3)}</strong>${row.unitText}`
+              : `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${row.unitText} | avg <strong>${formatFixed(row.sampled.avg, 3)}</strong>${row.unitText} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${row.unitText}`;
         return `<div class=\"${activeClass}\"><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${row.factorText}: ${valuesHtml}</div>`;
       })
       .join("");
@@ -1960,6 +2187,19 @@ function renderHoverAt(clientX, clientY) {
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
       const yPx = lastLayout.sy(plotValue);
       const xPx = lastLayout.sx(sampleT);
+      const open = Number(nearestPoint.open);
+      const close = Number(nearestPoint.close);
+      const ohlc =
+        series.mode === "candlestick" &&
+        Number.isFinite(open) &&
+        Number.isFinite(close)
+          ? {
+              open: open * metric.factor,
+              high: nearestPoint.max * metric.factor,
+              low: nearestPoint.min * metric.factor,
+              close: close * metric.factor,
+            }
+          : null;
       if (
         xPx >= margin.left &&
         xPx <= plotRight &&
@@ -1973,6 +2213,7 @@ function renderHoverAt(clientX, clientY) {
           sampled: {
             t: sampleT,
             value: rawValue,
+            ohlc,
             activeTimeMs:
               series.mode === "aggregates"
                 ? Number(nearestPoint.activeTimeMs) || null
@@ -2018,11 +2259,14 @@ function renderHoverAt(clientX, clientY) {
       const shownUnit = metricShownUnit(row.metric);
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(row.metric);
       const factorText = factor ? ` x${factor}` : "";
+      const unitSuffix = shownUnit ? ` ${shownUnit}` : "";
       const intervalText = frequencyIntervalText(row.sampled.value);
-      const valueText = metricRenderShowsCounts()
-        ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}${intervalText ? ` | interval <strong>${intervalText}</strong>` : ""}`
-        : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${shownUnit ? ` ${shownUnit}` : ""}`;
-      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueText}</div>`;
+      const valueHtml = metricRenderShowsCounts()
+        ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}${intervalText ? ` | interval <strong>${intervalText}</strong>` : ""}`
+        : row.sampled.ohlc
+          ? `O <strong>${formatFixed(row.sampled.ohlc.open, 3)}</strong>${unitSuffix} | H <strong>${formatFixed(row.sampled.ohlc.high, 3)}</strong>${unitSuffix} | L <strong>${formatFixed(row.sampled.ohlc.low, 3)}</strong>${unitSuffix} | C <strong>${formatFixed(row.sampled.ohlc.close, 3)}</strong>${unitSuffix}`
+          : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}`;
+      return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueHtml}</div>`;
     })
     .join("");
   setHoverBoxHtml(
@@ -2075,6 +2319,7 @@ export function hideHover() {
   dom.hoverBox.classList.add("d-none");
   if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
   hideHoverPoint();
+  hideHoverCandle();
   hideHoverCursorLine();
 }
 

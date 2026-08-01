@@ -89,6 +89,16 @@ export function exportCSV() {
       continue;
     }
 
+    if (series.mode === "candlestick") {
+      for (const p of series.aggregatePoints || []) {
+        rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.open},open`);
+        rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.max},high`);
+        rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.min},low`);
+        rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.close},close`);
+      }
+      continue;
+    }
+
     for (const p of series.aggregatePoints || []) {
       rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.avg},avg`);
       rows.push(`${metric.name},${new Date(p.t).toISOString()},${p.min},min`);

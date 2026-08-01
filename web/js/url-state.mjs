@@ -154,7 +154,7 @@ function buildPayload() {
       serializeMetricEntry(metric, index),
     ),
   };
-  if (state.renderMode === "ti") payload.rm = "ti";
+  if (state.renderMode !== "standard") payload.rm = state.renderMode;
   if (state.metricRenderMode !== "bands") {
     payload.rv = normalizeMetricRenderMode(state.metricRenderMode);
   }
@@ -358,7 +358,8 @@ export async function applyStateFromUrl() {
   const renderMode = String(payload?.rm || "")
     .trim()
     .toLowerCase();
-  state.renderMode = renderMode === "ti" ? "ti" : "standard";
+  state.renderMode =
+    renderMode === "ti" || renderMode === "candlestick" ? renderMode : "standard";
   state.metricRenderMode =
     payload?.rv != null
       ? normalizeMetricRenderMode(payload.rv)
