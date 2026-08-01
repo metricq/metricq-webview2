@@ -74,19 +74,21 @@ type apiQueryTarget struct {
 	Name   string `json:"name,omitempty"`
 	Metric string `json:"metric,omitempty"`
 	Expr   string `json:"expr,omitempty"`
+	Render string `json:"render,omitempty"`
 }
 
 type apiQuerySeries struct {
-	Metric      string         `json:"metric"`
-	Mode        string         `json:"mode"`
-	Duration    float64        `json:"duration"`
-	Points      []apiPoint     `json:"points,omitempty"`
-	AggPoints   []apiAggPoint  `json:"aggregatePoints,omitempty"`
-	Error       string         `json:"error,omitempty"`
-	ErrorInfo   *apiExprError  `json:"errorInfo,omitempty"`
-	SampleCount uint64         `json:"sampleCount"`
-	Stats       map[string]any `json:"stats,omitempty"`
-	Meta        map[string]any `json:"meta,omitempty"`
+	Metric        string         `json:"metric"`
+	Mode          string         `json:"mode"`
+	Duration      float64        `json:"duration"`
+	Points        []apiPoint     `json:"points,omitempty"`
+	AggPoints     []apiAggPoint  `json:"aggregatePoints,omitempty"`
+	CandleWidthMS int64          `json:"candleWidthMs,omitempty"`
+	Error         string         `json:"error,omitempty"`
+	ErrorInfo     *apiExprError  `json:"errorInfo,omitempty"`
+	SampleCount   uint64         `json:"sampleCount"`
+	Stats         map[string]any `json:"stats,omitempty"`
+	Meta          map[string]any `json:"meta,omitempty"`
 }
 
 type apiExprError struct {
@@ -110,6 +112,9 @@ type apiAggPoint struct {
 	Count uint64  `json:"count"`
 	// ActiveTimeMS limits how far this aggregate avg is valid backwards under last semantics.
 	ActiveTimeMS int64 `json:"activeTimeMs,omitempty"`
+	// Open/Close are only populated for candlestick-resampled buckets (mode "candlestick").
+	Open  *float64 `json:"open,omitempty"`
+	Close *float64 `json:"close,omitempty"`
 }
 
 type apiAnalyzeRequest struct {

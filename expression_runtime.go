@@ -64,7 +64,9 @@ func planQueryTargets(targets []apiQueryTarget, includeDirectMetrics bool) ([]pl
 			expr:         target.Expr,
 		}
 		if target.Expr == "" {
-			if includeDirectMetrics && target.Metric != "" {
+			// Candlestick targets are resolved separately via queryMetricCandles
+			// (raw OHLC resampling), so they must not join the shared fetch.
+			if includeDirectMetrics && target.Metric != "" && strings.TrimSpace(target.Render) != "candlestick" {
 				sourceMetricSet[target.Metric] = struct{}{}
 			}
 			continue

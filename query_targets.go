@@ -25,6 +25,7 @@ func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
 		name := strings.TrimSpace(raw.Name)
 		metric := strings.TrimSpace(raw.Metric)
 		expr := strings.TrimSpace(raw.Expr)
+		render := strings.TrimSpace(raw.Render)
 		if metric == "" && expr == "" {
 			return nil, fmt.Errorf("target requires metric or expr")
 		}
@@ -46,6 +47,7 @@ func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
 			Name:   name,
 			Metric: metric,
 			Expr:   expr,
+			Render: render,
 		})
 	}
 	return targets, nil

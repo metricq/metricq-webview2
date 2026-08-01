@@ -200,6 +200,260 @@ func (s *service) queryMetric(ctx context.Context, metric string, fromMS, toMS i
 	)
 }
 
+// candlestickSubBucketsPerCandle controls how finely we ask HTA to bucket data
+// before resampling into candles. Requesting with this sub-interval (rather
+// than an unbounded raw fetch) lets HTA itself decide whether to hand back raw
+// values or pre-aggregated rows, which keeps the response bounded by the
+// requested resolution instead of by however much raw data exists in range.
+const candlestickSubBucketsPerCandle = 6
+
+// candlestickDensityFactor widens candles relative to maxDataPoints (which is
+// sized for ~1 line point per pixel). Candlesticks need a few pixels of width
+// each to read cleanly, so we render somewhat fewer, wider candles than a
+// line/aggregate series would at the same zoom level.
+const candlestickDensityFactor = 0.7
+
+// candlestickMinCandles is the floor on candle count so tightly zoomed ranges
+// still resample into more than a couple of buckets.
+const candlestickMinCandles = 20
+
+// queryMetricCandles resamples a metric into OHLC candlestick buckets. HTA's
+// aggregate storage only keeps min/max/avg/count per bucket, never open/close,
+// so we request at a finer sub-interval than the final candle width and derive
+// open/close from the first/last sample (or sub-bucket) seen in each candle.
+func (s *service) queryMetricCandles(ctx context.Context, metric string, fromMS, toMS int64, maxCandles int) (apiQuerySeries, error) {
+	if maxCandles <= 0 {
+		maxCandles = 200
+	}
+	maxCandles = int(float64(maxCandles) * candlestickDensityFactor)
+	if maxCandles < candlestickMinCandles {
+		maxCandles = candlestickMinCandles
+	}
+	span := toMS - fromMS
+	if span <= 0 {
+		span = 1
+	}
+	bucketWidthMS := (span + int64(maxCandles) - 1) / int64(maxCandles)
+	if bucketWidthMS < 1 {
+		bucketWidthMS = 1
+	}
+	subIntervalNS := (bucketWidthMS * int64(time.Millisecond)) / candlestickSubBucketsPerCandle
+	if subIntervalNS <= 0 {
+		subIntervalNS = int64(time.Millisecond)
+	}
+
+	timeline, err := s.history.RequestTimeline(ctx, metric, time.UnixMilli(fromMS), time.UnixMilli(toMS), time.Duration(subIntervalNS))
+	if err != nil {
+		return apiQuerySeries{Metric: metric, Error: err.Error()}, nil
+	}
+
+	switch data := timeline.(type) {
+	case nil:
+		return apiQuerySeries{Metric: metric, Mode: "empty", Stats: map[string]any{"type": "empty"}}, nil
+	case *metricq.TimelineValues:
+		if len(data.Values) == 0 {
+			return apiQuerySeries{Metric: metric, Mode: "empty", Stats: map[string]any{"type": "empty"}}, nil
+		}
+		if len(data.Values) <= maxCandles {
+			// Zoomed in far enough that there's roughly one raw sample per
+			// candle or fewer: candles would be degenerate (no wick, just a
+			// dot), so show the raw samples themselves instead, same as
+			// line/TI mode does at this zoom level.
+			return historyToSeries(metric, data), nil
+		}
+		series := bucketCandlesticksFromRaw(metric, data, fromMS, bucketWidthMS)
+		series.Duration = data.Duration.Seconds()
+		return series, nil
+	case *metricq.TimelineAggregates:
+		if len(data.Agg) == 0 {
+			return apiQuerySeries{Metric: metric, Mode: "empty", Stats: map[string]any{"type": "empty"}}, nil
+		}
+		series := bucketCandlesticksFromAggregates(metric, data, fromMS, bucketWidthMS)
+		series.Duration = data.Duration.Seconds()
+		return series, nil
+	default:
+		return apiQuerySeries{Metric: metric, Error: "unexpected timeline response"}, nil
+	}
+}
+
+type candleBucket struct {
+	open, high, low, close, sum float64
+	count                       uint64
+	firstMS, lastMS             int64
+}
+
+// bucketCandlesticksFromRaw resamples raw values into candles with exact open/close.
+func bucketCandlesticksFromRaw(metric string, raw *metricq.TimelineValues, fromMS, bucketWidthMS int64) apiQuerySeries {
+	buckets := map[int64]*candleBucket{}
+	order := []int64{}
+	for i, v := range raw.Values {
+		t := raw.Times[i].UnixMilli()
+		idx := (t - fromMS) / bucketWidthMS
+		b, exists := buckets[idx]
+		if !exists {
+			b = &candleBucket{open: v, high: v, low: v, firstMS: t}
+			buckets[idx] = b
+			order = append(order, idx)
+		}
+		if v > b.high {
+			b.high = v
+		}
+		if v < b.low {
+			b.low = v
+		}
+		b.close = v
+		b.sum += v
+		b.count++
+		b.lastMS = t
+	}
+	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
+
+	points := make([]apiAggPoint, 0, len(order))
+	var sampleCount uint64
+	havePrevClose := false
+	var prevClose float64
+	for _, idx := range order {
+		b := buckets[idx]
+		// Center on the actual first/last sample timestamps seen in this
+		// bucket rather than an arbitrary fromMS-anchored grid position, so
+		// candles line up with where line/TI mode plots the same samples.
+		centerMS := (b.firstMS + b.lastMS) / 2
+		// Carry the previous candle's close forward as this candle's open so
+		// candles form a continuous line, matching what the metric's value
+		// actually was going into this bucket rather than just the first
+		// sample that happened to land in it.
+		open := b.open
+		if havePrevClose {
+			open = prevClose
+		}
+		high := b.high
+		low := b.low
+		if open > high {
+			high = open
+		}
+		if open < low {
+			low = open
+		}
+		closeV := b.close
+		points = append(points, apiAggPoint{
+			T:     centerMS,
+			Min:   low,
+			Max:   high,
+			Avg:   b.sum / float64(b.count),
+			Count: b.count,
+			Open:  &open,
+			Close: &closeV,
+		})
+		sampleCount += b.count
+		prevClose = closeV
+		havePrevClose = true
+	}
+
+	return apiQuerySeries{
+		Metric:        metric,
+		Mode:          "candlestick",
+		AggPoints:     points,
+		CandleWidthMS: bucketWidthMS,
+		SampleCount:   sampleCount,
+		Stats:         map[string]any{"type": "candlestick"},
+	}
+}
+
+type candleAggBucket struct {
+	firstMean, lastMean float64
+	minVal, maxVal      float64
+	sumIntegral         float64
+	sumActiveTime       int64
+	sumCount            uint64
+	firstMS, lastMS     int64
+}
+
+// bucketCandlesticksFromAggregates resamples HTA's own (finer-grained) aggregate
+// rows into candles. Since aggregate storage has no raw open/close, open/close
+// are approximated as the mean of the first/last sub-bucket within each candle.
+func bucketCandlesticksFromAggregates(metric string, data *metricq.TimelineAggregates, fromMS, bucketWidthMS int64) apiQuerySeries {
+	buckets := map[int64]*candleAggBucket{}
+	order := []int64{}
+	for i, agg := range data.Agg {
+		if agg == nil || agg.Count == 0 {
+			continue
+		}
+		t := data.Times[i].UnixMilli()
+		idx := (t - fromMS) / bucketWidthMS
+		mean := aggregateMean(agg)
+		b, exists := buckets[idx]
+		if !exists {
+			b = &candleAggBucket{firstMean: mean, minVal: agg.Minimum, maxVal: agg.Maximum, firstMS: t}
+			buckets[idx] = b
+			order = append(order, idx)
+		}
+		if agg.Maximum > b.maxVal {
+			b.maxVal = agg.Maximum
+		}
+		if agg.Minimum < b.minVal {
+			b.minVal = agg.Minimum
+		}
+		b.lastMean = mean
+		b.sumIntegral += agg.Integral
+		b.sumActiveTime += agg.ActiveTime
+		b.sumCount += agg.Count
+		b.lastMS = t
+	}
+	sort.Slice(order, func(i, j int) bool { return order[i] < order[j] })
+
+	points := make([]apiAggPoint, 0, len(order))
+	var sampleCount uint64
+	havePrevClose := false
+	var prevClose float64
+	for _, idx := range order {
+		b := buckets[idx]
+		// Center on the actual first/last sub-bucket timestamps seen in this
+		// candle rather than an arbitrary fromMS-anchored grid position, so
+		// candles line up with where line/TI mode plots the same aggregates.
+		centerMS := (b.firstMS + b.lastMS) / 2
+		avg := b.firstMean
+		if b.sumActiveTime > 0 {
+			avg = b.sumIntegral / float64(b.sumActiveTime)
+		}
+		// Carry the previous candle's close forward as this candle's open,
+		// same as bucketCandlesticksFromRaw, so candles form a continuous line.
+		open := b.firstMean
+		if havePrevClose {
+			open = prevClose
+		}
+		high := b.maxVal
+		low := b.minVal
+		if open > high {
+			high = open
+		}
+		if open < low {
+			low = open
+		}
+		closeV := b.lastMean
+		points = append(points, apiAggPoint{
+			T:     centerMS,
+			Min:   low,
+			Max:   high,
+			Avg:   avg,
+			Count: b.sumCount,
+			Open:  &open,
+			Close: &closeV,
+		})
+		sampleCount += b.sumCount
+		prevClose = closeV
+		havePrevClose = true
+	}
+
+	return apiQuerySeries{
+		Metric:        metric,
+		Mode:          "candlestick",
+		AggPoints:     points,
+		CandleWidthMS: bucketWidthMS,
+		SampleCount:   sampleCount,
+		Stats:         map[string]any{"type": "candlestick"},
+	}
+}
+
 // historyToSeries converts a MetricQ timeline result into the API wire format.
 func historyToSeries(metric string, timeline metricq.TimelineResult) apiQuerySeries {
 	series := apiQuerySeries{Metric: metric, Stats: map[string]any{}}
