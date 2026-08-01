@@ -11,7 +11,6 @@ export const dom = {
   chartHelpTitle: document.getElementById("chartHelpTitle"),
   chartHelpSubtitle: document.getElementById("chartHelpSubtitle"),
   chartHelpSections: document.getElementById("chartHelpSections"),
-  chartHelpReference: document.getElementById("chartHelpReference"),
   btnEmptyHideHelp: document.getElementById("btnEmptyHideHelp"),
   hoverBox: document.getElementById("hoverBox"),
   dragSelectBox: document.getElementById("dragSelectBox"),

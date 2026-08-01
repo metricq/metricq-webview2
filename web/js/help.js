@@ -79,85 +79,52 @@ function helpActionButton(
   return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}>${iconHtml}${label}</button>`;
 }
 
-// Reuses each control's own title/data-help text as the single source of
-// truth, so this reference list can't drift out of sync with the tooltips
-// those same buttons already show natively.
-const CONTROL_REFERENCE_GROUPS = [
-  {
-    label: "Navigation",
-    selectors: [
-      "#btnAnalyze",
-      "#btnExport",
-      "#btnOpenLegacyCharts",
-      "#btnShowUrlQr",
-      "#btnShare",
-      "#btnZoomIn",
-      "#btnZoomOut",
-      "#btnShiftBack",
-      "#btnTimeRange",
-      "#btnShiftForward",
-    ],
-  },
-  {
-    label: "Metrikleiste",
-    selectors: [
-      "#btnSidebarToggle",
-      "#btnSidebarClose",
-      "#btnYAxis",
-      "#btnRenderBands",
-      "#btnRenderLine",
-      "#btnRenderCount",
-      "#btnRenderTi",
-      "#btnRenderCandles",
-      "#btnHideAll",
-      "#btnShowAll",
-      "#btnRecolorClassic",
-      "#btnRecolor",
-      "#btnClear",
-    ],
-  },
-];
+const HELP_ATTR = "data-help";
+const NATIVE_TITLE_STASH_ATTR = "data-help-native-title";
 
-function renderControlReference() {
-  if (!dom.chartHelpReference) return;
-  dom.chartHelpReference.replaceChildren();
-  for (const group of CONTROL_REFERENCE_GROUPS) {
-    const entries = group.selectors
-      .map((selector) => document.querySelector(selector))
-      .filter((el) => el)
-      .map((el) => {
-        const term = (el.getAttribute("title") || "").trim();
-        const desc = (
-          el.getAttribute("data-help") ||
-          el.getAttribute("title") ||
-          ""
-        ).trim();
-        return term && desc ? { term, desc } : null;
-      })
-      .filter((entry) => entry);
-    if (entries.length === 0) continue;
+// The browser's own title tooltip would otherwise pop up late and fight
+// for space with the in-modal explanation, so it's stashed away while
+// help-hover owns the element, then put back exactly as it was. Reads
+// fall back to the stash too, since a second mouseover within the same
+// element (e.g. moving from an icon to its parent button) would otherwise
+// see the title as already gone and lose the explanation mid-hover.
+function readTitle(node) {
+  return (
+    node.getAttribute("title") ||
+    node.getAttribute(NATIVE_TITLE_STASH_ATTR) ||
+    ""
+  ).trim();
+}
 
-    const groupEl = document.createElement("div");
-    groupEl.className = "chart-help-reference-group";
-
-    const labelEl = document.createElement("div");
-    labelEl.className = "chart-help-reference-group-label";
-    labelEl.textContent = group.label;
-    groupEl.appendChild(labelEl);
-
-    const listEl = document.createElement("dl");
-    listEl.className = "chart-help-reference-list";
-    for (const { term, desc } of entries) {
-      const dt = document.createElement("dt");
-      dt.textContent = term;
-      const dd = document.createElement("dd");
-      dd.textContent = desc;
-      listEl.appendChild(dt);
-      listEl.appendChild(dd);
-    }
-    groupEl.appendChild(listEl);
-    dom.chartHelpReference.appendChild(groupEl);
+function suppressNativeTitle(node) {
+  const title = node.getAttribute("title");
+  if (title != null) {
+    node.setAttribute(NATIVE_TITLE_STASH_ATTR, title);
+    node.removeAttribute("title");
   }
+}
+
+function restoreNativeTitle(node) {
+  const stashed = node.getAttribute(NATIVE_TITLE_STASH_ATTR);
+  if (stashed != null) {
+    node.setAttribute("title", stashed);
+    node.removeAttribute(NATIVE_TITLE_STASH_ATTR);
+  }
+}
+
+// Icon-only buttons wrap their real explanation on an ancestor (title or
+// data-help), not on the <i> the pointer actually lands on — walk up to it.
+function findHoverHelpTarget(el) {
+  let node = el;
+  while (node && node !== document.body) {
+    if (node.nodeType === 1) {
+      const term = readTitle(node);
+      const desc = (node.getAttribute(HELP_ATTR) || term).trim();
+      if (term || desc) return { node, term: term || desc, desc: desc || term };
+    }
+    node = node.parentElement;
+  }
+  return null;
 }
 
 export function createHelpModule({
@@ -165,6 +132,68 @@ export function createHelpModule({
   toggleTimePopup,
   renderChart,
 }) {
+  let hoverTarget = null;
+  let hoverExplainActive = false;
+
+  function isHelpPanelOpen() {
+    return !!(
+      dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none")
+    );
+  }
+
+  // Overrides the panel's own title/subtitle with the hovered control's
+  // explanation instead of a separate floating tooltip, so the "dynamic
+  // help" panel stays the single place help text shows up.
+  function showHoverExplanation({ term, desc }) {
+    if (!dom.chartHelpTitle || !dom.chartHelpSubtitle) return;
+    hoverExplainActive = true;
+    dom.chartEmptyState
+      ?.querySelector(".chart-empty-card")
+      ?.classList.add("is-hover-explain");
+    dom.chartHelpTitle.textContent = term;
+    dom.chartHelpSubtitle.textContent = desc;
+  }
+
+  function clearHoverExplanation() {
+    if (!hoverExplainActive) return;
+    hoverExplainActive = false;
+    dom.chartEmptyState
+      ?.querySelector(".chart-empty-card")
+      ?.classList.remove("is-hover-explain");
+    renderContextualHelp();
+  }
+
+  function releaseHoverTarget() {
+    if (!hoverTarget) return;
+    restoreNativeTitle(hoverTarget);
+    hoverTarget = null;
+    clearHoverExplanation();
+  }
+
+  function handleHelpHoverOver(event) {
+    if (!isHelpPanelOpen()) {
+      releaseHoverTarget();
+      return;
+    }
+    const match = findHoverHelpTarget(event.target);
+    if (!match) {
+      releaseHoverTarget();
+      return;
+    }
+    if (match.node === hoverTarget) return;
+    releaseHoverTarget();
+    hoverTarget = match.node;
+    suppressNativeTitle(hoverTarget);
+    showHoverExplanation(match);
+  }
+
+  function handleHelpHoverOut(event) {
+    if (!hoverTarget) return;
+    const related = event.relatedTarget;
+    if (related && hoverTarget.contains(related)) return;
+    releaseHoverTarget();
+  }
+
   function renderContextualHelp() {
     if (!dom.chartHelpSections || !dom.chartHelpTitle || !dom.chartHelpSubtitle)
       return;
@@ -426,7 +455,8 @@ export function createHelpModule({
       if (!action) return;
       void runHelpAction(action, target);
     });
-    renderControlReference();
+    document.addEventListener("mouseover", handleHelpHoverOver, true);
+    document.addEventListener("mouseout", handleHelpHoverOut, true);
   }
 
   return {

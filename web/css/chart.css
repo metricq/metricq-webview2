@@ -138,47 +138,20 @@
   --bs-btn-font-size: 0.82rem;
 }
 
-.chart-help-reference {
-  margin-top: 0.9rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid #e3e8f2;
-  max-height: 260px;
-  overflow-y: auto;
-  text-align: left;
+/*
+ * While help is open, hovering any control overrides the title/subtitle
+ * above with that control's own explanation instead of a separate
+ * floating tooltip (see handleHelpHoverOver in help.js) — this just
+ * flags that swapped-in state visually so it doesn't read as the normal
+ * "next steps" text.
+ */
+.chart-empty-card.is-hover-explain {
+  border-color: var(--mq-blue);
+  box-shadow: 0 0.4rem 1.1rem rgba(15, 111, 163, 0.22);
 }
 
-.chart-help-reference-group + .chart-help-reference-group {
-  margin-top: 0.65rem;
-}
-
-.chart-help-reference-group-label {
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: #8a94a6;
-  margin-bottom: 0.25rem;
-}
-
-.chart-help-reference-list {
-  margin: 0;
-}
-
-.chart-help-reference-list dt {
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-top: 0.4rem;
-}
-
-.chart-help-reference-list dt:first-child {
-  margin-top: 0;
-}
-
-.chart-help-reference-list dd {
-  margin: 0.05rem 0 0;
-  font-size: 0.8rem;
-  color: #5f6b7b;
+.chart-empty-card.is-hover-explain .chart-empty-icon {
+  background: rgba(15, 111, 163, 0.18);
 }
 
 .chart-empty-minimize-ghost {
