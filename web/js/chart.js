@@ -1,5 +1,6 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
+import { setHelpHoverModeActive } from "./help-hover.js";
 import {
   metricDisplayName,
   metricRenderShowsBands,
@@ -1218,6 +1219,7 @@ export function renderChart() {
     !!state.helpOverlayForced ||
     !!state.helpOverlayMinimizeDeferred ||
     minimizingNow;
+  setHelpHoverModeActive(showHelpOverlay);
   const wasHelpVisible =
     dom.chartEmptyState && !dom.chartEmptyState.classList.contains("d-none");
   if (showHelpOverlay) {
