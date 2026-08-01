@@ -152,6 +152,7 @@ export function createHelpModule({
       ?.classList.add("is-hover-explain");
     dom.chartHelpTitle.textContent = term;
     dom.chartHelpSubtitle.textContent = desc;
+    dom.chartHelpSections?.classList.add("d-none");
   }
 
   function clearHoverExplanation() {
@@ -160,6 +161,7 @@ export function createHelpModule({
     dom.chartEmptyState
       ?.querySelector(".chart-empty-card")
       ?.classList.remove("is-hover-explain");
+    dom.chartHelpSections?.classList.remove("d-none");
     renderContextualHelp();
   }
 

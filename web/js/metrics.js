@@ -600,6 +600,10 @@ export function renderMetricList(hooks) {
     swatchButton.type = "button";
     swatchButton.className = "metric-color-button";
     swatchButton.title = "Farbe wählen";
+    swatchButton.setAttribute(
+      "data-help",
+      "Öffnet die Farbauswahl, um die Farbe dieser Metrik im Chart zu ändern.",
+    );
 
     const swatch = document.createElement("span");
     swatch.className = "metric-color";
@@ -654,8 +658,9 @@ export function renderMetricList(hooks) {
       ? "btn-outline-secondary"
       : "btn-secondary";
     const toggleIcon = metric.draw ? "bi-eye" : "bi-eye-slash";
+    const toggleTitle = metric.draw ? "Metrik ausblenden" : "Metrik einblenden";
     const editButton = metric.expr
-      ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten"><i class="bi bi-pencil"></i></button>`
+      ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten" data-help="Öffnet den Editor für die Formel dieser berechneten Metrik."><i class="bi bi-pencil"></i></button>`
       : "";
     const stackButton = (() => {
       const stacksInYAxis = metric.stackMode !== "normal";
@@ -664,16 +669,19 @@ export function renderMetricList(hooks) {
         : "btn-outline-secondary";
       const stackButtonIcon = stacksInYAxis ? "bi-layers-fill" : "bi-layers";
       const stackTitle = stacksInYAxis
-        ? "Diese Metrik ist gestapelt"
-        : "Diese Metrik ist nicht gestapelt";
-      return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}"><i class="bi ${stackButtonIcon}"></i></button>`;
+        ? "Metrik ist gestapelt"
+        : "Metrik ist nicht gestapelt";
+      const stackHelp = stacksInYAxis
+        ? "Diese Metrik wird gestapelt dargestellt: Ihre Werte werden auf die anderen gestapelten Metriken aufaddiert. Klicken, um das Stapeln für diese Metrik auszuschalten."
+        : "Diese Metrik wird normal (nicht gestapelt) dargestellt. Klicken, um sie zu den gestapelten Metriken hinzuzufügen — deren Werte werden dann übereinander aufaddiert dargestellt.";
+      return `<button class="btn ${stackButtonClass}" data-action="stack-mode" title="${stackTitle}" data-help="${stackHelp}"><i class="bi ${stackButtonIcon}"></i></button>`;
     })();
     controls.innerHTML = `
-      <button class="btn ${toggleButtonClass}" data-action="toggle" title="Ein/Aus"><i class="bi ${toggleIcon}"></i></button>
+      <button class="btn ${toggleButtonClass}" data-action="toggle" title="${toggleTitle}" data-help="Blendet diese Metrik im Chart ein oder aus, ohne sie aus der Liste zu entfernen."><i class="bi ${toggleIcon}"></i></button>
       ${stackButton}
       ${editButton}
-      <button class="btn btn-outline-secondary" data-action="factor" title="Faktor"><i class="bi bi-123"></i></button>
-      <button class="btn btn-outline-danger" data-action="delete" title="Entfernen"><i class="bi bi-x-lg"></i></button>
+      <button class="btn btn-outline-secondary" data-action="factor" title="Skalierungsfaktor" data-help="Öffnet die Eingabe eines manuellen Skalierungsfaktors, mit dem die Werte dieser Metrik multipliziert werden (z. B. zur Einheitenumrechnung)."><i class="bi bi-123"></i></button>
+      <button class="btn btn-outline-danger" data-action="delete" title="Entfernen" data-help="Entfernt diese Metrik aus der Liste und dem Chart."><i class="bi bi-x-lg"></i></button>
     `;
 
     controls.addEventListener("click", (event) => {
