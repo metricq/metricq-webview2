@@ -75,7 +75,8 @@ function helpActionButton(
   disabled = false,
 ) {
   const disabledAttr = disabled ? " disabled" : "";
-  return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}><i class="bi ${icon} me-1"></i>${label}</button>`;
+  const iconHtml = icon ? `<i class="bi ${icon} me-1"></i>` : "";
+  return `<button class="btn btn-${tone} btn-sm" type="button" data-help-action="${action}"${disabledAttr}>${iconHtml}${label}</button>`;
 }
 
 export function createHelpModule({
@@ -129,7 +130,7 @@ export function createHelpModule({
           "focus_metric_search",
           hasMetrics ? "Weitere Metrik suchen" : "Metrik suchen",
           "bi-search",
-          "primary",
+          "outline-primary",
         ),
       );
       actions.push(
@@ -143,9 +144,9 @@ export function createHelpModule({
       actions.push(
         helpActionButton(
           "open_expression",
-          "Berechnete Metrik",
-          "bi-plus-lg",
-          "outline-primary",
+          "+ƒ Berechnete Metrik",
+          "",
+          "primary",
         ),
       );
     }

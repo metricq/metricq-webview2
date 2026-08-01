@@ -143,8 +143,8 @@ function syncRenderBandsButton() {
   for (const { el, mode, title } of buttons) {
     if (!el) continue;
     const active = activeMode === mode;
-    el.classList.toggle("btn-secondary", active);
-    el.classList.toggle("btn-outline-secondary", !active);
+    el.classList.add("btn-outline-secondary");
+    el.classList.toggle("render-mode-active", active);
     el.title = title;
     el.setAttribute("aria-checked", active ? "true" : "false");
   }
@@ -240,12 +240,14 @@ function openTimePopup() {
   dom.fromInput.value = toLocalInput(new Date(state.from));
   dom.toInput.value = toLocalInput(new Date(state.to));
   dom.timePopup.classList.remove("d-none");
+  dom.btnTimeRange.classList.add("time-range-open");
   updateRelativePreview();
   positionTimePopup();
 }
 
 function closeTimePopup() {
   dom.timePopup.classList.add("d-none");
+  dom.btnTimeRange.classList.remove("time-range-open");
 }
 
 function toggleTimePopup() {

@@ -16,11 +16,11 @@
   </head>
   <body>
     <div class="app-shell">
-      <nav class="navbar navbar-expand-lg bg-white border-bottom sticky-top">
+      <nav class="navbar navbar-expand-lg app-navbar sticky-top">
         <div class="container-fluid px-3 navbar-top-container">
           <a class="navbar-brand d-flex align-items-center gap-2" href="/">
             <img src="/img/metricq-logo.png" width="34" height="34" alt="MetricQ" class="rounded-2" />
-            <span class="fw-semibold">MetricQ Codex</span>
+            <span class="fw-semibold">MetricQ</span>
           </a>
           <button class="btn btn-outline-primary btn-sm navbar-help-toggle" id="btnHelpOverlayToggle" type="button" title="Hilfe anzeigen" aria-label="Hilfe anzeigen">
             ?
@@ -112,7 +112,7 @@
                 <div class="metrics-header-tools">
                   <div class="metrics-header-toolset metrics-header-toggle">
                     <span class="metrics-header-toolset-label">Ansicht</span>
-                    <div class="btn-group btn-group-sm" role="radiogroup" aria-label="Metrikdarstellung">
+                    <div class="btn-group btn-group-sm metrics-toolset-pill" role="radiogroup" aria-label="Metrikdarstellung">
                       <button class="btn btn-outline-secondary" id="btnRenderBands" type="button" role="radio" title="Linie mit Bändern" aria-label="Linie mit Bändern"><i class="bi bi-chevron-bar-expand"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRenderLine" type="button" role="radio" title="Nur Linie" aria-label="Nur Linie"><i class="bi bi-dash-lg"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRenderCount" type="button" role="radio" title="Frequenz" aria-label="Frequenz"><i class="bi bi-activity"></i></button>
@@ -120,7 +120,7 @@
                   </div>
                   <div class="metrics-header-toolset metrics-header-actions">
                     <span class="metrics-header-toolset-label">Aktionen</span>
-                    <div class="btn-group btn-group-sm" role="group" aria-label="Metrikaktionen">
+                    <div class="btn-group btn-group-sm metrics-toolset-pill" role="group" aria-label="Metrikaktionen">
                       <button class="btn btn-outline-secondary" id="btnHideAll" title="Alle ausblenden"><i class="bi bi-eye-slash"></i></button>
                       <button class="btn btn-outline-secondary" id="btnShowAll" title="Alle zeigen"><i class="bi bi-eye"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRecolorClassic" title="Klassisch färben"><i class="bi bi-brush"></i></button>
@@ -154,8 +154,8 @@
                 <ul class="list-group list-group-flush overflow-auto" id="metricList"></ul>
                 <div class="legend-badges pt-2 border-top">
                   <span class="badge text-bg-secondary" id="perfBadge">HTTP: - ms</span>
-                  <span class="badge text-bg-secondary">Agg: <span id="aggPoints">0</span></span>
-                  <span class="badge text-bg-secondary">Raw: <span id="rawPoints">0</span></span>
+                  <span class="badge badge-agg">Agg: <span id="aggPoints">0</span></span>
+                  <span class="badge badge-raw">Raw: <span id="rawPoints">0</span></span>
                   <span
                     class="spinner-grow spinner-grow-sm text-secondary d-none"
                     id="backendPendingSpinner"
@@ -264,9 +264,9 @@
     <div class="modal fade" id="yAxisModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header">
+          <div class="modal-header modal-header-mq">
             <h5 class="modal-title">Y-Achsenbereich</h5>
-            <button class="btn-close" data-bs-dismiss="modal"></button>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
             <div class="form-check mb-2">
@@ -303,10 +303,10 @@
     <div class="modal fade" id="analyzeModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Analyse</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header modal-header-mq"><h5 class="modal-title">Analyse</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
           <div class="modal-body">
             <div class="table-responsive">
-              <table class="table table-sm table-striped align-middle">
+              <table class="table table-sm table-striped align-middle analyze-table">
                 <thead>
                   <tr>
                     <th>Farbe</th>
@@ -330,7 +330,7 @@
     <div class="modal fade" id="exportModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Export</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+          <div class="modal-header modal-header-mq"><h5 class="modal-title">Export</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
           <div class="modal-body d-grid gap-2">
             <button class="btn btn-outline-primary" id="btnExportPng">PNG exportieren</button>
             <button class="btn btn-outline-primary" id="btnExportCsv">CSV exportieren</button>
@@ -467,7 +467,7 @@
     <div class="modal fade" id="advancedSearchModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
         <div class="modal-content">
-          <div class="modal-header adv-search-header">
+          <div class="modal-header adv-search-header modal-header-mq">
             <div class="adv-search-header-main">
               <h5 class="modal-title">Erweiterte Metriksuche</h5>
               <ul class="nav nav-tabs nav-fill adv-search-mode-tabs mb-0" role="tablist">
@@ -485,7 +485,7 @@
                 </li>
               </ul>
             </div>
-            <button class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
           </div>
           <div class="modal-body d-flex flex-column gap-3 p-3 pt-3">
             <div class="adv-search-controls">

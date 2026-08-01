@@ -649,7 +649,7 @@ export function renderMetricList(hooks) {
     center.title = metric.description || metric.name;
 
     const controls = document.createElement("div");
-    controls.className = "btn-group btn-group-sm";
+    controls.className = "btn-group btn-group-sm metrics-toolset-pill";
     const toggleButtonClass = metric.draw
       ? "btn-outline-secondary"
       : "btn-secondary";

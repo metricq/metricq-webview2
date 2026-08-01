@@ -72,6 +72,17 @@
   padding: 1.1rem 1rem 1rem;
   text-align: center;
   pointer-events: auto;
+  overflow: hidden;
+}
+
+.chart-empty-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--mq-navy), var(--mq-blue), var(--mq-teal), var(--mq-green));
 }
 
 .chart-empty-close {
@@ -94,8 +105,8 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.65rem;
-  background: rgba(13, 110, 253, 0.12);
-  color: #1b5fc4;
+  background: rgba(15, 111, 163, 0.1);
+  color: var(--mq-blue);
   font-size: 1.2rem;
   margin-bottom: 0.55rem;
 }
@@ -148,8 +159,8 @@
   position: fixed;
   pointer-events: none;
   border-radius: 0.55rem;
-  border: 2px solid rgba(13, 110, 253, 0.95);
-  box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.35);
+  border: 2px solid rgba(15, 111, 163, 0.95);
+  box-shadow: 0 0 0 0 rgba(15, 111, 163, 0.35);
   z-index: 1200;
   animation: coachRingPulse 900ms ease-out;
 }
@@ -161,21 +172,21 @@
   margin-left: -5px;
   margin-top: -5px;
   border-radius: 50%;
-  background: #0d6efd;
-  box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.24);
+  background: var(--mq-blue);
+  box-shadow: 0 0 0 4px rgba(15, 111, 163, 0.24);
   pointer-events: none;
   z-index: 1200;
 }
 
 @keyframes coachPulseTarget {
   0% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.45);
+    box-shadow: 0 0 0 0 rgba(15, 111, 163, 0.45);
   }
   60% {
-    box-shadow: 0 0 0 7px rgba(13, 110, 253, 0.12);
+    box-shadow: 0 0 0 7px rgba(15, 111, 163, 0.12);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+    box-shadow: 0 0 0 0 rgba(15, 111, 163, 0);
   }
 }
 
@@ -183,12 +194,12 @@
   0% {
     opacity: 0.95;
     transform: scale(0.94);
-    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.35);
+    box-shadow: 0 0 0 0 rgba(15, 111, 163, 0.35);
   }
   100% {
     opacity: 0;
     transform: scale(1.08);
-    box-shadow: 0 0 0 14px rgba(13, 110, 253, 0);
+    box-shadow: 0 0 0 14px rgba(15, 111, 163, 0);
   }
 }
 
@@ -206,8 +217,8 @@
 }
 
 .hover-row-active {
-  background: rgba(13, 110, 253, 0.22);
-  border-left: 3px solid rgba(13, 110, 253, 0.95);
+  background: rgba(15, 111, 163, 0.22);
+  border-left: 3px solid rgba(15, 111, 163, 0.95);
   border-radius: 0.3rem;
   padding: 0.12rem 0.3rem 0.12rem 0.45rem;
   margin: 0.08rem 0;
@@ -239,8 +250,8 @@
   position: absolute;
   top: 12px;
   bottom: 34px;
-  border: 1px solid rgba(13, 110, 253, 0.9);
-  background: rgba(13, 110, 253, 0.16);
+  border: 1px solid rgba(15, 111, 163, 0.9);
+  background: rgba(15, 111, 163, 0.16);
   border-radius: 0.3rem;
   pointer-events: none;
   z-index: 11;
@@ -259,16 +270,16 @@
   top: 10px;
   left: 50%;
   transform: translate(-50%, -6px);
-  background: rgba(13, 110, 253, 0.92);
+  background: rgba(15, 111, 163, 0.92);
   color: #ffffff;
-  border: 1px solid rgba(13, 110, 253, 1);
+  border: 1px solid rgba(15, 111, 163, 1);
   border-radius: 999px;
   padding: 0.2rem 0.6rem;
   font-size: 0.75rem;
   font-weight: 600;
   pointer-events: none;
   z-index: 12;
-  box-shadow: 0 0.25rem 0.7rem rgba(13, 110, 253, 0.25);
+  box-shadow: 0 0.25rem 0.7rem rgba(15, 111, 163, 0.25);
   opacity: 0;
   visibility: hidden;
   transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
@@ -286,15 +297,15 @@
 
 @keyframes timeShortcutPulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.32);
+    box-shadow: 0 0 0 0 rgba(15, 111, 163, 0.32);
     transform: translateZ(0) scale(1);
   }
   60% {
-    box-shadow: 0 0 0 8px rgba(13, 110, 253, 0.08);
+    box-shadow: 0 0 0 8px rgba(15, 111, 163, 0.08);
     transform: translateZ(0) scale(1.03);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+    box-shadow: 0 0 0 0 rgba(15, 111, 163, 0);
     transform: translateZ(0) scale(1);
   }
 }
@@ -332,8 +343,8 @@
 }
 
 .collapsed-legend-section.is-stacked {
-  background: linear-gradient(180deg, rgba(13, 110, 253, 0.1), rgba(13, 110, 253, 0.04));
-  border: 1px solid rgba(13, 110, 253, 0.16);
+  background: linear-gradient(180deg, rgba(15, 111, 163, 0.1), rgba(15, 111, 163, 0.04));
+  border: 1px solid rgba(15, 111, 163, 0.16);
 }
 
 .collapsed-legend-section.is-frequency {
@@ -365,7 +376,7 @@
 }
 
 .collapsed-legend-section-header.is-stacked {
-  background: rgba(13, 110, 253, 0.14);
+  background: rgba(15, 111, 163, 0.14);
   color: #0b5ed7;
 }
 
@@ -387,7 +398,7 @@
 }
 
 .collapsed-legend-section-header-icon.is-stacked {
-  background: rgba(13, 110, 253, 0.18);
+  background: rgba(15, 111, 163, 0.18);
 }
 
 .collapsed-legend-section-header-icon.is-frequency {

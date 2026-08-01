@@ -9,12 +9,48 @@ body {
   --grid: #d9dee8;
   --fg-soft: #667085;
   --chart-bg: #ffffff;
+  --mq-navy: #0c3a57;
+  --mq-navy-deep: #082a40;
+  --mq-blue: #0f6fa3;
+  --mq-teal: #12a394;
+  --mq-green: #8cc763;
+  --mq-line: #dde4ec;
+  --bs-primary: var(--mq-blue);
+  --bs-primary-rgb: 15, 111, 163;
+  --bs-link-color: var(--mq-blue);
+  --bs-link-hover-color: var(--mq-navy);
 }
 
 body {
   background: radial-gradient(circle at 15% 0%, #e6edf8, var(--bg) 40%);
   min-height: 100dvh;
   margin: 0;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--mq-blue);
+  --bs-btn-border-color: var(--mq-blue);
+  --bs-btn-hover-bg: var(--mq-navy);
+  --bs-btn-hover-border-color: var(--mq-navy);
+  --bs-btn-active-bg: var(--mq-navy);
+  --bs-btn-active-border-color: var(--mq-navy);
+  --bs-btn-focus-shadow-rgb: 15, 111, 163;
+  --bs-btn-disabled-bg: var(--mq-blue);
+  --bs-btn-disabled-border-color: var(--mq-blue);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--mq-navy);
+  --bs-btn-border-color: #c3d3de;
+  --bs-btn-hover-color: #fff;
+  --bs-btn-hover-bg: var(--mq-blue);
+  --bs-btn-hover-border-color: var(--mq-blue);
+  --bs-btn-active-color: #fff;
+  --bs-btn-active-bg: var(--mq-blue);
+  --bs-btn-active-border-color: var(--mq-blue);
+  --bs-btn-focus-shadow-rgb: 15, 111, 163;
+  --bs-btn-disabled-color: var(--mq-navy);
+  --bs-btn-disabled-border-color: #c3d3de;
 }
 
 .app-shell {
@@ -38,6 +74,31 @@ body {
   position: relative;
 }
 
+.app-navbar {
+  background: linear-gradient(180deg, var(--mq-navy), var(--mq-navy-deep));
+  border-bottom: 3px solid var(--mq-teal);
+}
+
+.app-navbar .navbar-brand span {
+  color: #ffffff;
+}
+
+.app-navbar .btn-outline-primary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #e7eef5;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.app-navbar .btn-outline-primary:hover,
+.app-navbar .btn-outline-primary:focus {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+#btnTimeRange.time-range-open {
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+
 .share-copy-pop {
   position: fixed;
   z-index: 1200;
@@ -45,10 +106,10 @@ body {
   transform-origin: center center;
   padding: 6px 10px;
   border-radius: 999px;
-  border: 1px solid rgba(13, 110, 253, 0.32);
-  background: #0d6efd;
+  border: 1px solid rgba(15, 111, 163, 0.32);
+  background: var(--mq-blue);
   color: #ffffff;
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.28);
+  box-shadow: 0 6px 18px rgba(15, 111, 163, 0.28);
   font-size: 13px;
   font-weight: 600;
   line-height: 1;
@@ -58,10 +119,10 @@ body {
 }
 
 .share-copy-pop.is-success {
-  border-color: rgba(13, 110, 253, 0.32);
-  background: #0d6efd;
+  border-color: rgba(15, 111, 163, 0.32);
+  background: var(--mq-blue);
   color: #ffffff;
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.28);
+  box-shadow: 0 6px 18px rgba(15, 111, 163, 0.28);
 }
 
 .share-copy-pop.is-error {

@@ -250,7 +250,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
       ctx.fillText(section.title, headerTextX, y);
 
       ctx.strokeStyle = section.stacked
-        ? "rgba(13, 110, 253, 0.28)"
+        ? "rgba(15, 111, 163, 0.28)"
         : section.frequency
           ? "rgba(255, 193, 7, 0.42)"
           : "rgba(108, 117, 125, 0.22)";
