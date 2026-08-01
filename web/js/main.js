@@ -98,7 +98,10 @@ const presetTokenMap = {
   prev_year: ["startyear-1y", "endyear-1y"],
 };
 const COMPACT_SIDEBAR_BREAKPOINT_PX = 1400;
+// Bootstrap's sm breakpoint (576px) — "smaller than sm" is everything under it.
+const HELP_BUTTON_BURGER_BREAKPOINT_PX = 576;
 let zoomRangeBadgeTimer = null;
+let helpButtonInBurgerMenu = false;
 let wheelZoomLoadTimer = null;
 let timeDialogMode = "relative";
 let helpModule = null;
@@ -182,6 +185,28 @@ function applyResponsiveSidebarMode() {
     return;
   }
   setSidebarCollapsed(false);
+}
+
+// Moves the actual button node between its normal spot and the burger
+// dropdown rather than duplicating it, so its listeners/state (is-visible,
+// is-pop, etc.) stay attached to the one real element regardless of where
+// it currently lives in the DOM.
+function applyResponsiveHelpButtonPlacement() {
+  const shouldBeInBurger = window.innerWidth < HELP_BUTTON_BURGER_BREAKPOINT_PX;
+  if (shouldBeInBurger === helpButtonInBurgerMenu) return;
+  helpButtonInBurgerMenu = shouldBeInBurger;
+  if (!dom.btnHelpOverlayToggle) return;
+  if (shouldBeInBurger) {
+    dom.topNavControls?.insertBefore(
+      dom.btnHelpOverlayToggle,
+      dom.topNavControls.firstChild,
+    );
+  } else {
+    dom.navbarRightGroup?.insertBefore(
+      dom.btnHelpOverlayToggle,
+      dom.navbarRightGroup.firstChild,
+    );
+  }
 }
 
 function showUrlStateErrorModal(message) {
@@ -964,6 +989,7 @@ function wireCanvasInteractionEvents() {
 
   window.addEventListener("resize", () => {
     applyResponsiveSidebarMode();
+    applyResponsiveHelpButtonPlacement();
     fitContentHeight();
     renderChart();
     renderCollapsedLegend();
@@ -1162,6 +1188,7 @@ async function init() {
   }
   syncLegacyChartsButton();
   applyResponsiveSidebarMode();
+  applyResponsiveHelpButtonPlacement();
   fitContentHeight();
   wireEvents();
   if (restoredFromUrl) setSidebarCollapsed(true);

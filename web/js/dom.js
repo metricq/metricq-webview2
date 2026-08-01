@@ -2,6 +2,8 @@ export const dom = {
   appContent: document.getElementById("appContent"),
   chartWrap: document.getElementById("chartWrap"),
   btnHelpOverlayToggle: document.getElementById("btnHelpOverlayToggle"),
+  navbarRightGroup: document.querySelector(".navbar-right-group"),
+  topNavControls: document.querySelector("#topNav .top-controls"),
   chartCol: document.getElementById("chartCol"),
   metricsCol: document.getElementById("metricsCol"),
   btnSidebarToggle: document.getElementById("btnSidebarToggle"),
