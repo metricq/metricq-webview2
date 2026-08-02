@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test & build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout metricq-codex
+        uses: actions/checkout@v4
+        with:
+          path: metricq-codex
+
+      # go.mod has a local "replace github.com/metricq/metricq-go => ../metricq-go",
+      # so the sibling repo has to be checked out next to metricq-codex for
+      # go build/vet/test to resolve it, same as local development.
+      - name: Checkout metricq-go
+        uses: actions/checkout@v4
+        with:
+          repository: metricq/metricq-go
+          path: metricq-go
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: metricq-codex/go.mod
+
+      - name: go build
+        working-directory: metricq-codex
+        run: go build ./...
+
+      - name: go vet
+        working-directory: metricq-codex
+        run: go vet ./...
+
+      - name: go test
+        working-directory: metricq-codex
+        run: go test ./... -count=1
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Frontend tests
+        working-directory: metricq-codex
+        run: node --test web/tests/*.test.mjs
+
+  docker:
+    name: Build & push Docker image
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout metricq-codex
+        uses: actions/checkout@v4
+        with:
+          path: metricq-codex
+
+      - name: Checkout metricq-go
+        uses: actions/checkout@v4
+        with:
+          repository: metricq/metricq-go
+          path: metricq-go
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Derive image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,prefix=,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Build context is the workspace root, which now contains both
+      # metricq-codex/ and metricq-go/ as siblings (see Dockerfile).
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: metricq-codex/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
