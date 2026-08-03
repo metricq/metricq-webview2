@@ -2234,6 +2234,20 @@ function renderHoverAt(clientX, clientY) {
         index: nearestIndex,
       });
       if (!Number.isFinite(rawValue)) continue;
+      const rawMin =
+        series.mode === "aggregates"
+          ? pointRenderValue(metric, series, nearestPoint, "min", {
+              points: samplePoints,
+              index: nearestIndex,
+            })
+          : null;
+      const rawMax =
+        series.mode === "aggregates"
+          ? pointRenderValue(metric, series, nearestPoint, "max", {
+              points: samplePoints,
+              index: nearestIndex,
+            })
+          : null;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
       const yPx = lastLayout.sy(plotValue);
@@ -2264,6 +2278,8 @@ function renderHoverAt(clientX, clientY) {
           sampled: {
             t: sampleT,
             value: rawValue,
+            min: rawMin,
+            max: rawMax,
             ohlc,
             activeTimeMs:
               series.mode === "aggregates"
@@ -2316,7 +2332,11 @@ function renderHoverAt(clientX, clientY) {
         ? `freq <strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}${intervalText ? ` | interval <strong>${intervalText}</strong>` : ""}`
         : row.sampled.ohlc
           ? `O <strong>${formatFixed(row.sampled.ohlc.open, 3)}</strong>${unitSuffix} | H <strong>${formatFixed(row.sampled.ohlc.high, 3)}</strong>${unitSuffix} | L <strong>${formatFixed(row.sampled.ohlc.low, 3)}</strong>${unitSuffix} | C <strong>${formatFixed(row.sampled.ohlc.close, 3)}</strong>${unitSuffix}`
-          : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}`;
+          : metricRenderShowsBands() &&
+              Number.isFinite(row.sampled.min) &&
+              Number.isFinite(row.sampled.max)
+            ? `min <strong>${formatFixed(row.sampled.min, 3)}</strong>${unitSuffix} | avg <strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix} | max <strong>${formatFixed(row.sampled.max, 3)}</strong>${unitSuffix}`
+            : `<strong>${formatFixed(row.sampled.value, 3)}</strong>${unitSuffix}`;
       return `<div><span style=\"display:inline-block;width:10px;height:10px;background:${row.metric.color};margin-right:6px\"></span>${metricDisplayName(row.metric)}${factorText}: ${valueHtml}</div>`;
     })
     .join("");
