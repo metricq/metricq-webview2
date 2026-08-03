@@ -24,8 +24,20 @@ export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
 
 const CANDLE_DOWN_ALPHA = 0.35;
 
-function hexToRgb(hex) {
-  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(String(hex || ""));
+// Resolves any valid CSS color (hex, hsl(...), rgb(...), named, ...) to RGB
+// components by letting the canvas itself parse and normalize it, rather than
+// hand-rolling a parser per format metric.color might be stored in (e.g. the
+// classic palette and color picker use hex, but the random recolor feature
+// generates hsl(...)). Uses a dedicated throwaway context so this never
+// touches the shared drawing context's own fillStyle mid-loop.
+let colorParseCtx = null;
+function resolveColorToRgb(color) {
+  if (!colorParseCtx) {
+    colorParseCtx = document.createElement("canvas").getContext("2d");
+  }
+  colorParseCtx.fillStyle = color;
+  // Canvas normalizes any valid CSS color assigned to fillStyle to "#rrggbb".
+  const m = /^#([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(colorParseCtx.fillStyle);
   if (!m) return { r: 38, g: 67, b: 233 };
   return { r: parseInt(m[1], 16), g: parseInt(m[2], 16), b: parseInt(m[3], 16) };
 }
@@ -1470,7 +1482,7 @@ export function renderChart() {
       const widthMs = Number(series.candleWidthMs) || 0;
       const fullWidthPx = widthMs > 0 ? sx(xMin + widthMs) - sx(xMin) : 4;
       const halfWidthPx = Math.max(1, (fullWidthPx * 0.7) / 2);
-      const { r, g, b } = hexToRgb(metric.color);
+      const { r, g, b } = resolveColorToRgb(metric.color);
       const upColor = `rgba(${r}, ${g}, ${b}, 1)`;
       const downColor = `rgba(${r}, ${g}, ${b}, ${CANDLE_DOWN_ALPHA})`;
       for (const p of candles) {
