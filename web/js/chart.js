@@ -1283,7 +1283,7 @@ export function renderChart() {
     return;
   }
   setChartLoadingVisible(false);
-  dom.canvas.style.cursor = "crosshair";
+  dom.canvas.style.cursor = showHelpOverlay ? "default" : "crosshair";
 
   const tiMode = state.renderMode === "ti";
   lastStackedByMetric = yAxisStackingActive()
