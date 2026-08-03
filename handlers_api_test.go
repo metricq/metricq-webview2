@@ -17,16 +17,13 @@ func TestDecodeMetricSearchResponse(t *testing.T) {
 	}
 }
 
-func TestResolveQueryTargetsFallbackMetrics(t *testing.T) {
-	targets, err := resolveQueryTargets(apiQueryRequest{Metrics: []string{"a", " b "}})
+func TestResolveQueryTargetsEmpty(t *testing.T) {
+	targets, err := resolveQueryTargets(apiQueryRequest{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(targets) != 2 {
+	if len(targets) != 0 {
 		t.Fatalf("unexpected len: %d", len(targets))
-	}
-	if targets[1].Name != "b" || targets[1].Metric != "b" {
-		t.Fatalf("unexpected target mapping: %#v", targets[1])
 	}
 }
 

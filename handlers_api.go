@@ -206,10 +206,7 @@ func (s *service) handleAPIAnalyze(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid json")
 		return
 	}
-	targets, err := resolveQueryTargets(apiQueryRequest{
-		Targets: req.Targets,
-		Metrics: req.Metrics,
-	})
+	targets, err := resolveQueryTargets(apiQueryRequest{Targets: req.Targets})
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return

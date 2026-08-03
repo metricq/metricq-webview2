@@ -64,7 +64,6 @@ type metricSearchResponse struct {
 
 type apiQueryRequest struct {
 	Targets       []apiQueryTarget `json:"targets,omitempty"`
-	Metrics       []string         `json:"metrics,omitempty"`
 	FromUnixMS    int64            `json:"from"`
 	ToUnixMS      int64            `json:"to"`
 	MaxDataPoints int              `json:"maxDataPoints"`
@@ -119,7 +118,6 @@ type apiAggPoint struct {
 
 type apiAnalyzeRequest struct {
 	Targets    []apiQueryTarget `json:"targets,omitempty"`
-	Metrics    []string         `json:"metrics,omitempty"`
 	FromUnixMS int64            `json:"from"`
 	ToUnixMS   int64            `json:"to"`
 }

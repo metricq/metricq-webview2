@@ -5,20 +5,8 @@ import (
 	"strings"
 )
 
-// resolveQueryTargets normalizes legacy metric lists and explicit targets into one target list.
+// resolveQueryTargets normalizes explicit targets, validating metric/expr exclusivity and name uniqueness.
 func resolveQueryTargets(req apiQueryRequest) ([]apiQueryTarget, error) {
-	if len(req.Targets) == 0 {
-		targets := make([]apiQueryTarget, 0, len(req.Metrics))
-		for _, metric := range req.Metrics {
-			trimmed := strings.TrimSpace(metric)
-			if trimmed == "" {
-				continue
-			}
-			targets = append(targets, apiQueryTarget{Name: trimmed, Metric: trimmed})
-		}
-		return targets, nil
-	}
-
 	targets := make([]apiQueryTarget, 0, len(req.Targets))
 	seenNames := map[string]struct{}{}
 	for _, raw := range req.Targets {
