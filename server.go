@@ -53,7 +53,7 @@ func main() {
 			log.Fatalf("WEB_DIR=%q is not a directory", cfg.WebDir)
 		}
 		log.Printf("serving frontend from filesystem: %s", cfg.WebDir)
-		mux.Handle("/", http.FileServer(http.Dir(cfg.WebDir)))
+		mux.Handle("/", noCacheMiddleware(http.FileServer(http.Dir(cfg.WebDir))))
 	} else {
 		sub, err := fs.Sub(webFS, "web")
 		if err != nil {

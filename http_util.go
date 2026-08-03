@@ -21,6 +21,17 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
+// noCacheMiddleware disables browser caching for the wrapped handler. Used for
+// WEB_DIR live-reload dev mode, where Go's default http.FileServer only sends
+// Last-Modified (no Cache-Control) and browsers can still heuristically cache
+// module scripts across edits, silently serving stale JS after a file change.
+func noCacheMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}
+
 // loggingMiddleware logs each request before delegating to the wrapped handler.
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
