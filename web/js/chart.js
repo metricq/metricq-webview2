@@ -1503,12 +1503,18 @@ export function renderChart() {
         ctx.strokeStyle = color;
         ctx.fillStyle = color;
         ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(x, yHigh);
-        ctx.lineTo(x, yLow);
-        ctx.stroke();
         const bodyTop = Math.min(yOpen, yClose);
         const bodyHeight = Math.max(1, Math.abs(yClose - yOpen));
+        const bodyBottom = bodyTop + bodyHeight;
+        // Draw the wick only above/below the body, not straight through it —
+        // otherwise a translucent (falling) body double-blends with the
+        // wick stroke underneath it, showing up as a visible seam.
+        ctx.beginPath();
+        ctx.moveTo(x, yHigh);
+        ctx.lineTo(x, bodyTop);
+        ctx.moveTo(x, bodyBottom);
+        ctx.lineTo(x, yLow);
+        ctx.stroke();
         ctx.fillRect(x - halfWidthPx, bodyTop, halfWidthPx * 2, bodyHeight);
       }
       continue;
