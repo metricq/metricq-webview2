@@ -92,7 +92,7 @@
                 <canvas id="chartCanvas"></canvas>
                 <div id="chartEmptyState" class="chart-empty-state d-none" aria-live="polite">
                   <div class="chart-empty-card">
-                    <button class="btn btn-light btn-sm chart-empty-close" id="btnEmptyHideHelp" type="button" title="Hilfe ausblenden" aria-label="Hilfe ausblenden">
+                    <button class="btn btn-light btn-sm chart-empty-close" id="btnEmptyHideHelp" type="button" aria-label="Hilfe ausblenden">
                       <i class="bi bi-x-lg"></i>
                     </button>
                     <div class="chart-empty-icon"><i class="bi bi-graph-up"></i></div>
@@ -133,11 +133,11 @@
                   <div class="metrics-header-toolset metrics-header-toggle">
                     <span class="metrics-header-toolset-label">Ansicht</span>
                     <div class="btn-group btn-group-sm metrics-toolset-pill" role="radiogroup" aria-label="Metrikdarstellung">
-                      <button class="btn btn-outline-secondary" id="btnRenderBands" type="button" role="radio" title="Linie mit Bändern" data-help="Zeigt jede Metrik als Linie mit einem Band aus Minimum und Maximum um den Mittelwert." aria-label="Linie mit Bändern"><i class="bi bi-chevron-bar-expand"></i></button>
-                      <button class="btn btn-outline-secondary" id="btnRenderLine" type="button" role="radio" title="Nur Linie" data-help="Zeigt nur die Mittelwert-Linie, ohne das Min/Max-Band." aria-label="Nur Linie"><i class="bi bi-dash-lg"></i></button>
-                      <button class="btn btn-outline-secondary" id="btnRenderCount" type="button" role="radio" title="Frequenz" data-help="Zeigt die Anzahl der Messwerte pro Zeitintervall statt der Messwerte selbst." aria-label="Frequenz"><i class="bi bi-activity"></i></button>
-                      <button class="btn btn-outline-secondary" id="btnRenderTi" type="button" role="radio" title="TI-Modus (Last-Semantik)" data-help="Zeigt Werte treppenförmig: Ein Wert gilt bis zum nächsten Messpunkt, passend für Zählerstände/Lastgänge." aria-label="TI-Modus (Last-Semantik)"><i class="bi bi-bar-chart-line-fill"></i></button>
-                      <button class="btn btn-outline-secondary" id="btnRenderCandles" type="button" role="radio" title="Kerzenchart (OHLC)" data-help="Zeigt Open/High/Low/Close-Kerzen für jedes Zeitintervall, ähnlich einem Börsenchart." aria-label="Kerzenchart (OHLC)"><i class="bi bi-reception-2"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderBands" type="button" role="radio" title="Linie mit Bändern" data-help="Zeigt jede Metrik als Linie mit einem Band aus Minimum und Maximum um den Mittelwert." data-help-rich="bands" aria-label="Linie mit Bändern"><i class="bi bi-chevron-bar-expand"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderLine" type="button" role="radio" title="Nur Linie" data-help="Zeigt nur die Mittelwert-Linie, ohne das Min/Max-Band." data-help-rich="line" aria-label="Nur Linie"><i class="bi bi-dash-lg"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderCount" type="button" role="radio" title="Frequenz" data-help="Zeigt die Anzahl der Messwerte pro Zeitintervall statt der Messwerte selbst." data-help-rich="count" aria-label="Frequenz"><i class="bi bi-activity"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderTi" type="button" role="radio" title="TI-Modus (Last-Semantik)" data-help="Ein Wert gilt vorwärts bis zum nächsten Messpunkt – ideal für Zählerstände und Lastgänge." data-help-rich="ti" aria-label="TI-Modus (Last-Semantik)"><i class="bi bi-bar-chart-line-fill"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRenderCandles" type="button" role="radio" title="Kerzenchart (OHLC)" data-help="Zeigt Open/High/Low/Close-Kerzen für jedes Zeitintervall, ähnlich einem Börsenchart." data-help-rich="candlestick" aria-label="Kerzenchart (OHLC)"><i class="bi bi-reception-2"></i></button>
                     </div>
                   </div>
                   <div class="metrics-header-toolset metrics-header-actions">
@@ -145,7 +145,7 @@
                     <div class="btn-group btn-group-sm metrics-toolset-pill" role="group" aria-label="Metrikaktionen">
                       <button class="btn btn-outline-secondary" id="btnHideAll" title="Alle ausblenden" data-help="Blendet alle Metriken im Chart aus, ohne sie aus der Liste zu entfernen."><i class="bi bi-eye-slash"></i></button>
                       <button class="btn btn-outline-secondary" id="btnShowAll" title="Alle zeigen" data-help="Blendet alle zuvor ausgeblendeten Metriken wieder ein."><i class="bi bi-eye"></i></button>
-                      <button class="btn btn-outline-secondary" id="btnRecolorClassic" title="Klassisch färben" data-help="Weist allen Metriken wieder die klassische Standardfarbpalette in Listenreihenfolge zu."><i class="bi bi-brush"></i></button>
+                      <button class="btn btn-outline-secondary" id="btnRecolorClassic" title="Klassisch färben" data-help="Weist allen Metriken wieder die klassische Standardfarbpalette in Listenreihenfolge zu." data-help-rich="classicPalette"><i class="bi bi-brush"></i></button>
                       <button class="btn btn-outline-secondary" id="btnRecolor" title="Neu färben" data-help="Weist allen Metriken neue, zufällige Farben zu."><i class="bi bi-palette"></i></button>
                       <button class="btn btn-outline-danger" id="btnClear" title="Alle entfernen" data-help="Entfernt alle ausgewählten Metriken aus dem Chart."><i class="bi bi-trash"></i></button>
                     </div>

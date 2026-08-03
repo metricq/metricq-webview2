@@ -132,6 +132,50 @@
   justify-content: center;
 }
 
+.view-mode-legend-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.view-mode-diagram {
+  background: #fff;
+  border: 1px solid var(--mq-line);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.view-mode-diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.view-mode-palette-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 3px;
+  justify-content: center;
+}
+
+.view-mode-palette-row .metric-color {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.view-mode-legend-text {
+  font-size: 0.85rem;
+  color: #5f6b7b;
+  line-height: 1.3;
+  text-align: center;
+}
+
 .chart-help-sections .btn {
   --bs-btn-padding-y: 0.23rem;
   --bs-btn-padding-x: 0.5rem;

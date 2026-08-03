@@ -327,7 +327,7 @@ function recolorForIndex(index, seed) {
   return `hsl(${hue.toFixed(1)} ${saturation}% ${lightness}%)`;
 }
 
-const classicPalette = [
+export const classicPalette = [
   "#ff0000",
   "#008000",
   "#0000ff",
