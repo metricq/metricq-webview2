@@ -1933,13 +1933,15 @@ function candlestickHalfWidthPx(series) {
   return Math.max(1, (fullWidthPx * 0.7) / 2);
 }
 
-function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX) {
+function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX, cursorY) {
   const plotRight = margin.left + lastLayout.plotW;
 
-  // Collect every metric's candle nearest the cursor time, then keep only
-  // the one whose center is closest to the cursor overall (ties broken by
-  // exact-same center time keep all of them) so exactly one moment in time
-  // is highlighted, not one candle per metric independently.
+  // Collect every metric's candle nearest the cursor time, then only keep
+  // candles that are themselves within snapping distance by 2D proximity (x
+  // distance to the candle's center, y distance to its high/low range — 0 if
+  // the cursor is vertically inside the wick). A candle far above/below the
+  // cursor no longer gets highlighted just because another metric's candle
+  // at the same moment happens to be close.
   const candidates = [];
   const lineRows = [];
 
@@ -1959,15 +1961,28 @@ function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX) {
       const open = Number(p.open);
       const close = Number(p.close);
       if (!Number.isFinite(open) || !Number.isFinite(close)) continue;
+      const high = p.max * metric.factor;
+      const low = p.min * metric.factor;
+      const yHigh = lastLayout.sy(high);
+      const yLow = lastLayout.sy(low);
+      const rangeTop = Math.min(yHigh, yLow);
+      const rangeBottom = Math.max(yHigh, yLow);
+      const dx = xPx - cursorX;
+      const dy =
+        cursorY < rangeTop
+          ? rangeTop - cursorY
+          : cursorY > rangeBottom
+            ? cursorY - rangeBottom
+            : 0;
       candidates.push({
         metric,
         point: p,
         xPx,
         halfWidthPx: candlestickHalfWidthPx(series),
-        dx: Math.abs(xPx - cursorX),
+        dist2: weightedHoverDist2(dx, dy),
         open: open * metric.factor,
-        high: p.max * metric.factor,
-        low: p.min * metric.factor,
+        high,
+        low,
         close: close * metric.factor,
       });
     } else {
@@ -1977,15 +1992,13 @@ function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX) {
     }
   }
 
-  let nearest = null;
-  for (const candidate of candidates) {
-    if (!nearest || candidate.dx < nearest.dx) nearest = candidate;
-  }
-  const candleSnapPx = nearest ? nearest.halfWidthPx + 6 : 0;
-  const hits =
-    nearest && nearest.dx <= candleSnapPx
-      ? candidates.filter((c) => c.point.t === nearest.point.t)
-      : [];
+  // Each candle only qualifies on its own proximity to the cursor — a candle
+  // far above/below the cursor no longer rides along just because another
+  // metric's candle at the same moment in time happens to be the closest.
+  const hits = candidates.filter((c) => {
+    const snapPx = c.halfWidthPx + 6;
+    return c.dist2 <= snapPx * snapPx;
+  });
 
   if (hits.length === 0 && lineRows.length === 0) {
     dom.hoverBox.classList.add("d-none");
@@ -2010,7 +2023,10 @@ function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX) {
   });
   hideHoverCandle(hits.length);
 
-  const refT = hits.length > 0 ? hits[0].point.t : t;
+  const refT =
+    hits.length > 0
+      ? hits.reduce((a, b) => (b.dist2 < a.dist2 ? b : a)).point.t
+      : t;
   positionHoverCursorLine(lastLayout.sx(refT), margin.top, lastLayout.plotH);
 
   const candleHtml = hits
@@ -2058,7 +2074,7 @@ function renderHoverAt(clientX, clientY) {
   const cursorX = clientX - canvasRect.left;
   const cursorY = clientY - canvasRect.top;
   if (state.renderMode === "candlestick") {
-    renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX);
+    renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX, cursorY);
     return;
   }
   const cursorValue = (() => {
