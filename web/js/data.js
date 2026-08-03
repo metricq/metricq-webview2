@@ -69,11 +69,15 @@ function seriesDisplayTime(points, index, series) {
     String(series?.stats?.type || "") === "computed";
   if (
     state.renderMode !== "ti" &&
-    index > 0 &&
+    index < points.length - 1 &&
     (isAggregateSeries || isComputedValuesSeries)
   ) {
-    const prev = points[index - 1];
-    return Math.round((prev.t + point.t) / 2);
+    // Bucket timestamps mark the *start* of their interval, so a bucket's
+    // own true center lies between its own time and the *next* bucket's
+    // start — not the previous one's. Keep in sync with the identical
+    // helper in chart.js (aggregateDisplayTime).
+    const next = points[index + 1];
+    return Math.round((point.t + next.t) / 2);
   }
   return point.t;
 }

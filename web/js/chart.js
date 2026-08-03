@@ -396,11 +396,14 @@ function frequencyIntervalText(rateHz) {
   return formatHoverInterval(1000 / rate);
 }
 
+// Last-value semantics: a report at time T holds forward until superseded,
+// so the sample governing time t is the most recent one at or before t —
+// not the next one arriving after it.
 function sampleLastValue(samples, t) {
   if (!Array.isArray(samples) || samples.length === 0 || !Number.isFinite(t))
     return null;
   if (samples.length === 1) {
-    return t === samples[0].t ? samples[0] : null;
+    return t >= samples[0].t ? samples[0] : null;
   }
 
   let lo = 1;
@@ -415,7 +418,7 @@ function sampleLastValue(samples, t) {
   const prev = samples[idx - 1];
   const curr = samples[idx];
   if (t < prev.t || t > curr.t) return null;
-  return curr;
+  return prev;
 }
 
 function collectTimelineTimes(sampleSets) {
@@ -822,22 +825,23 @@ function splitValidRuns(points, isValid) {
   return runs;
 }
 
+// Last-value semantics: a report at time T describes what's happening from T
+// onward (forward), holding until the next report supersedes it — not what
+// happened before T. So the segment between two consecutive reports is drawn
+// at the *earlier* one's value, with a vertical jump to the new value
+// starting exactly at the later report's timestamp.
 function drawLastSemanticStepLine(ctx, run, valueOf, sx, sy) {
   if (!Array.isArray(run) || run.length < 2) return;
   ctx.beginPath();
+  ctx.moveTo(sx(run[0].t), sy(valueOf(run[0])));
   for (let i = 1; i < run.length; i += 1) {
     const prev = run[i - 1];
     const curr = run[i];
-    const x0 = sx(prev.t);
+    const prevY = sy(valueOf(prev));
+    const currY = sy(valueOf(curr));
     const x1 = sx(curr.t);
-    const y = sy(valueOf(curr));
-    if (i === 1) ctx.moveTo(x0, y);
-    else ctx.lineTo(x0, y);
-    ctx.lineTo(x1, y);
-    if (i < run.length - 1) {
-      const nextY = sy(valueOf(run[i + 1]));
-      ctx.lineTo(x1, nextY);
-    }
+    ctx.lineTo(x1, prevY);
+    ctx.lineTo(x1, currY);
   }
   ctx.stroke();
 }
@@ -849,8 +853,8 @@ function drawLastSemanticBand(ctx, run, minOf, maxOf, sx, sy) {
     const curr = run[i];
     const x0 = sx(prev.t);
     const x1 = sx(curr.t);
-    const yMin = sy(minOf(curr));
-    const yMax = sy(maxOf(curr));
+    const yMin = sy(minOf(prev));
+    const yMax = sy(maxOf(prev));
     ctx.beginPath();
     ctx.moveTo(x0, yMin);
     ctx.lineTo(x1, yMin);
@@ -1852,12 +1856,14 @@ function sampleTIAtTime(metric, series, t) {
     const prev = points[idx - 1];
     const curr = points[idx];
     if (t < prev.t || t > curr.t) return null;
-    const rawValue = pointRenderValue(metric, series, curr, "avg", {
+    // Last-value semantics: prev's report holds forward through this
+    // interval until curr's timestamp supersedes it — so prev governs.
+    const rawValue = pointRenderValue(metric, series, prev, "avg", {
       points,
-      index: idx,
+      index: idx - 1,
     });
     if (!Number.isFinite(rawValue)) return null;
-    const stacked = stackedValueAt(metric.name, "avg", curr.t);
+    const stacked = stackedValueAt(metric.name, "avg", prev.t);
     const plotAvg = Number.isFinite(stacked) ? stacked : rawValue;
     return { min: rawValue, avg: rawValue, max: rawValue, plotAvg };
   }
@@ -1875,10 +1881,12 @@ function sampleTIAtTime(metric, series, t) {
   if (idx <= 0 || idx >= points.length) return null;
   const prev = points[idx - 1];
   const curr = points[idx];
-  if (t < prev.t || t > curr.t || Number(curr.count) === 0) return null;
-  const rawMin = pointRenderValue(metric, series, curr, "min");
-  const rawAvg = pointRenderValue(metric, series, curr, "avg");
-  const rawMax = pointRenderValue(metric, series, curr, "max");
+  // Last-value semantics: prev's aggregate holds forward through this
+  // interval until curr's timestamp supersedes it — so prev governs.
+  if (t < prev.t || t > curr.t || Number(prev.count) === 0) return null;
+  const rawMin = pointRenderValue(metric, series, prev, "min");
+  const rawAvg = pointRenderValue(metric, series, prev, "avg");
+  const rawMax = pointRenderValue(metric, series, prev, "max");
   if (
     !Number.isFinite(rawMin) ||
     !Number.isFinite(rawAvg) ||
@@ -1886,9 +1894,9 @@ function sampleTIAtTime(metric, series, t) {
   ) {
     return null;
   }
-  const stackedAvg = stackedValueAt(metric.name, "avg", curr.t);
-  const open = Number(curr.open);
-  const close = Number(curr.close);
+  const stackedAvg = stackedValueAt(metric.name, "avg", prev.t);
+  const open = Number(prev.open);
+  const close = Number(prev.close);
   return {
     min: rawMin,
     avg: rawAvg,
@@ -1896,7 +1904,7 @@ function sampleTIAtTime(metric, series, t) {
     open: Number.isFinite(open) ? open * metric.factor : null,
     close: Number.isFinite(close) ? close * metric.factor : null,
     plotAvg: Number.isFinite(stackedAvg) ? stackedAvg : rawAvg,
-    activeTimeMs: Number(curr.activeTimeMs) || null,
+    activeTimeMs: Number(prev.activeTimeMs) || null,
   };
 }
 
@@ -1909,11 +1917,15 @@ function aggregateDisplayTime(points, index, series = null) {
     String(series?.stats?.type || "") === "computed";
   if (
     state.renderMode !== "ti" &&
-    index > 0 &&
+    index < points.length - 1 &&
     (isAggregateSeries || isComputedValuesSeries)
   ) {
-    const prev = points[index - 1];
-    return Math.round((prev.t + p.t) / 2);
+    // Bucket timestamps mark the *start* of their interval (see
+    // stackedValueAtLastSemantics / drawLastSemanticStepLine), so a bucket's
+    // own true center lies between its own time and the *next* bucket's
+    // start — not the previous one's.
+    const next = points[index + 1];
+    return Math.round((p.t + next.t) / 2);
   }
   return p.t;
 }

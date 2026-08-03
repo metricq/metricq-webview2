@@ -7,13 +7,17 @@ import (
 	"strings"
 )
 
+// stackedValuePoint is a report under last-value semantics: the value at t
+// was measured starting at t and holds forward until validUntilMS (a fresh
+// report at t describes what's happening from t onward, until superseded —
+// not what happened before t; see stackedValueAtLastSemantics).
 type stackedValuePoint struct {
-	t           int64
-	v           float64
-	validFromMS int64
+	t            int64
+	v            float64
+	validUntilMS int64
 }
 
-const stackedNoLowerBound int64 = -1 << 63
+const stackedNoUpperBound int64 = 1<<63 - 1
 
 // seriesToStackedPoints converts a query series into points that can be aligned under last semantics.
 func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
@@ -24,7 +28,10 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 			if math.IsNaN(point.V) || math.IsInf(point.V, 0) {
 				continue
 			}
-			out = append(out, stackedValuePoint{t: point.T, v: point.V, validFromMS: stackedNoLowerBound})
+			// A raw sample has no known duration; it holds forward
+			// (classic last-observation-carried-forward) until whatever
+			// comes next, so there's no upper bound to apply here.
+			out = append(out, stackedValuePoint{t: point.T, v: point.V, validUntilMS: stackedNoUpperBound})
 		}
 		return out
 	case "aggregates":
@@ -33,11 +40,11 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 			if point.Count == 0 || math.IsNaN(point.Avg) || math.IsInf(point.Avg, 0) {
 				continue
 			}
-			validFrom := stackedNoLowerBound
+			validUntil := stackedNoUpperBound
 			if point.ActiveTimeMS > 0 {
-				validFrom = point.T - point.ActiveTimeMS
+				validUntil = point.T + point.ActiveTimeMS
 			}
-			out = append(out, stackedValuePoint{t: point.T, v: point.Avg, validFromMS: validFrom})
+			out = append(out, stackedValuePoint{t: point.T, v: point.Avg, validUntilMS: validUntil})
 		}
 		return out
 	default:
@@ -45,20 +52,22 @@ func seriesToStackedPoints(series apiQuerySeries) []stackedValuePoint {
 	}
 }
 
-// stackedValueAtLastSemantics returns the first value that is valid at the requested timestamp.
+// stackedValueAtLastSemantics returns the value of the most recent report at
+// or before t, provided t still falls within that report's forward validity
+// window (no gap since).
 func stackedValueAtLastSemantics(points []stackedValuePoint, t int64) (float64, bool) {
 	if len(points) == 0 {
 		return 0, false
 	}
-	idx := sort.Search(len(points), func(i int) bool { return points[i].t >= t })
-	for ; idx < len(points); idx++ {
-		point := points[idx]
-		if point.validFromMS > t {
-			continue
-		}
-		return point.v, true
+	idx := sort.Search(len(points), func(i int) bool { return points[i].t > t }) - 1
+	if idx < 0 {
+		return 0, false
 	}
-	return 0, false
+	point := points[idx]
+	if t > point.validUntilMS {
+		return 0, false
+	}
+	return point.v, true
 }
 
 // buildStackedTimeline creates the shared output timeline for stacked rendering.
