@@ -90,6 +90,7 @@ No build step. Modules are loaded directly by the browser.
 
 ## Key Conventions
 
+- **Whenever the API surface changes** (adding/removing/renaming an `/api/*` endpoint, changing its HTTP method, request/response fields, defaults, or limits; adding/removing an environment variable) **update the corresponding section of `README.md` in the same change** — it documents every endpoint with its full parameter/response reference and must stay in sync with `handlers_api.go`/`types.go`/`config.go`.
 - After each code change, state whether a **backend restart** is required (backend changes always require restart; frontend changes with `WEB_DIR` set do not)
 - After each Codex-initiated code change, create a commit with a meaningful message
 - Metric names with dots or special chars must be wrapped in `[...]` in expression syntax
