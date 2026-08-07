@@ -360,14 +360,6 @@ function parseExpressionParts(expression) {
   return parts;
 }
 
-function serializeExpressionEditor() {
-  let out = "";
-  for (const node of dom.expressionInput.childNodes) {
-    out += serializeExpressionNode(node);
-  }
-  return localizeExpressionTextPreservingMetrics(out);
-}
-
 function serializeExpressionNode(node) {
   if (!node) return "";
   if (node.nodeType === Node.TEXT_NODE) {
@@ -432,18 +424,15 @@ function cutExpressionSelectionToClipboard(event) {
 }
 
 function serializeFullExpressionEditor() {
+  // Must recurse through arbitrary wrapper elements (serializeExpressionNode
+  // does this already) rather than reading node.textContent directly for
+  // non-token/non-text children - the error highlight can wrap a metric
+  // token in an .expression-error-fragment span, and .textContent on that
+  // wrapper would silently drop the [brackets], sending the bare metric
+  // name to the backend as an invalid identifier.
   let out = "";
   for (const node of dom.expressionInput.childNodes) {
-    if (node.nodeType === Node.TEXT_NODE) {
-      out += (node.textContent || "").split(CARET_SENTINEL).join("");
-      continue;
-    }
-    if (node.nodeType === Node.ELEMENT_NODE && node.classList.contains("expression-token")) {
-      const metricName = String(node.dataset.metricName || "").trim();
-      if (metricName) out += `[${metricName}]`;
-      continue;
-    }
-    out += node.textContent || "";
+    out += serializeExpressionNode(node);
   }
   return localizeExpressionTextPreservingMetrics(out);
 }
