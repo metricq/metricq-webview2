@@ -659,6 +659,12 @@
 }
 
 .adv-search-header-main {
+    /* .modal-header is a flex row; without flex-grow this shrinks to its
+       content width instead of spanning the dialog, which left the nested
+       title/close-button row's justify-content:space-between pushing the
+       close button to the edge of that shrunk box - visually stranding it
+       mid-dialog instead of at the actual right edge. */
+    flex: 1 1 auto;
     min-width: 0;
 }
 
