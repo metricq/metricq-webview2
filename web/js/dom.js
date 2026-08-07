@@ -142,7 +142,6 @@ export const dom = {
   advSearchInputGroup: document.getElementById("advSearchInputGroup"),
   advSearchInput: document.getElementById("advSearchInput"),
   advSearchModePrefix: document.getElementById("advSearchModePrefix"),
-  advSearchBtn: document.getElementById("advSearchBtn"),
   advSearchTextHint: document.getElementById("advSearchTextHint"),
   advMetaFilters: document.getElementById("advMetaFilters"),
   advMetaFieldSelect: document.getElementById("advMetaFieldSelect"),

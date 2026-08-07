@@ -47,9 +47,6 @@ function syncSearchModePrefix(mode) {
   dom.advSearchInputGroup?.classList.toggle("mode-selector", mode === "selector");
   dom.advSearchInputGroup?.classList.toggle("mode-description", mode === "description");
 
-  const isVisible = mode === "selector" || mode === "description";
-  prefixEl.classList.toggle("d-none", !isVisible);
-
   if (mode === "selector") {
     prefixEl.title = "Regex-Suche aktiv";
     prefixEl.setAttribute("aria-label", "Regex-Suche aktiv");
@@ -66,7 +63,7 @@ function syncSearchModePrefix(mode) {
 
   prefixEl.title = "";
   prefixEl.setAttribute("aria-label", "");
-  prefixEl.innerHTML = "";
+  prefixEl.innerHTML = "⌕";
 }
 
 export function wireAdvancedSearch(hooks) {
@@ -94,7 +91,6 @@ export function wireAdvancedSearch(hooks) {
       runSearch();
     }
   });
-  dom.advSearchBtn.addEventListener("click", runSearch);
 
   dom.advMetaFieldSelect.addEventListener("change", onFieldSelected);
   dom.advMetaValueSelect.addEventListener("change", syncAddFilterButton);
@@ -116,6 +112,7 @@ export function wireAdvancedSearch(hooks) {
     // Keep state so the user can reopen and continue.
   });
 
+  syncSearchModePrefix(currentMode);
   showEmptyState();
 }
 
@@ -247,7 +244,7 @@ function renderResults() {
     const alreadyAdded = !!metricByName(metric.name);
     const item = document.createElement("label");
     item.className =
-      "list-group-item adv-result-item" +
+      "adv-result-item" +
       (alreadyAdded ? " adv-result-already-added" : "") +
       (selectedNames.has(metric.name) ? " adv-result-selected" : "");
 
@@ -271,7 +268,7 @@ function renderResults() {
 
     const nameEl = document.createElement("div");
     nameEl.className = "adv-result-name";
-    nameEl.textContent = metric.name + (alreadyAdded ? " (bereits hinzugefügt)" : "");
+    nameEl.textContent = metric.name;
     body.appendChild(nameEl);
 
     if (metric.description) {
@@ -287,28 +284,43 @@ function renderResults() {
       body.appendChild(metaBadges);
     }
 
-    const addBtn = document.createElement("button");
-    addBtn.type = "button";
-    addBtn.className = "btn btn-sm btn-outline-primary adv-result-add-btn";
-    addBtn.innerHTML = '<i class="bi bi-plus-lg"></i>';
-    addBtn.title = "Metrik übernehmen";
-    addBtn.disabled = alreadyAdded;
-    addBtn.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (addMetricFn && !metricByName(metric.name)) {
+    const trailing = document.createElement("div");
+    trailing.className = "adv-result-trailing";
+
+    const renderAddedBadge = () => {
+      trailing.innerHTML = "";
+      const badge = document.createElement("span");
+      badge.className = "adv-result-added-badge";
+      badge.textContent = "✓ Hinzugefügt";
+      trailing.appendChild(badge);
+    };
+
+    const renderAddButton = () => {
+      trailing.innerHTML = "";
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "btn btn-sm btn-outline-primary adv-result-add-btn";
+      addBtn.innerHTML = '<i class="bi bi-plus-lg"></i>';
+      addBtn.title = "Metrik übernehmen";
+      addBtn.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!addMetricFn || metricByName(metric.name)) return;
         addMetricFn(metric.name);
         item.classList.add("adv-result-already-added");
         checkbox.disabled = true;
-        addBtn.disabled = true;
-        nameEl.textContent = metric.name + " (bereits hinzugefügt)";
-        selectedNames.delete(metric.name);
         checkbox.checked = false;
+        selectedNames.delete(metric.name);
+        renderAddedBadge();
         syncSelectedButton();
-      }
-    });
+      });
+      trailing.appendChild(addBtn);
+    };
 
-    item.append(checkbox, body, addBtn);
+    if (alreadyAdded) renderAddedBadge();
+    else renderAddButton();
+
+    item.append(checkbox, body, trailing);
     dom.advSearchResults.appendChild(item);
   }
   syncSelectedButton();

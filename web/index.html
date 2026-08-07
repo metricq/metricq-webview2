@@ -508,11 +508,14 @@
 
     <div class="modal fade" id="advancedSearchModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-md-down">
-        <div class="modal-content">
-          <div class="modal-header adv-search-header modal-header-mq">
+        <div class="modal-content adv-search-modal-content">
+          <div class="modal-header adv-search-header adv-search-modal-header">
             <div class="adv-search-header-main">
-              <h5 class="modal-title">Erweiterte Metriksuche</h5>
-              <ul class="nav nav-tabs nav-fill adv-search-mode-tabs mb-0" role="tablist">
+              <div class="d-flex align-items-center justify-content-between">
+                <h5 class="modal-title">Erweiterte Metriksuche</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
+              </div>
+              <ul class="nav adv-search-mode-tabs mb-0" role="tablist">
                 <li class="nav-item" role="presentation">
                   <button class="nav-link active" type="button" role="tab" data-mode="infix" id="advSearchModeInfix">Name</button>
                 </li>
@@ -527,17 +530,13 @@
                 </li>
               </ul>
             </div>
-            <button class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Schließen"></button>
           </div>
           <div class="modal-body d-flex flex-column gap-3 p-3 pt-3">
             <div class="adv-search-controls">
               <div id="advSearchTextPanel">
-                <div class="input-group adv-search-input-group" id="advSearchInputGroup">
-                  <span class="input-group-text metric-search-mode-prefix d-none" id="advSearchModePrefix" aria-hidden="true"></span>
+                <div class="adv-search-input-wrap" id="advSearchInputGroup">
+                  <span class="adv-search-input-icon" id="advSearchModePrefix" aria-hidden="true"></span>
                   <input type="text" class="form-control adv-search-input" id="advSearchInput" placeholder="Suchbegriff eingeben..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
-                  <button class="btn btn-primary" id="advSearchBtn" type="button">
-                    <i class="bi bi-search"></i>
-                  </button>
                 </div>
                 <div class="form-text" id="advSearchTextHint">Substring-Suche im Metriknamen</div>
               </div>
@@ -555,9 +554,7 @@
                       <option value="">Wert wählen...</option>
                     </select>
                   </div>
-                  <button class="btn btn btn-outline-primary" id="advMetaAddFilter" type="button" disabled title="Filter hinzufügen">
-                    <i class="bi bi-plus-lg"></i>
-                  </button>
+                  <button class="btn btn-primary btn-sm" id="advMetaAddFilter" type="button" disabled title="Filter hinzufügen">Hinzufügen</button>
                 </div>
                 <div class="form-text">Metadaten-Felder wählen und nach Werten filtern</div>
               </div>
@@ -565,16 +562,16 @@
 
             <div class="adv-search-results-header d-flex align-items-center justify-content-between">
               <span class="text-muted small" id="advSearchResultCount">Keine Ergebnisse</span>
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-outline-primary" id="advSearchAddSelected" disabled>Ausgewählte übernehmen</button>
-                <button class="btn btn-outline-secondary" id="advSearchAddAll" disabled>Alle übernehmen</button>
+              <div class="d-flex gap-2">
+                <button class="btn btn-primary btn-sm" id="advSearchAddSelected" disabled>Ausgewählte übernehmen</button>
+                <button class="btn btn-outline-secondary btn-sm" id="advSearchAddAll" disabled>Alle übernehmen</button>
               </div>
             </div>
 
             <div class="adv-search-results-wrap flex-fill overflow-auto">
-              <div class="list-group list-group-flush" id="advSearchResults"></div>
-              <div class="text-center text-muted py-4 d-none" id="advSearchEmpty">
-                <i class="bi bi-search fs-3 d-block mb-2"></i>
+              <div class="adv-search-results-list" id="advSearchResults"></div>
+              <div class="text-center text-muted py-4 d-none adv-search-empty" id="advSearchEmpty">
+                <div class="adv-search-empty-icon">⌕</div>
                 Suche starten, um Metriken zu finden
               </div>
               <div class="text-center py-3 d-none" id="advSearchSpinner">
