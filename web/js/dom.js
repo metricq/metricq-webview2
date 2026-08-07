@@ -115,6 +115,17 @@ export const dom = {
   expressionValidationError: document.getElementById(
     "expressionValidationError",
   ),
+  expressionStatusBadge: document.getElementById("expressionStatusBadge"),
+  expressionStatusLabel: document.getElementById("expressionStatusLabel"),
+  expressionFunctionChips: document.getElementById("expressionFunctionChips"),
+  expressionPreviewData: document.getElementById("expressionPreviewData"),
+  expressionPreviewEmpty: document.getElementById("expressionPreviewEmpty"),
+  expressionPreviewPolyline: document.getElementById(
+    "expressionPreviewPolyline",
+  ),
+  expressionPreviewLast: document.getElementById("expressionPreviewLast"),
+  expressionPreviewUnit: document.getElementById("expressionPreviewUnit"),
+  expressionPreviewMinMax: document.getElementById("expressionPreviewMinMax"),
   expressionMetricSearch: document.getElementById("expressionMetricSearch"),
   expressionMetricHints: document.getElementById("expressionMetricHints"),
   expressionMetricPalette: document.getElementById("expressionMetricPalette"),

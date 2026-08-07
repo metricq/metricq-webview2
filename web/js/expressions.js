@@ -5,8 +5,10 @@ import { state } from "./model.js";
 import { addExpressionMetric, searchMetricHints, updateExpressionMetric } from "./metrics.js";
 import { expressionTokenForMetric } from "./targets.mjs";
 import { expandExpressionAliases } from "./expression-alias.mjs";
+import { deriveExpressionUnitsResolved } from "./expression-units.mjs";
 import { normalizeSIUnit } from "./units.mjs";
 import { wireMetricSearchField } from "./metric-search-field.js";
+import { formatNumber } from "./number-format.mjs";
 
 let editingMetricName = "";
 let blockCloseOnInvalidExpression = false;
@@ -21,12 +23,33 @@ let expressionErrorFragmentEl = null;
 let editingTokenState = null;
 let lastEditorCaretOffset = null;
 let expressionMetricSearchField = null;
+let expressionStatusDebounceHandle = null;
+let expressionStatusRequestSeq = 0;
+let expressionPreviewRequestSeq = 0;
 
 const metricMetadataCache = new Map();
 const CARET_SENTINEL = "\u200b";
 const DECIMAL_DOT_BETWEEN_DIGITS = /(\d)\.(\d)/g;
 const DECIMAL_COMMA_BETWEEN_DIGITS = /(\d),(\d)/g;
 const metricExistenceCache = new Map();
+const EXPRESSION_STATUS_DEBOUNCE_MS = 450;
+const EXPRESSION_STATUS_LABELS = {
+  checking: "Pr\u00fcft\u2026",
+  valid: "G\u00fcltig",
+  warning: "Warnung",
+  error: "Fehler",
+};
+const EXPRESSION_FUNCTION_CHIPS = [
+  { label: "a + b", title: "Addition", insert: " + " },
+  { label: "a \u2212 b", title: "Subtraktion", insert: " - " },
+  { label: "a \u00d7 b", title: "Multiplikation", insert: " * " },
+  { label: "a \u00f7 b", title: "Division", insert: " / " },
+  { label: "\u2212a", title: "Vorzeichenwechsel (un\u00e4res Minus)", insert: "-" },
+  { label: "log(a)", title: "Logarithmus", insert: "log()", caretOffset: -1 },
+  { label: "min(a,b)", title: "Minimum mehrerer Werte", insert: "min(, )", caretOffset: -2 },
+  { label: "max(a,b)", title: "Maximum mehrerer Werte", insert: "max(, )", caretOffset: -2 },
+  { label: "sum(a,b,\u2026)", title: "Summe mehrerer Werte", insert: "sum()", caretOffset: -1 },
+];
 
 function localizeExpressionText(text) {
   return String(text || "").replace(DECIMAL_DOT_BETWEEN_DIGITS, "$1,$2");
@@ -130,7 +153,7 @@ function commitTokenInlineEdit(commit, options = {}) {
   token.classList.remove("expression-token-editing");
   if (placeCaret) placeCaretAfterNode(token);
   refreshExpressionValidationState();
-  void refreshUnknownMetricWarnings();
+  scheduleExpressionStatusCheck({ immediate: true });
 }
 
 function startTokenInlineEdit(token, clientX) {
@@ -463,10 +486,13 @@ const caretOffsetMapper = {
     }
     return raw.length;
   },
-  domPositionFromExpressionOffset(expressionOffset) {
-    const targetOffset = Math.max(0, Number(expressionOffset) || 0);
-    let remaining = targetOffset;
-    const children = Array.from(dom.expressionInput.childNodes || []);
+  // Finds the DOM position for an expression-offset within `container`'s
+  // children. Text nodes and .expression-token leaves are matched directly;
+  // any other element (e.g. the transient .expression-error-fragment
+  // wrapper) is transparent and its children are searched recursively, so
+  // wrapping a range for the error highlight never breaks offset math.
+  _findDomPosition(container, remaining) {
+    const children = Array.from(container.childNodes || []);
     for (const node of children) {
       if (node.nodeType === Node.TEXT_NODE) {
         const textLen = this.lengthOfNode(node);
@@ -491,15 +517,22 @@ const caretOffsetMapper = {
         continue;
       }
       const otherLen = this.lengthOfNode(node);
-      if (remaining <= otherLen) break;
+      if (remaining <= otherLen) {
+        const inner = this._findDomPosition(node, remaining);
+        if (inner) return inner;
+      }
       remaining -= otherLen;
     }
-    return { atEnd: true };
+    return null;
   },
-  setCaretByExpressionOffset(expressionOffset) {
+  domPositionFromExpressionOffset(expressionOffset) {
     const targetOffset = Math.max(0, Number(expressionOffset) || 0);
-    let remaining = targetOffset;
-    const children = Array.from(dom.expressionInput.childNodes || []);
+    return this._findDomPosition(dom.expressionInput, targetOffset) || { atEnd: true };
+  },
+  // Same transparency as _findDomPosition, but performs the caret placement
+  // directly instead of returning a position descriptor.
+  _setCaretWithin(container, remaining) {
+    const children = Array.from(container.childNodes || []);
     for (const node of children) {
       if (node.nodeType === Node.TEXT_NODE) {
         const textLen = this.lengthOfNode(node);
@@ -511,7 +544,7 @@ const caretOffsetMapper = {
           const sel = window.getSelection();
           sel.removeAllRanges();
           sel.addRange(range);
-          return;
+          return true;
         }
         remaining -= textLen;
         continue;
@@ -520,22 +553,27 @@ const caretOffsetMapper = {
         const tokenLen = this.lengthOfNode(node);
         if (remaining === 0) {
           placeCaretBeforeNode(node);
-          return;
+          return true;
         }
         if (remaining <= tokenLen) {
           const beforeDist = remaining;
           const afterDist = tokenLen - remaining;
           if (beforeDist <= afterDist) placeCaretBeforeNode(node);
           else placeCaretAfterNode(node);
-          return;
+          return true;
         }
         remaining -= tokenLen;
         continue;
       }
       const otherLen = this.lengthOfNode(node);
-      if (remaining <= otherLen) break;
+      if (remaining <= otherLen && this._setCaretWithin(node, remaining)) return true;
       remaining -= otherLen;
     }
+    return false;
+  },
+  setCaretByExpressionOffset(expressionOffset) {
+    const targetOffset = Math.max(0, Number(expressionOffset) || 0);
+    if (this._setCaretWithin(dom.expressionInput, targetOffset)) return;
     placeCaretAtEnd(dom.expressionInput);
   },
 };
@@ -595,6 +633,27 @@ function placeExpressionErrorMarker(position, end, errorInfo = null) {
   if (start?.afterNode?.classList?.contains("expression-token")) {
     start.afterNode.classList.add("expression-token-error");
     expressionErrorTokenEl = start.afterNode;
+  }
+}
+
+// placeExpressionErrorMarker can splice the erroring range into a new wrapper
+// span; if the caret sits inside that range, the browser's own selection
+// tracking loses it. Capture the caret as an expression-offset first (which
+// caretOffsetMapper can resolve through the new wrapper) and restore it
+// afterward, but only while the editor actually has focus — otherwise this
+// would steal focus back from wherever the user moved to.
+function applyExpressionErrorHighlight(errorInfo) {
+  const position = Number(errorInfo?.position);
+  const end = Number(errorInfo?.end);
+  if (!Number.isFinite(position)) {
+    hideExpressionErrorMarker();
+    return;
+  }
+  const hadFocus = document.activeElement === dom.expressionInput;
+  const caretOffset = hadFocus ? caretOffsetMapper.selectionExpressionOffset() : null;
+  placeExpressionErrorMarker(position, Number.isFinite(end) ? end : position + 1, errorInfo);
+  if (hadFocus && Number.isFinite(caretOffset)) {
+    caretOffsetMapper.setCaretByExpressionOffset(caretOffset);
   }
 }
 
@@ -907,25 +966,18 @@ async function pasteExpressionSelectionFromClipboard(event) {
   const normalized = localizeExpressionTextPreservingMetrics(raw.replace(/\r\n/g, "\n"));
   const parsed = parseExpressionPartsRaw(normalized);
   const resolved = [];
-  const unknownMetrics = [];
   for (const part of parsed) {
     if (part.type !== "metric") {
       resolved.push(part);
       continue;
     }
     const exists = await metricExistsForToken(part.value);
-    if (exists) resolved.push({ type: "metric", value: part.value, known: true });
-    else {
-      resolved.push({ type: "metric", value: part.value, known: false });
-      unknownMetrics.push(part.value);
-    }
+    resolved.push({ type: "metric", value: part.value, known: exists });
   }
   insertExpressionPartsAtCursor(resolved);
   refreshExpressionValidationState();
-  if (unknownMetrics.length > 0 && !dom.expressionInput.classList.contains("is-invalid")) {
-    const listed = unknownMetrics.map((name) => `[${name}]`).join(", ");
-    showExpressionValidationWarning(`Warnung: Unbekannte Metrik-Referenz(en): ${listed}`);
-  }
+  captureEditorCaretOffset();
+  scheduleExpressionStatusCheck({ immediate: true });
 }
 
 function insertMetricTokenAtCursor(metricName) {
@@ -936,6 +988,7 @@ function insertMetricTokenAtCursor(metricName) {
   const token = makeMetricTokenNode(metricName);
   insertNodeAtRange(token, range);
   captureEditorCaretOffset();
+  scheduleExpressionStatusCheck({ immediate: true });
 }
 
 function removeAdjacentToken(key) {
@@ -1000,13 +1053,13 @@ function clearValidation() {
   hideExpressionErrorMarker();
 }
 
-function clearExpressionValidationWarning() {
+function clearExpressionValidationMessage() {
   if (!dom.expressionValidationError) return;
-  if (!dom.expressionValidationError.classList.contains("text-warning")) return;
   dom.expressionValidationError.textContent = "";
   dom.expressionValidationError.classList.remove("text-warning");
   dom.expressionValidationError.classList.add("text-danger");
   dom.expressionValidationError.classList.add("d-none");
+  hideExpressionErrorMarker();
 }
 
 function showExpressionValidationError(message) {
@@ -1019,7 +1072,6 @@ function showExpressionValidationError(message) {
 
 function showExpressionValidationWarning(message) {
   if (!dom.expressionValidationError) return;
-  if (dom.expressionInput.classList.contains("is-invalid")) return;
   dom.expressionValidationError.classList.remove("text-danger");
   dom.expressionValidationError.classList.add("text-warning");
   dom.expressionValidationError.textContent = String(message || "").trim();
@@ -1048,6 +1100,8 @@ function localizedExpressionErrorMessage(errorInfo, fallbackMessage) {
       return quotedToken
         ? `Unerwartetes Token ${quotedToken}.`
         : "Unerwartetes Token im Ausdruck.";
+    case "unexpected_end":
+      return "Der Ausdruck endet unerwartet.";
     case "unbracketed_metric_reference":
       return quotedToken
         ? `Metrik-Referenz ${quotedToken} muss als [name] geschrieben werden.`
@@ -1181,10 +1235,7 @@ function refreshExpressionValidationState() {
 
 async function refreshUnknownMetricWarnings() {
   const tokens = Array.from(dom.expressionInput.querySelectorAll(".expression-token"));
-  if (tokens.length === 0) {
-    clearExpressionValidationWarning();
-    return;
-  }
+  if (tokens.length === 0) return [];
   const names = [...new Set(tokens.map((el) => String(el.dataset.metricName || "").trim()).filter(Boolean))];
   const unknown = [];
   for (const name of names) {
@@ -1197,11 +1248,212 @@ async function refreshUnknownMetricWarnings() {
     tokenEl.dataset.metricKnown = isUnknown ? "0" : "1";
     tokenEl.classList.toggle("expression-token-unknown", isUnknown);
   }
+  return unknown;
+}
+
+function isExpressionEditorEmpty() {
+  return expressionFromEditor().length === 0;
+}
+
+function setExpressionStatusBadge(status) {
+  if (!dom.expressionStatusBadge) return;
+  dom.expressionStatusBadge.classList.remove("status-checking", "status-valid", "status-warning", "status-error");
+  dom.expressionInput.classList.remove("status-checking", "status-valid", "status-warning", "status-error");
+  if (!status) {
+    dom.expressionStatusBadge.classList.add("d-none");
+    return;
+  }
+  dom.expressionStatusBadge.classList.remove("d-none");
+  dom.expressionStatusBadge.classList.add(`status-${status}`);
+  dom.expressionInput.classList.add(`status-${status}`);
+  if (dom.expressionStatusLabel) dom.expressionStatusLabel.textContent = EXPRESSION_STATUS_LABELS[status] || "";
+}
+
+function currentExpressionPreviewRange() {
+  const to = Number.isFinite(state.to) ? state.to : Date.now();
+  const from = Number.isFinite(state.from) && state.from < to ? state.from : to - 24 * 60 * 60 * 1000;
+  return { from, to };
+}
+
+function buildExpressionSparklinePoints(values, width = 220, height = 40, pad = 4) {
+  const finite = values.filter((v) => Number.isFinite(v));
+  if (finite.length === 0) return "";
+  const min = Math.min(...finite);
+  const max = Math.max(...finite);
+  const span = max - min || 1;
+  const n = values.length;
+  return values
+    .map((v, i) => {
+      const x = pad + (i / Math.max(1, n - 1)) * (width - 2 * pad);
+      const y = height - pad - ((v - min) / span) * (height - 2 * pad);
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+}
+
+async function resolveExpressionPreviewUnit(exprText) {
+  const previewMetric = { name: "__expression_preview__", expr: exprText };
+  await deriveExpressionUnitsResolved([previewMetric], async (name) => {
+    const local = metricDetailsFromState(name);
+    if (local) return local.unit;
+    const details = await fetchMetricDetails(name);
+    return details.unit;
+  });
+  return previewMetric.displayUnit || previewMetric.unit || "";
+}
+
+function renderExpressionPreview(model) {
+  if (!dom.expressionPreviewData || !dom.expressionPreviewEmpty) return;
+  if (!model) {
+    dom.expressionPreviewData.classList.add("d-none");
+    dom.expressionPreviewEmpty.classList.remove("d-none");
+    return;
+  }
+  dom.expressionPreviewEmpty.classList.add("d-none");
+  dom.expressionPreviewData.classList.remove("d-none");
+  if (dom.expressionPreviewPolyline) dom.expressionPreviewPolyline.setAttribute("points", model.svgPoints);
+  if (dom.expressionPreviewLast) dom.expressionPreviewLast.textContent = formatNumber(model.last, { maximumSignificantDigits: 6 });
+  if (dom.expressionPreviewUnit) dom.expressionPreviewUnit.textContent = model.unit || "";
+  if (dom.expressionPreviewMinMax) {
+    const minText = formatNumber(model.min, { maximumSignificantDigits: 6 });
+    const maxText = formatNumber(model.max, { maximumSignificantDigits: 6 });
+    dom.expressionPreviewMinMax.textContent = `Min ${minText} · Max ${maxText}`;
+  }
+}
+
+async function fetchExpressionPreview(exprText, statusSeq) {
+  const requestSeq = ++expressionPreviewRequestSeq;
+  const { from, to } = currentExpressionPreviewRange();
+  let body = null;
+  try {
+    body = await apiFetch("/api/query", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        targets: [{ expr: exprText, name: "__expression_preview__" }],
+        from,
+        to,
+        maxDataPoints: 120,
+      }),
+    });
+  } catch (_) {
+    body = null;
+  }
+  if (requestSeq !== expressionPreviewRequestSeq || statusSeq !== expressionStatusRequestSeq) return;
+  const series = Array.isArray(body?.series) ? body.series[0] : null;
+  if (!series || String(series.error || "").trim() || series.mode === "empty") {
+    renderExpressionPreview(null);
+    return;
+  }
+  const values = series.mode === "aggregates"
+    ? (series.aggregatePoints || []).map((p) => Number(p.avg))
+    : (series.points || []).map((p) => Number(p.v));
+  const finiteValues = values.filter((v) => Number.isFinite(v));
+  if (finiteValues.length === 0) {
+    renderExpressionPreview(null);
+    return;
+  }
+  const unit = await resolveExpressionPreviewUnit(exprText);
+  if (requestSeq !== expressionPreviewRequestSeq || statusSeq !== expressionStatusRequestSeq) return;
+  renderExpressionPreview({
+    svgPoints: buildExpressionSparklinePoints(values),
+    last: finiteValues[finiteValues.length - 1],
+    min: Math.min(...finiteValues),
+    max: Math.max(...finiteValues),
+    unit,
+  });
+}
+
+async function runExpressionStatusCheck() {
+  const seq = ++expressionStatusRequestSeq;
+  const exprText = canonicalExpressionFromEditor();
+  const remoteValidation = await validateExpressionViaBackend(exprText);
+  if (seq !== expressionStatusRequestSeq) return;
+  if (!remoteValidation.ok) {
+    const message = localizedExpressionErrorMessage(remoteValidation.info, remoteValidation.message);
+    setExpressionStatusBadge("error");
+    showExpressionValidationError(message);
+    applyExpressionErrorHighlight(remoteValidation.info);
+    renderExpressionPreview(null);
+    return;
+  }
+  const unknown = await refreshUnknownMetricWarnings();
+  if (seq !== expressionStatusRequestSeq) return;
   if (unknown.length > 0) {
+    setExpressionStatusBadge("warning");
     const listed = unknown.map((name) => `[${name}]`).join(", ");
     showExpressionValidationWarning(`Warnung: Unbekannte Metrik-Referenz(en): ${listed}`);
-  } else {
-    clearExpressionValidationWarning();
+    hideExpressionErrorMarker();
+    renderExpressionPreview(null);
+    return;
+  }
+  setExpressionStatusBadge("valid");
+  dom.expressionInput.classList.remove("is-invalid");
+  clearExpressionValidationMessage();
+  void fetchExpressionPreview(exprText, seq);
+}
+
+function scheduleExpressionStatusCheck(options = {}) {
+  clearTimeout(expressionStatusDebounceHandle);
+  if (isExpressionEditorEmpty()) {
+    expressionStatusRequestSeq += 1;
+    expressionPreviewRequestSeq += 1;
+    setExpressionStatusBadge(null);
+    clearExpressionValidationMessage();
+    renderExpressionPreview(null);
+    return;
+  }
+  setExpressionStatusBadge("checking");
+  if (options.immediate) {
+    void runExpressionStatusCheck();
+    return;
+  }
+  expressionStatusDebounceHandle = setTimeout(() => {
+    void runExpressionStatusCheck();
+  }, EXPRESSION_STATUS_DEBOUNCE_MS);
+}
+
+function insertExpressionTextAtCursor(text, caretOffsetFromEnd = 0) {
+  let range = getSelectionRangeInEditor();
+  if (!range && restoreEditorCaretOffset()) {
+    range = getSelectionRangeInEditor();
+  }
+  if (!range || !dom.expressionInput.contains(range.startContainer)) {
+    range = editorEndRange();
+  }
+  const textNode = document.createTextNode(text);
+  range.deleteContents();
+  range.insertNode(textNode);
+  ensureEditorBoundaries();
+  const caretPos = Math.max(0, Math.min(text.length, text.length + caretOffsetFromEnd));
+  const caretRange = document.createRange();
+  caretRange.setStart(textNode, caretPos);
+  caretRange.collapse(true);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(caretRange);
+  captureEditorCaretOffset();
+  refreshExpressionValidationState();
+  scheduleExpressionStatusCheck({ immediate: true });
+}
+
+function createFunctionChip(chipSpec) {
+  const chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "expression-function-chip";
+  chip.title = chipSpec.title;
+  chip.textContent = chipSpec.label;
+  chip.addEventListener("click", () => {
+    insertExpressionTextAtCursor(chipSpec.insert, chipSpec.caretOffset || 0);
+  });
+  return chip;
+}
+
+function renderFunctionChips() {
+  if (!dom.expressionFunctionChips) return;
+  dom.expressionFunctionChips.innerHTML = "";
+  for (const chipSpec of EXPRESSION_FUNCTION_CHIPS) {
+    dom.expressionFunctionChips.appendChild(createFunctionChip(chipSpec));
   }
 }
 
@@ -1226,13 +1478,7 @@ async function saveExpressionMetric(hooks) {
   if (!remoteValidation.ok) {
     const message = localizedExpressionErrorMessage(remoteValidation.info, remoteValidation.message);
     showExpressionValidationError(message);
-    const position = Number(remoteValidation.info?.position);
-    const end = Number(remoteValidation.info?.end);
-    if (Number.isFinite(position)) {
-      placeExpressionErrorMarker(position, Number.isFinite(end) ? end : position + 1, remoteValidation.info);
-    } else {
-      hideExpressionErrorMarker();
-    }
+    applyExpressionErrorHighlight(remoteValidation.info);
     markInvalid(dom.expressionInput);
     blockCloseOnInvalidExpression = true;
     return;
@@ -1281,12 +1527,14 @@ function handleExpressionEditorDrop(event) {
     dropMarkerEl.parentNode.insertBefore(token, dropMarkerEl);
     clearDropMarker();
     placeCaretAfterNode(token);
+    scheduleExpressionStatusCheck({ immediate: true });
     return;
   }
   const range = normalizedDropRange(event.clientX, event.clientY);
   insertNodeAtRange(token, range);
   clearDropMarker();
   clearDragState();
+  scheduleExpressionStatusCheck({ immediate: true });
 }
 
 function maybeConvertTypedBracketExpression(event) {
@@ -1299,7 +1547,7 @@ function maybeConvertTypedBracketExpression(event) {
     return;
   }
   caretOffsetMapper.setCaretByExpressionOffset(caretOffset);
-  void refreshUnknownMetricWarnings();
+  scheduleExpressionStatusCheck({ immediate: true });
 }
 
 function maybePlaceCaretOutsideEdgeToken(event) {
@@ -1402,6 +1650,8 @@ function nearestTokenFromCaret(direction = 0) {
 }
 
 export function wireExpressionModal(hooks) {
+  renderFunctionChips();
+
   function openAddModal() {
     editingMetricName = "";
     blockCloseOnInvalidExpression = false;
@@ -1412,7 +1662,7 @@ export function wireExpressionModal(hooks) {
     expressionMetricSearchField?.reset();
     renderMetricSearchHints([]);
     renderMetricPalette();
-    void refreshUnknownMetricWarnings();
+    scheduleExpressionStatusCheck({ immediate: true });
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -1429,7 +1679,7 @@ export function wireExpressionModal(hooks) {
     expressionMetricSearchField?.reset();
     renderMetricSearchHints([]);
     renderMetricPalette();
-    void refreshUnknownMetricWarnings();
+    scheduleExpressionStatusCheck({ immediate: true });
     const modal = globalThis.bootstrap?.Modal.getOrCreateInstance(dom.expressionMetricModal);
     modal?.show();
   }
@@ -1513,12 +1763,14 @@ export function wireExpressionModal(hooks) {
     if (event.key !== "Backspace" && event.key !== "Delete") return;
     if (!removeAdjacentToken(event.key)) return;
     event.preventDefault();
+    refreshExpressionValidationState();
+    scheduleExpressionStatusCheck({ immediate: true });
   });
 
   dom.expressionInput.addEventListener("keyup", maybeConvertTypedBracketExpression);
   dom.expressionInput.addEventListener("input", () => {
     refreshExpressionValidationState();
-    void refreshUnknownMetricWarnings();
+    scheduleExpressionStatusCheck();
     captureEditorCaretOffset();
   });
   dom.expressionInput.addEventListener("mouseup", () => {
@@ -1578,6 +1830,11 @@ export function wireExpressionModal(hooks) {
     hideExpressionErrorMarker();
     clearDropMarker();
     lastEditorCaretOffset = null;
+    clearTimeout(expressionStatusDebounceHandle);
+    expressionStatusRequestSeq += 1;
+    expressionPreviewRequestSeq += 1;
+    setExpressionStatusBadge(null);
+    renderExpressionPreview(null);
     if (shouldReleaseHelpMinimize) {
       startHelpOverlayMinimize(1900);
     }

@@ -414,10 +414,10 @@
 
     <div class="modal fade" id="expressionMetricModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header">
+        <div class="modal-content expression-modal-content">
+          <div class="modal-header modal-header-mq expression-modal-header">
             <h5 class="modal-title" id="expressionMetricModalTitle">Berechnete Metrik hinzufügen</h5>
-            <button class="btn-close" data-bs-dismiss="modal"></button>
+            <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body d-grid gap-3">
             <div>
@@ -437,7 +437,13 @@
               />
             </div>
             <div>
-              <label class="form-label" for="expressionInput">Ausdruck</label>
+              <div class="d-flex align-items-baseline justify-content-between mb-1">
+                <label class="form-label mb-0" for="expressionInput">Ausdruck</label>
+                <span id="expressionStatusBadge" class="expression-status-badge d-none">
+                  <span class="expression-status-dot"></span>
+                  <span id="expressionStatusLabel"></span>
+                </span>
+              </div>
               <div
                 id="expressionInput"
                 class="form-control expression-input"
@@ -453,10 +459,24 @@
                 data-gramm_editor="false"
                 data-enable-grammarly="false"
               ></div>
+              <div id="expressionFunctionChips" class="expression-function-chips"></div>
               <div class="form-text">
                 Erlaubt: +, -, *, /, -a, log a, min(...), max(...), sum(...). Metriken als <code>[name]</code>.
               </div>
               <div id="expressionValidationError" class="text-danger small mt-1 d-none"></div>
+              <div class="expression-preview-panel">
+                <div class="expression-preview-label">Vorschau</div>
+                <div id="expressionPreviewData" class="expression-preview-data d-none">
+                  <svg class="expression-preview-sparkline" viewBox="0 0 220 40" preserveAspectRatio="none">
+                    <polyline id="expressionPreviewPolyline" points="" fill="none" stroke="var(--mq-blue)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"></polyline>
+                  </svg>
+                  <div class="expression-preview-values">
+                    <div class="expression-preview-last"><span id="expressionPreviewLast"></span> <span id="expressionPreviewUnit" class="expression-preview-unit"></span></div>
+                    <div id="expressionPreviewMinMax" class="expression-preview-minmax"></div>
+                  </div>
+                </div>
+                <div id="expressionPreviewEmpty" class="expression-preview-empty">Keine Vorschau — Ausdruck korrigieren.</div>
+              </div>
             </div>
             <div>
               <label class="form-label" for="expressionMetricSearch">Metrik referenzieren</label>
