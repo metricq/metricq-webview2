@@ -86,6 +86,40 @@ func TestParseExpressionUnsupportedFunctionMarksFunctionToken(t *testing.T) {
 	}
 }
 
+func TestParseExpressionTrailingOperatorMarksUnexpectedEnd(t *testing.T) {
+	_, err := parseExpression("max(1)/")
+	if err == nil {
+		t.Fatalf("expected parse error for trailing operator")
+	}
+	var parseErr *exprParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected exprParseError, got %T", err)
+	}
+	if parseErr.Code != "unexpected_end" {
+		t.Fatalf("unexpected error code: %q", parseErr.Code)
+	}
+	if parseErr.Pos != 7 || parseErr.End != 7 {
+		t.Fatalf("unexpected position range: %d..%d", parseErr.Pos, parseErr.End)
+	}
+}
+
+func TestParseExpressionEmptyFunctionCallMarksWholeFunction(t *testing.T) {
+	_, err := parseExpression("max()")
+	if err == nil {
+		t.Fatalf("expected parse error for empty function call")
+	}
+	var parseErr *exprParseError
+	if !errors.As(err, &parseErr) {
+		t.Fatalf("expected exprParseError, got %T", err)
+	}
+	if parseErr.Code != "function_requires_argument" {
+		t.Fatalf("unexpected error code: %q", parseErr.Code)
+	}
+	if parseErr.Pos != 0 || parseErr.End != 5 {
+		t.Fatalf("unexpected position range: %d..%d", parseErr.Pos, parseErr.End)
+	}
+}
+
 func TestEvalExpressionMathOps(t *testing.T) {
 	sameTs := map[int64]float64{1000: 10, 2000: 12}
 	inputs := map[string]map[int64]float64{

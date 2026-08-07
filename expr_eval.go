@@ -621,6 +621,9 @@ func (p *exprParser) parsePrimary() (exprNode, error) {
 			tok.end,
 		)
 	}
+	if tok.kind == "eof" {
+		return nil, newExprParseError("unexpected_end", "unexpected end of expression", tok.pos, tok.end)
+	}
 	return nil, newExprParseErrorWithToken("unexpected_token", fmt.Sprintf("unexpected token %q", tok.val), tok.val, tok.pos, tok.end)
 }
 
@@ -662,10 +665,12 @@ func (p *exprParser) parseFunctionCall(fnToken exprToken) (exprNode, error) {
 		tok := p.peek()
 		return nil, newExprParseError("missing_closing_parenthesis", fmt.Sprintf("missing closing parenthesis in %s", fn), tok.pos, tok.end)
 	}
+	closeTok := p.peek()
 	p.take()
 	if len(args) == 0 {
-		tok := p.peek()
-		return nil, newExprParseError("function_requires_argument", fmt.Sprintf("%s requires at least one argument", fn), tok.pos, tok.end)
+		// Highlight the whole broken call ("max()"), not whatever token
+		// happens to follow it — there's nothing wrong at that position.
+		return nil, newExprParseError("function_requires_argument", fmt.Sprintf("%s requires at least one argument", fn), fnToken.pos, closeTok.end)
 	}
 	return funcNode{name: fn, args: args}, nil
 }
