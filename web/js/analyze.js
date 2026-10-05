@@ -130,12 +130,15 @@ export async function runAnalyze() {
         entry,
         Number.isFinite(factor) ? factor : 1,
       );
-      for (const value of [entry.first, entry.last]) {
-        tr.appendChild(createCell(value == null ? "–" : formatFixed(scaleAnalyzeValue(value, Number.isFinite(factor) ? factor : 1), 3), "text-end"));
-      }
+      const endpointCell = (value) => createCell(
+        value == null ? "–" : formatFixed(scaleAnalyzeValue(value, Number.isFinite(factor) ? factor : 1), 3),
+        "text-end",
+      );
+      tr.appendChild(endpointCell(entry.first));
       tr.appendChild(createCell(formatFixed(scaled.minimum, 3), "text-end"));
       tr.appendChild(createCell(formatFixed(scaled.mean, 3), "text-end"));
       tr.appendChild(createCell(formatFixed(scaled.maximum, 3), "text-end"));
+      tr.appendChild(endpointCell(entry.last));
       tr.appendChild(createCell(formatInteger(scaled.count), "text-end"));
     }
     dom.analyzeTableBody.appendChild(tr);
