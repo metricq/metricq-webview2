@@ -666,6 +666,18 @@ function wireTimeDialogEvents() {
   dom.relativeAmount.addEventListener("input", updateRelativePreview);
   dom.relativeUnit.addEventListener("change", updateRelativePreview);
 
+  dom.timePopup.addEventListener("keydown", (event) => {
+    if (
+      event.key !== "Enter" ||
+      event.isComposing ||
+      event.repeat ||
+      dom.timePopup.classList.contains("d-none") ||
+      !event.target.matches("input, select")
+    ) return;
+    event.preventDefault();
+    dom.btnApplyTimeRange.click();
+  });
+
   document.addEventListener("mousedown", (event) => {
     if (dom.timePopup.classList.contains("d-none")) return;
     const target = event.target;
