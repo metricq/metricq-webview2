@@ -122,7 +122,7 @@ export async function runAnalyze() {
 
     if (entry.error) {
       const err = createCell(entry.error, "text-danger");
-      err.colSpan = 4;
+      err.colSpan = 6;
       tr.appendChild(err);
     } else {
       const factor = Number(metric?.factor);
@@ -130,6 +130,9 @@ export async function runAnalyze() {
         entry,
         Number.isFinite(factor) ? factor : 1,
       );
+      for (const value of [entry.first, entry.last]) {
+        tr.appendChild(createCell(value == null ? "–" : formatFixed(scaleAnalyzeValue(value, Number.isFinite(factor) ? factor : 1), 3), "text-end"));
+      }
       tr.appendChild(createCell(formatFixed(scaled.minimum, 3), "text-end"));
       tr.appendChild(createCell(formatFixed(scaled.mean, 3), "text-end"));
       tr.appendChild(createCell(formatFixed(scaled.maximum, 3), "text-end"));

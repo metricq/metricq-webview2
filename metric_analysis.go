@@ -7,6 +7,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	metricq "github.com/metricq/metricq-go"
 )
 
 // analyzeQueryTargets computes summary statistics for direct and computed targets.
@@ -49,6 +51,7 @@ func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest
 			out[i] = entry
 			continue
 		}
+		entry.First, entry.Last = analyzeEndpoints(values)
 		entry.Minimum = minimum
 		entry.Maximum = maximum
 		entry.Sum = sum
@@ -93,6 +96,23 @@ func (s *service) populateAnalyzeEntryFromMetric(
 	entry.Sum = agg.Sum
 	entry.Count = agg.Count
 	entry.Mean = aggregateMean(agg)
+
+	// A zero interval requests raw samples, preserving exact endpoint values.
+	timeline, err := s.history.RequestTimeline(ctx, metric, time.UnixMilli(fromMS), time.UnixMilli(toMS), 0)
+	if err != nil {
+		entry.Error = err.Error()
+		return
+	}
+	if raw, ok := timeline.(*metricq.TimelineValues); ok {
+		entry.Duration += raw.Duration.Seconds()
+		values := make(map[int64]float64, len(raw.Values))
+		for i, value := range raw.Values {
+			if i < len(raw.Times) {
+				values[raw.Times[i].UnixNano()] = value
+			}
+		}
+		entry.First, entry.Last = analyzeEndpoints(values)
+	}
 }
 
 // analyzeValueMap reduces a timestamped value map to summary statistics.
@@ -169,4 +189,23 @@ func (s *service) computeGlobalYRange(ctx context.Context, metrics []string, fro
 		Maximum: maxY,
 		Metrics: used,
 	}, nil
+}
+
+// analyzeEndpoints selects finite values by timestamp, independently of map order.
+func analyzeEndpoints(values map[int64]float64) (first, last *float64) {
+	var firstTime, lastTime int64
+	for timestamp, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			continue
+		}
+		if first == nil || timestamp < firstTime {
+			v := value
+			first, firstTime = &v, timestamp
+		}
+		if last == nil || timestamp > lastTime {
+			v := value
+			last, lastTime = &v, timestamp
+		}
+	}
+	return
 }

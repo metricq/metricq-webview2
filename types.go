@@ -133,6 +133,8 @@ type apiExpressionValidateResponse struct {
 }
 
 type apiAnalyzeEntry struct {
+	First     *float64      `json:"first"`
+	Last      *float64      `json:"last"`
 	Metric    string        `json:"metric"`
 	Minimum   float64       `json:"minimum"`
 	Maximum   float64       `json:"maximum"`
