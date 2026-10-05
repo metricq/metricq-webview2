@@ -771,6 +771,11 @@
     transition: background 0.1s, border-color 0.1s;
 }
 
+.adv-result-item:focus-visible {
+    outline: 2px solid var(--mq-blue);
+    outline-offset: 2px;
+}
+
 .adv-result-item:hover {
     background: #f0f4ff;
 }

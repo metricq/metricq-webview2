@@ -84,7 +84,7 @@ export function wireAdvancedSearch(hooks) {
     } else {
       globalThis.bootstrap.Modal.getOrCreateInstance(dom.advancedSearchModal).show();
     }
-  });
+  }, { capture: true });
 
   const modeTabs = [
     dom.advSearchModeInfix,
@@ -102,12 +102,7 @@ export function wireAdvancedSearch(hooks) {
   }
 
   dom.advSearchInput.addEventListener("input", scheduleSearch);
-  dom.advSearchInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      runSearch();
-    }
-  });
+  dom.advancedSearchModal.addEventListener("keydown", handleResultsKeydown);
 
   dom.advMetaFieldSelect.addEventListener("change", onFieldSelected);
   dom.advMetaValueSelect.addEventListener("change", syncAddFilterButton);
@@ -129,6 +124,34 @@ export function wireAdvancedSearch(hooks) {
 
   syncSearchModePrefix(currentMode);
   showEmptyState();
+}
+
+function handleResultsKeydown(event) {
+  if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey) return;
+  const item = event.target.closest(".adv-result-item");
+  const fromSearch = event.target === dom.advSearchInput;
+  if (!item && !fromSearch) return;
+
+  if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+    const items = [...dom.advSearchResults.querySelectorAll(".adv-result-item")]
+      .filter((row) => !row.querySelector("input").disabled);
+    if (items.length === 0) return;
+    event.preventDefault();
+    const index = items.indexOf(item);
+    const next = index < 0
+      ? (event.key === "ArrowDown" ? 0 : items.length - 1)
+      : Math.max(0, Math.min(items.length - 1, index + (event.key === "ArrowDown" ? 1 : -1)));
+    items[next].focus();
+    items[next].scrollIntoView({ block: "nearest" });
+  } else if (event.key === " " && item && !event.target.closest("button")) {
+    event.preventDefault();
+    if (!event.repeat) item.querySelector("input").click();
+  } else if (event.key === "Enter" && !event.target.closest("button")) {
+    event.preventDefault();
+    if (event.repeat) return;
+    addSelectedMetrics();
+    globalThis.bootstrap.Modal.getOrCreateInstance(dom.advancedSearchModal).hide();
+  }
 }
 
 function focusSearchInput() {
@@ -271,6 +294,8 @@ function renderResults() {
       (alreadyAdded ? " adv-result-already-added" : "") +
       (selectedNames.has(metric.name) ? " adv-result-selected" : "");
 
+    item.tabIndex = alreadyAdded ? -1 : 0;
+
     const checkbox = document.createElement("input");
     checkbox.type = "checkbox";
     checkbox.className = "form-check-input adv-result-check";
@@ -332,6 +357,7 @@ function renderResults() {
         addMetricFn(metric.name);
         item.classList.add("adv-result-already-added");
         checkbox.disabled = true;
+        item.tabIndex = -1;
         checkbox.checked = false;
         selectedNames.delete(metric.name);
         renderAddedBadge();
