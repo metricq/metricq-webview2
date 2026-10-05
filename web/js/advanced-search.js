@@ -69,6 +69,23 @@ function syncSearchModePrefix(mode) {
 export function wireAdvancedSearch(hooks) {
   addMetricFn = hooks.addMetric;
 
+  document.addEventListener("keydown", (event) => {
+    if (
+      event.key.toLowerCase() !== "f" ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.altKey ||
+      event.shiftKey ||
+      event.isComposing
+    ) return;
+    event.preventDefault();
+    if (event.repeat) return;
+    if (dom.advancedSearchModal.classList.contains("show")) {
+      focusSearchInput();
+    } else {
+      globalThis.bootstrap.Modal.getOrCreateInstance(dom.advancedSearchModal).show();
+    }
+  });
+
   const modeTabs = [
     dom.advSearchModeInfix,
     dom.advSearchModeRegex,
@@ -100,9 +117,7 @@ export function wireAdvancedSearch(hooks) {
   dom.advSearchAddAll.addEventListener("click", addAllMetrics);
 
   dom.advancedSearchModal.addEventListener("shown.bs.modal", () => {
-    if (currentMode !== "metadata") {
-      dom.advSearchInput.focus();
-    }
+    focusSearchInput();
     if (!suggestableFields) {
       loadSuggestableFields();
     }
@@ -114,6 +129,14 @@ export function wireAdvancedSearch(hooks) {
 
   syncSearchModePrefix(currentMode);
   showEmptyState();
+}
+
+function focusSearchInput() {
+  if (currentMode === "metadata") {
+    dom.advMetaFieldSelect.focus();
+  } else {
+    dom.advSearchInput.focus();
+  }
 }
 
 function setMode(mode) {
