@@ -2,10 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	metricq "github.com/metricq/metricq-go"
 	"math"
 	"net/http/httptest"
 	"testing"
+
+	metricq "github.com/metricq/metricq-go"
 )
 
 func TestAnalyzeEndpoints(t *testing.T) {
@@ -60,5 +61,39 @@ func TestAnalyzeRejectsNonFiniteAggregate(t *testing.T) {
 		if _, err := json.Marshal(entry); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestAnalyzeAggregateWithActiveTimeButNoNewSamples(t *testing.T) {
+	entry := apiAnalyzeEntry{Metric: "partial"}
+	if !populateAnalyzeAggregate(&entry, []*metricq.HistoryResponse_Aggregate{{
+		Count: 0, Minimum: 5, Maximum: 5, Integral: 50, ActiveTime: 10,
+	}}) {
+		t.Fatalf("active aggregate rejected: %+v", entry)
+	}
+	if entry.Mean != 5 || entry.Error != "" {
+		t.Fatalf("unexpected entry: %+v", entry)
+	}
+}
+
+func TestAnalyzeAggregateEndpoints(t *testing.T) {
+	first, last := analyzeAggregateEndpoints([]*metricq.HistoryResponse_Aggregate{
+		nil,
+		{Minimum: math.Inf(1), Maximum: math.Inf(-1)},
+		{Count: 2, Minimum: 3, Maximum: 8},
+		{Count: 4, Minimum: -20, Maximum: 100},
+		{ActiveTime: 10, Minimum: 4, Maximum: 6},
+		{Minimum: math.Inf(1), Maximum: math.Inf(-1)},
+	})
+	if first == nil || last == nil || *first != 3 || *last != 6 {
+		t.Fatalf("expected first minimum 3 and last maximum 6, got %v, %v", first, last)
+	}
+	first, last = analyzeAggregateEndpoints([]*metricq.HistoryResponse_Aggregate{{Count: 1, Minimum: 0, Maximum: 7}})
+	if first == nil || last == nil || *first != 0 || *last != 7 {
+		t.Fatal("single bucket must supply its minimum and maximum")
+	}
+	first, last = analyzeAggregateEndpoints([]*metricq.HistoryResponse_Aggregate{{Minimum: math.NaN(), Maximum: math.NaN()}})
+	if first != nil || last != nil {
+		t.Fatal("empty timeline must have no endpoints")
 	}
 }

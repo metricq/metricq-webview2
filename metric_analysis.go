@@ -17,18 +17,24 @@ func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest
 	source := s.loadMetricSourceData(ctx, sourceMetrics, req.FromUnixMS, req.ToUnixMS, 4096)
 
 	out := make([]apiAnalyzeEntry, len(planned))
+	names := make([]string, len(planned))
 	for i, target := range planned {
+		names[i] = target.name
+	}
+	// One slow metric must not consume the request deadline for later metrics.
+	waitGroupRun(names, func(i int, _ string) {
+		target := planned[i]
 		entry := apiAnalyzeEntry{Metric: target.name}
 		if target.expr == "" {
 			s.populateAnalyzeEntryFromMetric(ctx, &entry, target.sourceMetric, req.FromUnixMS, req.ToUnixMS)
 			out[i] = entry
-			continue
+			return
 		}
 		if target.parseErr != nil {
 			entry.Error = fmt.Sprintf("invalid expression: %v", target.parseErr)
 			entry.ErrorInfo = expressionErrorInfo(target.parseErr)
 			out[i] = entry
-			continue
+			return
 		}
 
 		inputs, depDuration, missingMetric, missingErr := buildQueryInputs(target, source)
@@ -36,34 +42,43 @@ func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest
 		if missingMetric != "" {
 			entry.Error = fmt.Sprintf("source metric %q failed: %s", missingMetric, missingErr)
 			out[i] = entry
-			continue
+			return
 		}
 
-		values, evalErr := evalExpressionWithSamples(target.root, inputs)
+		samples, evalErr := evalExpressionSamples(target.root, inputs)
 		if evalErr != nil {
 			entry.Error = fmt.Sprintf("failed to evaluate expression: %v", evalErr)
 			out[i] = entry
-			continue
+			return
+		}
+		values := make(map[int64]float64, len(samples))
+		minima := make(map[int64]float64, len(samples))
+		maxima := make(map[int64]float64, len(samples))
+		for timestamp, sample := range samples {
+			values[timestamp] = sample.avg
+			minima[timestamp] = sample.min
+			maxima[timestamp] = sample.max
 		}
 		minimum, maximum, sum, count, ok := analyzeValueMap(values)
 		if !ok {
 			entry.Error = "no data"
 			out[i] = entry
-			continue
+			return
 		}
-		entry.First, entry.Last = analyzeEndpoints(values)
+		entry.First, _ = analyzeEndpoints(minima)
+		_, entry.Last = analyzeEndpoints(maxima)
 		entry.Minimum = minimum
 		entry.Maximum = maximum
 		entry.Sum = sum
 		entry.Count = count
 		entry.Mean = safeMean(sum, count)
 		out[i] = entry
-	}
+	})
 
 	return out
 }
 
-// populateAnalyzeEntryFromMetric fills an analysis entry from a single aggregate history request.
+// populateAnalyzeEntryFromMetric combines summary statistics with aggregate endpoint estimates.
 func (s *service) populateAnalyzeEntryFromMetric(
 	ctx context.Context,
 	entry *apiAnalyzeEntry,
@@ -88,22 +103,18 @@ func (s *service) populateAnalyzeEntryFromMetric(
 		return
 	}
 
-	// A zero interval requests raw samples, preserving exact endpoint values.
-	timeline, err := s.history.RequestTimeline(ctx, metric, time.UnixMilli(fromMS), time.UnixMilli(toMS), 0)
+	// Request only a bounded aggregate timeline for the endpoint estimates.
+	interval := time.UnixMilli(toMS).Sub(time.UnixMilli(fromMS)) / 2048
+	if interval < time.Millisecond {
+		interval = time.Millisecond
+	}
+	hr, duration, err := s.history.Request(ctx, metric, time.UnixMilli(fromMS), time.UnixMilli(toMS), interval, historyRequestTypeAggregateTimeline)
 	if err != nil {
-		entry.Error = err.Error()
+		// Preserve the summary even when the endpoint lookup fails.
 		return
 	}
-	if raw, ok := timeline.(*metricq.TimelineValues); ok {
-		entry.Duration += raw.Duration.Seconds()
-		values := make(map[int64]float64, len(raw.Values))
-		for i, value := range raw.Values {
-			if i < len(raw.Times) {
-				values[raw.Times[i].UnixNano()] = value
-			}
-		}
-		entry.First, entry.Last = analyzeEndpoints(values)
-	}
+	entry.Duration += duration.Seconds()
+	entry.First, entry.Last = analyzeAggregateEndpoints(hr.GetAggregate())
 }
 
 // analyzeValueMap reduces a timestamped value map to summary statistics.
@@ -203,7 +214,7 @@ func analyzeEndpoints(values map[int64]float64) (first, last *float64) {
 
 // populateAnalyzeAggregate rejects empty or non-finite summaries before JSON encoding.
 func populateAnalyzeAggregate(entry *apiAnalyzeEntry, aggs []*metricq.HistoryResponse_Aggregate) bool {
-	if len(aggs) == 0 || (len(aggs) == 1 && (aggs[0] == nil || aggs[0].Count == 0)) {
+	if len(aggs) == 0 || (len(aggs) == 1 && (aggs[0] == nil || (aggs[0].Count == 0 && aggs[0].ActiveTime == 0))) {
 		entry.Error = "no data"
 		return false
 	}
@@ -225,4 +236,23 @@ func populateAnalyzeAggregate(entry *apiAnalyzeEntry, aggs []*metricq.HistoryRes
 	entry.Count = agg.Count
 	entry.Mean = mean
 	return true
+}
+
+// analyzeAggregateEndpoints uses the first valid bucket's minimum and the last
+// valid bucket's maximum; empty buckets at either edge do not hide partial data.
+func analyzeAggregateEndpoints(aggs []*metricq.HistoryResponse_Aggregate) (first, last *float64) {
+	for _, agg := range aggs {
+		if agg == nil || (agg.Count == 0 && agg.ActiveTime == 0) ||
+			math.IsNaN(agg.Minimum) || math.IsInf(agg.Minimum, 0) ||
+			math.IsNaN(agg.Maximum) || math.IsInf(agg.Maximum, 0) {
+			continue
+		}
+		if first == nil {
+			v := agg.Minimum
+			first = &v
+		}
+		v := agg.Maximum
+		last = &v
+	}
+	return
 }
