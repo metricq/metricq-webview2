@@ -45,7 +45,7 @@ func (s *service) analyzeQueryTargets(ctx context.Context, req apiAnalyzeRequest
 			return
 		}
 
-		samples, evalErr := evalExpressionSamples(target.root, inputs)
+		samples, evalErr := evalExpressionSamplesInRange(target.root, inputs, req.FromUnixMS, req.ToUnixMS, 2)
 		if evalErr != nil {
 			entry.Error = fmt.Sprintf("failed to evaluate expression: %v", evalErr)
 			out[i] = entry

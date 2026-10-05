@@ -814,13 +814,27 @@ func evalExpressionWithSamples(root exprNode, inputs map[string]map[int64]evalSa
 }
 
 // evalExpressionSamples evaluates an expression and preserves sample support metadata.
-func evalExpressionSamples(root exprNode, inputs map[string]map[int64]evalSample) (map[int64]evalSample, error) {
+func evalExpressionSamples(root exprNode, inputs map[string]map[int64]evalSample, constantTimes ...int64) (map[int64]evalSample, error) {
 	if root == nil {
 		return nil, fmt.Errorf("empty expression")
 	}
 	metrics := metricsInExpression(root)
 	if len(metrics) == 0 {
-		return map[int64]evalSample{}, nil
+		value, ok, err := evalNodeAt(root, nil, nil, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+		out := make(map[int64]evalSample)
+		if !ok || math.IsNaN(value) || math.IsInf(value, 0) {
+			return out, nil
+		}
+		if len(constantTimes) == 0 {
+			constantTimes = []int64{0}
+		}
+		for _, timestamp := range constantTimes {
+			out[timestamp] = evalSampleFromValue(value)
+		}
+		return out, nil
 	}
 
 	cursors := make(map[string]*metricCursor, len(metrics))
@@ -1031,4 +1045,27 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+// evalExpressionSamplesInRange gives metric-free expressions a bounded timeline
+// covering the requested range, independently of other metrics or database data.
+func evalExpressionSamplesInRange(root exprNode, inputs map[string]map[int64]evalSample, from, to int64, maxPoints int) (map[int64]evalSample, error) {
+	if root == nil || len(metricsInExpression(root)) > 0 {
+		return evalExpressionSamples(root, inputs)
+	}
+	if maxPoints <= 0 {
+		maxPoints = 1000
+	}
+	if maxPoints < 2 {
+		maxPoints = 2
+	}
+	if maxPoints > 10000 {
+		maxPoints = 10000
+	}
+	timestamps := make([]int64, maxPoints)
+	for i := range timestamps {
+		timestamps[i] = from + int64(float64(to-from)*float64(i)/float64(maxPoints-1))
+	}
+	timestamps[0], timestamps[len(timestamps)-1] = from, to
+	return evalExpressionSamples(root, inputs, timestamps...)
 }

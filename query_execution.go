@@ -46,7 +46,7 @@ func (s *service) resolveQuerySeries(ctx context.Context, req apiQueryRequest, t
 			continue
 		}
 
-		values, evalErr := evalExpressionSamples(target.root, inputs)
+		values, evalErr := evalExpressionSamplesInRange(target.root, inputs, req.FromUnixMS, req.ToUnixMS, req.MaxDataPoints)
 		if evalErr != nil {
 			results[i] = apiQuerySeries{
 				Metric: target.name,
