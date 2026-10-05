@@ -84,18 +84,9 @@ func (s *service) populateAnalyzeEntryFromMetric(
 		entry.Error = reqErr.Error()
 		return
 	}
-	aggs := hr.GetAggregate()
-	if len(aggs) != 1 {
-		entry.Error = "unexpected response"
+	if !populateAnalyzeAggregate(entry, hr.GetAggregate()) {
 		return
 	}
-
-	agg := aggs[0]
-	entry.Minimum = agg.Minimum
-	entry.Maximum = agg.Maximum
-	entry.Sum = agg.Sum
-	entry.Count = agg.Count
-	entry.Mean = aggregateMean(agg)
 
 	// A zero interval requests raw samples, preserving exact endpoint values.
 	timeline, err := s.history.RequestTimeline(ctx, metric, time.UnixMilli(fromMS), time.UnixMilli(toMS), 0)
@@ -208,4 +199,30 @@ func analyzeEndpoints(values map[int64]float64) (first, last *float64) {
 		}
 	}
 	return
+}
+
+// populateAnalyzeAggregate rejects empty or non-finite summaries before JSON encoding.
+func populateAnalyzeAggregate(entry *apiAnalyzeEntry, aggs []*metricq.HistoryResponse_Aggregate) bool {
+	if len(aggs) == 0 || (len(aggs) == 1 && (aggs[0] == nil || aggs[0].Count == 0)) {
+		entry.Error = "no data"
+		return false
+	}
+	if len(aggs) != 1 {
+		entry.Error = "unexpected response"
+		return false
+	}
+	agg := aggs[0]
+	mean := aggregateMean(agg)
+	for _, value := range []float64{agg.Minimum, agg.Maximum, agg.Sum, mean} {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			entry.Error = "invalid aggregate values"
+			return false
+		}
+	}
+	entry.Minimum = agg.Minimum
+	entry.Maximum = agg.Maximum
+	entry.Sum = agg.Sum
+	entry.Count = agg.Count
+	entry.Mean = mean
+	return true
 }

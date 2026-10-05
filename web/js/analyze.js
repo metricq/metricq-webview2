@@ -121,7 +121,8 @@ export async function runAnalyze() {
     tr.appendChild(createCell(metric?.displayUnit || metric?.unit || ""));
 
     if (entry.error) {
-      const err = createCell(entry.error, "text-danger");
+      const message = entry.error === "no data" ? "Keine Werte im ausgewählten Zeitraum" : entry.error;
+      const err = createCell(message, "text-danger");
       err.colSpan = 6;
       tr.appendChild(err);
     } else {
