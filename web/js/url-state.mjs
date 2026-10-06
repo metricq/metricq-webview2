@@ -1,3 +1,4 @@
+import { serializeYAxisSettings, applyYAxisSettings } from "./axis-settings.mjs";
 import { dom } from "./dom.js";
 import {
   colors,
@@ -106,45 +107,11 @@ function serializeMetricEntry(metric, index) {
 }
 
 function serializeYAxis() {
-  const stacked = state.yAxisStacked ? { s: 1 } : {};
-  if (state.yAxisMode === "local") {
-    if (state.yAxisStacked) return { m: "local", ...stacked };
-    return null;
-  } else if (state.yAxisMode === "manual") {
-    const min = Number(state.yAxisManualMin);
-    const max = Number(state.yAxisManualMax);
-    if (Number.isFinite(min) && Number.isFinite(max) && min < max) {
-      return { m: "manual", min, max, ...stacked };
-    }
-    return { m: "manual", ...stacked };
-  } else if (state.yAxisMode === "global") {
-    return { m: "global", ...stacked };
-  }
-  return null;
+  return serializeYAxisSettings(state);
 }
 
 function applyYAxisConfig(y) {
-  if (!y || y.m === "local") {
-    state.yAxisMode = "local";
-    state.yAxisManualMin = null;
-    state.yAxisManualMax = null;
-    return;
-  }
-
-  if (y.m === "manual") {
-    state.yAxisMode = "manual";
-    const min = Number(y.min);
-    const max = Number(y.max);
-    state.yAxisManualMin = Number.isFinite(min) ? min : null;
-    state.yAxisManualMax = Number.isFinite(max) ? max : null;
-    return;
-  }
-
-  if (y.m === "global") {
-    state.yAxisMode = "global";
-    state.yAxisManualMin = null;
-    state.yAxisManualMax = null;
-  }
+  applyYAxisSettings(state, y);
 }
 
 function buildPayload() {

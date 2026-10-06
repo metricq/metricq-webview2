@@ -1,3 +1,5 @@
+import { applyAutoScaling } from "./auto-factor.mjs";
+import { SI_PREFIXES, formatSIUnit, parseSIUnit } from "./si-units.mjs";
 import { dom } from "./dom.js";
 import { normalizeMetricRenderMode, state } from "./model.js";
 import { loadData } from "./data.js";
@@ -473,6 +475,24 @@ function updateYAxisManualInputsEnabled() {
 }
 
 function syncYAxisModalFromState() {
+  dom.yAxisScale.value = state.yAxisScale;
+  dom.yAxisUnits.replaceChildren();
+  const families = [...new Set(state.metrics.map((m) => parseSIUnit(m.unit)?.family).filter(Boolean))];
+  for (const family of families) {
+    const label = document.createElement("label");
+    label.className = "d-flex align-items-center gap-2";
+    const name = document.createElement("span");
+    name.textContent = family;
+    const select = document.createElement("select");
+    select.className = "form-select";
+    select.dataset.family = family;
+    select.add(new Option("Automatisch", "auto"));
+    for (const prefix of SI_PREFIXES) select.add(new Option(formatSIUnit(family, prefix.exp).replace("u", "µ"), String(prefix.exp)));
+    select.value = state.yAxisUnits[family] == null ? "auto" : String(state.yAxisUnits[family]);
+    label.append(name, select);
+    dom.yAxisUnits.append(label);
+  }
+  if (families.length === 0) dom.yAxisUnits.textContent = "Keine skalierbaren Einheiten vorhanden.";
   dom.yAxisModeLocal.checked = state.yAxisMode === "local";
   dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
   dom.yAxisModeManual.checked = state.yAxisMode === "manual";
@@ -752,10 +772,20 @@ function wireYAxisEvents() {
   );
   dom.btnApplyYAxis.addEventListener("click", async () => {
     state.yAxisMode = selectedYAxisMode();
+    state.yAxisScale = dom.yAxisScale.value === "symlog" ? "symlog" : "linear";
+    const units = { ...state.yAxisUnits };
+    for (const select of dom.yAxisUnits.querySelectorAll("select[data-family]")) {
+      if (select.value === "auto") delete units[select.dataset.family];
+      else units[select.dataset.family] = Number(select.value);
+    }
+    state.yAxisUnits = units;
+    applyAutoScaling(state.metrics, state.series);
+    renderMetricList(hooks);
+    renderCollapsedLegend();
     const manualMin = parseLocalizedNumber(dom.yAxisManualMin.value);
     const manualMax = parseLocalizedNumber(dom.yAxisManualMax.value);
-    state.yAxisManualMin = Number.isFinite(manualMin) ? manualMin : null;
-    state.yAxisManualMax = Number.isFinite(manualMax) ? manualMax : null;
+    state.yAxisManualMin = state.yAxisMode === "manual" && Number.isFinite(manualMin) ? manualMin : null;
+    state.yAxisManualMax = state.yAxisMode === "manual" && Number.isFinite(manualMax) ? manualMax : null;
     if (state.yAxisMode === "global") {
       try {
         await ensureGlobalYAxisRange();

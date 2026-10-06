@@ -9,6 +9,8 @@ export const state = {
   dataLoadError: "",
   dataLoadErrorKind: "",
   yAxisMode: "local",
+  yAxisScale: "linear",
+  yAxisUnits: {},
   yAxisManualMin: null,
   yAxisManualMax: null,
   yAxisGlobalMin: null,

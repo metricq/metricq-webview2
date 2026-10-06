@@ -1,3 +1,4 @@
+import { createYScale, logarithmicTicks, formatLogarithmicTick } from "./y-scale.mjs";
 import { LEGEND_MIN_VIEWPORT_PX } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
@@ -17,7 +18,7 @@ import {
   pickTimeTickStep,
 } from "./time-axis.mjs";
 import { toLocalInput, updateRangeButtonLabel } from "./time-range-ui.mjs";
-import { resolveYAxisDomain } from "./y-axis.mjs";
+import { resolveYAxisDomain, resolveLogConstant } from "./y-axis.mjs";
 
 export const MIN_ZOOM_RANGE_MS = 1000;
 export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
@@ -1113,7 +1114,7 @@ function drawYAxisAndAxes(
     ctx.font = "11px sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    const x = Math.max(8, margin.left - 36);
+    const x = state.yAxisScale === "symlog" ? 10 : Math.max(8, margin.left - 36);
     const y = margin.top + plotH / 2;
     ctx.translate(x, y);
     ctx.rotate(-Math.PI / 2);
@@ -1124,7 +1125,9 @@ function drawYAxisAndAxes(
   ctx.font = "11px sans-serif";
   ctx.fillStyle = "#000000";
   ctx.textAlign = "right";
-  const yTickLabels = formatYTickLabels(yTicks);
+  const yTickLabels = state.yAxisScale === "symlog"
+    ? yTicks.map(formatLogarithmicTick)
+    : formatYTickLabels(yTicks);
   for (let i = 0; i < yTicks.length; i += 1) {
     const value = yTicks[i];
     const y = sy(value);
@@ -1196,7 +1199,7 @@ export function renderChart() {
 
   ctx.clearRect(0, 0, width, height);
 
-  const margin = { top: 12, right: 18, bottom: 34, left: 52 };
+  const margin = { top: 12, right: 18, bottom: 34, left: state.yAxisScale === "symlog" ? 84 : 52 };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   if (dom.collapsedLegend) {
@@ -1293,14 +1296,17 @@ export function renderChart() {
   const domainStacked = yAxisStackingActive()
     ? buildStackedSeries(domainSeries, tiMode, true)
     : null;
-  const domain = resolveYAxisDomain(domainSeries, domainStacked);
+  const logarithmic = state.yAxisScale === "symlog";
+  const logConstant = logarithmic ? resolveLogConstant(domainSeries, domainStacked) : 1;
+  const domain = resolveYAxisDomain(domainSeries, domainStacked, logConstant);
+  const yScale = createYScale(domain.minY, domain.maxY, logarithmic, logConstant);
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
   const xMin = state.from;
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
   const sy = (y) =>
-    margin.top + (1 - (y - domain.minY) / (domain.maxY - domain.minY)) * plotH;
+    margin.top + (1 - yScale.position(y)) * plotH;
   lastLayout = {
     margin,
     plotW,
@@ -1309,9 +1315,12 @@ export function renderChart() {
     sy,
     minY: domain.minY,
     maxY: domain.maxY,
+    yValueAt: yScale.valueAt,
   };
 
-  const yTicks = buildYTicks(domain.minY, domain.maxY, plotH);
+  const yTicks = logarithmic
+    ? logarithmicTicks(domain.minY, domain.maxY, plotH, yScale)
+    : buildYTicks(domain.minY, domain.maxY, plotH);
   drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax);
   drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
 
@@ -2111,7 +2120,7 @@ function renderHoverAt(clientX, clientY) {
     if (!Number.isFinite(lastLayout.minY) || !Number.isFinite(lastLayout.maxY))
       return null;
     const rel = (cursorY - margin.top) / Math.max(1, lastLayout.plotH);
-    return lastLayout.maxY - rel * (lastLayout.maxY - lastLayout.minY);
+    return lastLayout.yValueAt(1 - rel);
   })();
   if (state.renderMode === "ti") {
     const rows = [];

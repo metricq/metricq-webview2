@@ -1,3 +1,4 @@
+import { createYScale } from "./y-scale.mjs";
 import { apiFetch } from "./api.js";
 import { metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
 
@@ -109,7 +110,7 @@ function withPadding(minY, maxY, lockMin = false) {
   };
 }
 
-export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
+export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConstant = 1) {
   const localRaw = yAxisStackingActive()
     ? (collectStackedExtents(stackedByMetric) || collectSeriesExtents(seriesList))
     : collectSeriesExtents(seriesList);
@@ -121,6 +122,17 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null) {
     }
   }
 
+
+  if (state.yAxisScale === "symlog") {
+    const global = state.yAxisMode === "global" && Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax);
+    let minY = global ? state.yAxisGlobalMin : localRaw.minY;
+    let maxY = global ? state.yAxisGlobalMax : localRaw.maxY;
+    const scale = createYScale(minY, maxY, true, logConstant);
+    const low = scale.transform(minY);
+    const high = scale.transform(maxY);
+    const pad = Math.max(high - low, 0.1) * 0.05;
+    return { minY: scale.inverse(low - pad), maxY: scale.inverse(high + pad) };
+  }
   if (state.yAxisMode === "global") {
     if (Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax) && state.yAxisGlobalMin < state.yAxisGlobalMax) {
       if (yAxisStackingActive()) {
@@ -243,4 +255,33 @@ export async function ensureGlobalYAxisRange() {
   state.yAxisGlobalMin = minY;
   state.yAxisGlobalMax = maxY;
   state.yAxisGlobalMetricsKey = key;
+}
+
+// Use data magnitudes so choosing another SI prefix does not change the curve.
+export function resolveLogConstant(seriesList, stackedByMetric = null) {
+  let smallest = Infinity;
+  const consider = (value) => {
+    const magnitude = Math.abs(value);
+    if (Number.isFinite(magnitude) && magnitude > 0) smallest = Math.min(smallest, magnitude);
+  };
+  for (const { metric, series } of seriesList) {
+    const points = series.points || [];
+    for (let i = 0; i < points.length; i++) {
+      consider(metricRenderShowsCounts() ? valueSeriesFrequency(points, i) : points[i].v * metric.factor);
+    }
+    for (const point of series.aggregatePoints || []) {
+      if (Number(point.count) === 0) continue;
+      if (metricRenderShowsCounts()) {
+        if (point.activeTimeMs > 0) consider(point.count / (point.activeTimeMs / 1000));
+      } else {
+        for (const value of [point.min, point.avg, point.max]) consider(value * metric.factor);
+      }
+    }
+  }
+  for (const entry of stackedByMetric?.values() || []) {
+    for (let i = 0; i < entry.length; i++) {
+      if (entry.valid?.[i] === 1) consider(entry.avgValues[i]);
+    }
+  }
+  return Number.isFinite(smallest) ? Math.max(smallest / 10, Number.MIN_VALUE) : 1;
 }

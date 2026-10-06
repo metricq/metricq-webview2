@@ -1,3 +1,4 @@
+import { state } from "./model.js";
 import { formatSIUnit, parseSIUnit, SI_PREFIXES } from "./si-units.mjs";
 
 function representativeMagnitude(series) {
@@ -59,7 +60,7 @@ function chooseTargetExp(candidates) {
   return best;
 }
 
-export function applyAutoScaling(metrics, seriesMap) {
+export function applyAutoScaling(metrics, seriesMap, unitOverrides = state.yAxisUnits) {
   const manualFactors = new Map();
   for (const metric of metrics) {
     if (metric.factorMode === "manual") {
@@ -81,7 +82,8 @@ export function applyAutoScaling(metrics, seriesMap) {
   }
 
   for (const [family, group] of groups.entries()) {
-    const targetExp = chooseTargetExp(group);
+    const override = unitOverrides?.[family];
+    const targetExp = SI_PREFIXES.some((p) => p.exp === override) ? override : chooseTargetExp(group);
     const targetUnit = formatSIUnit(family, targetExp);
     for (const item of group) {
       item.metric.factor = 10 ** (item.exp - targetExp);
