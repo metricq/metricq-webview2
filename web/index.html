@@ -293,11 +293,11 @@
           <div class="modal-body">
             <div class="mb-3">
               <label for="yAxisScale" class="form-label">Achsenskalierung</label>
-              <select id="yAxisScale" class="form-select">
+              <select id="yAxisScale" class="form-select" aria-describedby="yAxisScaleHint">
                 <option value="linear">Linear</option>
                 <option value="symlog">Symmetrisch logarithmisch</option>
               </select>
-              <div class="form-text">Nahe Null annähernd linear, bei größeren Beträgen logarithmisch. Negative Werte werden spiegelbildlich dargestellt. Der Übergangsbereich passt sich den sichtbaren Daten an.</div>
+              <div class="form-text" id="yAxisScaleHint" aria-live="polite">Gleiche Wertunterschiede haben gleiche Abstände auf der Achse.</div>
             </div>
             <div class="mb-3">
               <div class="form-label">Anzeigeeinheit</div>

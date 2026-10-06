@@ -474,8 +474,15 @@ function updateYAxisManualInputsEnabled() {
   dom.yAxisManualMax.disabled = !manual;
 }
 
+function updateYAxisScaleHint() {
+  dom.yAxisScaleHint.textContent = dom.yAxisScale.value === "symlog"
+    ? "Nahe Null annähernd linear, bei größeren Beträgen logarithmisch. Negative Werte werden spiegelbildlich dargestellt. Der Übergangsbereich passt sich den sichtbaren Daten an."
+    : "Gleiche Wertunterschiede haben gleiche Abstände auf der Achse.";
+}
+
 function syncYAxisModalFromState() {
   dom.yAxisScale.value = state.yAxisScale;
+  updateYAxisScaleHint();
   dom.yAxisUnits.replaceChildren();
   const families = [...new Set(state.metrics.map((m) => parseSIUnit(m.unit)?.family).filter(Boolean))];
   for (const family of families) {
@@ -759,6 +766,7 @@ function wireModalEvents() {
 }
 
 function wireYAxisEvents() {
+  dom.yAxisScale.addEventListener("change", updateYAxisScaleHint);
   dom.btnYAxis.addEventListener("click", syncYAxisModalFromState);
   dom.yAxisModal.addEventListener("shown.bs.modal", syncYAxisModalFromState);
   dom.yAxisModeLocal.addEventListener("change", updateYAxisManualInputsEnabled);

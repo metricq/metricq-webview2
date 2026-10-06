@@ -33,6 +33,7 @@ export const dom = {
   btnRenderCount: document.getElementById("btnRenderCount"),
   btnRenderTi: document.getElementById("btnRenderTi"),
   btnRenderCandles: document.getElementById("btnRenderCandles"),
+  yAxisScaleHint: document.getElementById("yAxisScaleHint"),
   yAxisScale: document.getElementById("yAxisScale"),
   yAxisUnits: document.getElementById("yAxisUnits"),
   yAxisModal: document.getElementById("yAxisModal"),
