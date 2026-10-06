@@ -80,3 +80,17 @@ test("logarithmic labels stay compact, unique and signed across many decades", (
   assert.equal(formatLogarithmicTick(1e7), "10⁷");
   assert.ok(labels.every((label) => label.length <= 6));
 });
+
+
+test("visible zero takes priority over nearby logarithmic labels", () => {
+  for (const [min, max, height] of [[-100, 100, 600], [-1e-6, 100, 240], [-100, 1e-6, 240], [-1e-12, 1e-12, 100], [0, 100, 100], [-100, 0, 100]]) {
+    const scale = createYScale(min, max, true, 1e-7);
+    const ticks = logarithmicTicks(min, max, height, scale);
+    assert.ok(ticks.includes(0), `missing zero for ${min}..${max}`);
+    for (let i = 1; i < ticks.length; i++) {
+      assert.ok((scale.position(ticks[i]) - scale.position(ticks[i - 1])) * height >= 48 - 1e-9);
+    }
+  }
+  const positive = createYScale(1e-6, 100, true, 1e-7);
+  assert.ok(!logarithmicTicks(1e-6, 100, 600, positive).includes(0));
+});

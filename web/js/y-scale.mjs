@@ -17,7 +17,8 @@ export function createYScale(min, max, logarithmic = false, constant = 1) {
 }
 
 export function logarithmicTicks(min, max, height, scale) {
-  const candidates = min <= 0 && max >= 0 ? [0] : [];
+  const hasZero = min <= 0 && max >= 0;
+  const candidates = hasZero ? [0] : [];
   for (let exp = -18; exp <= 24; exp++) {
     const value = 10 ** exp;
     if (value >= min && value <= max) candidates.push(value);
@@ -26,6 +27,8 @@ export function logarithmicTicks(min, max, height, scale) {
   candidates.sort((a, b) => a - b);
   const ticks = [];
   for (const value of candidates) {
+    // Reserve the zero label before spacing the remaining ticks.
+    if (hasZero && value !== 0 && Math.abs(scale.position(value) - scale.position(0)) * height < 48) continue;
     if (ticks.length === 0 || (scale.position(value) - scale.position(ticks.at(-1))) * height >= 48) ticks.push(value);
   }
   return ticks.length ? ticks : [min, max];
