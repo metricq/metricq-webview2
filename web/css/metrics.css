@@ -1112,3 +1112,9 @@
 #metricList > .metric-axis-secondary::before {
     background: var(--mq-blue);
 }
+
+.metric-axis-header.is-over {
+    outline: 2px dashed var(--mq-blue);
+    outline-offset: -2px;
+    background: rgba(15, 111, 163, 0.16);
+}

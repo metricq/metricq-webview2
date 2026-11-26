@@ -594,8 +594,19 @@ export function renderMetricList(hooks) {
       child.classList.remove("metric-drop-target");
       child.removeAttribute("data-drop-position");
       child.classList.remove("metric-dragging");
+      child.classList.remove("is-over");
     }
   };
+  // Moving into the other axis group changes the metric's axis; stacking is
+  // only defined on the primary axis.
+  const assignAxis = (metric, axis) => {
+    if ((metric.axis === 1 ? 1 : 0) === axis) return false;
+    metric.axis = axis;
+    if (axis === 1) metric.stackMode = "normal";
+    syncYAxisStackedState();
+    return true;
+  };
+  // Returns false (nothing happened) or { axisChanged }.
   const reorderMetrics = (sourceName, targetName, placeAfter) => {
     if (!sourceName || !targetName || sourceName === targetName) return false;
     const from = state.metrics.findIndex((m) => m.name === sourceName);
@@ -605,27 +616,68 @@ export function renderMetricList(hooks) {
     let insertAt = placeAfter ? to + 1 : to;
     if (from < insertAt) insertAt -= 1;
     state.metrics.splice(insertAt, 0, moved);
-    return true;
+    const targetMetric = state.metrics.find((m) => m.name === targetName);
+    const axisChanged = assignAxis(moved, targetMetric?.axis === 1 ? 1 : 0);
+    return { axisChanged };
+  };
+  // Dropping on an axis header moves the metric to the top of that group.
+  const moveToAxisGroup = (sourceName, axis) => {
+    const from = state.metrics.findIndex((m) => m.name === sourceName);
+    if (from < 0) return false;
+    const [moved] = state.metrics.splice(from, 1);
+    const axisChanged = assignAxis(moved, axis);
+    const firstInGroup = state.metrics.findIndex((m) => (m.axis === 1 ? 1 : 0) === axis);
+    state.metrics.splice(firstInGroup < 0 ? state.metrics.length : firstInGroup, 0, moved);
+    return { axisChanged };
+  };
+  const finishDrop = (result) => {
+    if (!result) return;
+    renderMetricList(hooks);
+    if (result.axisChanged) hooks.loadData();
+    else hooks.renderChart();
+    hooks.onStateChanged?.();
   };
 
   // Keep both axis groups contiguous (stable sort) so they can be shown apart.
   state.metrics.sort((x, y) => (x.axis === 1 ? 1 : 0) - (y.axis === 1 ? 1 : 0));
   const hasSecondaryGroup = state.metrics.some((m) => m.axis === 1);
-  const addAxisHeader = (text, axis) => {
+  // Headers double as drop targets so metrics can be dragged between groups.
+  const addAxisHeader = (axis) => {
     const header = document.createElement("li");
     header.className = `metric-axis-header metric-axis-header-${axis}`;
-    header.textContent = text;
+    header.textContent = axis === 1 ? "Y2 · rechte Achse" : "Y1 · linke Achse";
+    header.addEventListener("dragover", (event) => {
+      if (!draggingMetricName) return;
+      event.preventDefault();
+      event.stopPropagation();
+      clearDropMarkers();
+      header.classList.add("is-over");
+      event.dataTransfer.dropEffect = "move";
+    });
+    header.addEventListener("dragleave", () => header.classList.remove("is-over"));
+    header.addEventListener("drop", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const sourceName =
+        event.dataTransfer.getData("text/plain") || draggingMetricName;
+      clearDropMarkers();
+      finishDrop(moveToAxisGroup(sourceName, axis));
+    });
     dom.metricList.appendChild(header);
   };
 
   dom.metricList.innerHTML = "";
-  let lastAxis = -1;
+  const headersShown = new Set();
+  const showHeadersThrough = (axis) => {
+    for (let a = 0; a <= axis; a += 1) {
+      if (headersShown.has(a)) continue;
+      headersShown.add(a);
+      addAxisHeader(a);
+    }
+  };
   for (const metric of state.metrics) {
     const axis = metric.axis === 1 ? 1 : 0;
-    if (hasSecondaryGroup && axis !== lastAxis) {
-      addAxisHeader(axis === 1 ? "Y2 · rechte Achse" : "Y1 · linke Achse", axis);
-    }
-    lastAxis = axis;
+    if (hasSecondaryGroup) showHeadersThrough(axis);
     const li = document.createElement("li");
     li.className =
       "list-group-item py-1 px-1 metric-draggable-row" +
@@ -643,7 +695,9 @@ export function renderMetricList(hooks) {
 
     li.addEventListener("dragstart", (event) => {
       draggingMetricName = metric.name;
-      showAxisDropZone(metric, hooks);
+      // The snap zone only opens the second axis; once it exists, metrics are
+      // dragged between the axis groups of the list directly.
+      if (!hasSecondaryGroup) showAxisDropZone(metric, hooks);
       li.classList.add("metric-dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", metric.name);
@@ -663,12 +717,9 @@ export function renderMetricList(hooks) {
       const sourceName =
         event.dataTransfer.getData("text/plain") || draggingMetricName;
       const placeAfter = li.dataset.dropPosition === "after";
-      const changed = reorderMetrics(sourceName, metric.name, placeAfter);
+      const result = reorderMetrics(sourceName, metric.name, placeAfter);
       clearDropMarkers();
-      if (!changed) return;
-      renderMetricList(hooks);
-      hooks.renderChart();
-      hooks.onStateChanged?.();
+      finishDrop(result);
     });
     li.addEventListener("dragend", () => {
       draggingMetricName = "";
@@ -841,12 +892,9 @@ export function renderMetricList(hooks) {
       event.dataTransfer.getData("text/plain") || draggingMetricName;
     const targetName = markerTarget.dataset.metricName;
     const placeAfter = markerTarget.dataset.dropPosition === "after";
-    const changed = reorderMetrics(sourceName, targetName, placeAfter);
+    const result = reorderMetrics(sourceName, targetName, placeAfter);
     clearDropMarkers();
-    if (!changed) return;
-    renderMetricList(hooks);
-    hooks.renderChart();
-    hooks.onStateChanged?.();
+    finishDrop(result);
   };
 
   dom.metricList.ondragleave = (event) => {
