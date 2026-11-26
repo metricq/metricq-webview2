@@ -3,10 +3,12 @@ import { LEGEND_MIN_VIEWPORT_PX } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
+  metricAxis,
   metricDisplayName,
   metricRenderShowsBands,
   metricRenderShowsCounts,
   metricShownUnit,
+  secondaryAxisActive,
   state,
   yAxisStackingActive,
 } from "./model.js";
@@ -1140,6 +1142,43 @@ function drawYAxisAndAxes(
   }
 }
 
+function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
+  const axisX = width - margin.right;
+  const yTickLen = 4;
+  ctx.save();
+  ctx.strokeStyle = "#000000";
+  ctx.beginPath();
+  ctx.moveTo(axisX, margin.top);
+  ctx.lineTo(axisX, height - margin.bottom);
+  ctx.stroke();
+
+  const logarithmic = state.yAxisScale === "symlog";
+  ctx.font = "11px sans-serif";
+  ctx.fillStyle = "#000000";
+  ctx.textAlign = "left";
+  const labels = logarithmic
+    ? yTicks.map(formatLogarithmicTick)
+    : formatYTickLabels(yTicks);
+  for (let i = 0; i < yTicks.length; i += 1) {
+    const y = sy(yTicks[i]);
+    ctx.beginPath();
+    ctx.moveTo(axisX, y);
+    ctx.lineTo(axisX + yTickLen, y);
+    ctx.stroke();
+    ctx.fillText(labels[i], axisX + 6, y + 4);
+  }
+
+  const yUnits = yAxisUnitsLabel(seriesList);
+  if (yUnits) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.translate(logarithmic ? width - 10 : width - Math.max(8, margin.right - 36), margin.top + plotH / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText(yUnits, 0, 0);
+  }
+  ctx.restore();
+}
+
 function drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax) {
   const rangeMs = xMax - xMin;
   const targetTicks = Math.max(4, Math.floor(plotW / 110));
@@ -1199,7 +1238,13 @@ export function renderChart() {
 
   ctx.clearRect(0, 0, width, height);
 
-  const margin = { top: 12, right: 18, bottom: 34, left: state.yAxisScale === "symlog" ? 84 : 52 };
+  const hasSecondaryAxis = secondaryAxisActive();
+  const margin = {
+    top: 12,
+    right: hasSecondaryAxis ? (state.yAxisScale === "symlog" ? 84 : 52) : 18,
+    bottom: 34,
+    left: state.yAxisScale === "symlog" ? 84 : 52,
+  };
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   if (dom.collapsedLegend) {
@@ -1294,25 +1339,42 @@ export function renderChart() {
     : null;
   const domainSeries = filterSeriesForVisibleRange(seriesList, tiMode);
   const domainStacked = yAxisStackingActive()
-    ? buildStackedSeries(domainSeries, tiMode, true)
+    ? buildStackedSeries(
+        domainSeries.filter((item) => metricAxis(item.metric) === 0),
+        tiMode,
+        true,
+      )
     : null;
   const logarithmic = state.yAxisScale === "symlog";
-  const logConstant = logarithmic ? resolveLogConstant(domainSeries, domainStacked) : 1;
-  const domain = resolveYAxisDomain(domainSeries, domainStacked, logConstant);
-  const yScale = createYScale(domain.minY, domain.maxY, logarithmic, logConstant);
+  const buildAxis = (axis) => {
+    const items = domainSeries.filter((item) => metricAxis(item.metric) === axis);
+    const stacked = axis === 0 ? domainStacked : null;
+    const logConstant = logarithmic ? resolveLogConstant(items, stacked) : 1;
+    const domain = resolveYAxisDomain(items, stacked, logConstant, axis);
+    return { domain, scale: createYScale(domain.minY, domain.maxY, logarithmic, logConstant) };
+  };
+  const primaryAxis = buildAxis(0);
+  const domain = primaryAxis.domain;
+  const yScale = primaryAxis.scale;
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
+  const secondaryAxis = hasSecondaryAxis ? buildAxis(1) : null;
   const xMin = state.from;
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
-  const sy = (y) =>
+  const syPrimary = (y) =>
     margin.top + (1 - yScale.position(y)) * plotH;
+  const sySecondary = secondaryAxis
+    ? (y) => margin.top + (1 - secondaryAxis.scale.position(y)) * plotH
+    : syPrimary;
+  const syOf = (metric) => (metricAxis(metric) === 1 ? sySecondary : syPrimary);
   lastLayout = {
     margin,
     plotW,
     plotH,
     sx,
-    sy,
+    sy: syPrimary,
+    syOf,
     minY: domain.minY,
     maxY: domain.maxY,
     yValueAt: yScale.valueAt,
@@ -1322,7 +1384,32 @@ export function renderChart() {
     ? logarithmicTicks(domain.minY, domain.maxY, plotH, yScale)
     : buildYTicks(domain.minY, domain.maxY, plotH);
   drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax);
-  drawYAxisAndAxes(ctx, width, height, margin, plotH, sy, yTicks, seriesList);
+  drawYAxisAndAxes(
+    ctx,
+    width,
+    height,
+    margin,
+    plotH,
+    syPrimary,
+    yTicks,
+    seriesList.filter((item) => metricAxis(item.metric) === 0),
+  );
+  if (secondaryAxis) {
+    const d2 = secondaryAxis.domain;
+    const ticks2 = logarithmic
+      ? logarithmicTicks(d2.minY, d2.maxY, plotH, secondaryAxis.scale)
+      : buildYTicks(d2.minY, d2.maxY, plotH);
+    drawSecondaryYAxis(
+      ctx,
+      width,
+      height,
+      margin,
+      plotH,
+      sySecondary,
+      ticks2,
+      seriesList.filter((item) => metricAxis(item.metric) === 1),
+    );
+  }
 
   // Clip all series drawing to the actual plot region between axes.
   ctx.save();
@@ -1332,6 +1419,7 @@ export function renderChart() {
 
   for (const item of seriesList) {
     const { metric, series } = item;
+    const sy = syOf(metric);
     const stackedSeries = lastStackedByMetric?.get(metric.name);
     const stackedAvgAt =
       yAxisStackingActive() && stackedSeries?.stacksInYAxis
@@ -2002,8 +2090,8 @@ function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX, cursorY)
       if (!Number.isFinite(open) || !Number.isFinite(close)) continue;
       const high = p.max * metric.factor;
       const low = p.min * metric.factor;
-      const yHigh = lastLayout.sy(high);
-      const yLow = lastLayout.sy(low);
+      const yHigh = lastLayout.syOf(metric)(high);
+      const yLow = lastLayout.syOf(metric)(low);
       const rangeTop = Math.min(yHigh, yLow);
       const rangeBottom = Math.max(yHigh, yLow);
       const dx = xPx - cursorX;
@@ -2049,8 +2137,8 @@ function renderCandlestickHoverAt(clientX, clientY, t, margin, cursorX, cursorY)
 
   hideHoverPoint();
   hits.forEach((hit, i) => {
-    const yHigh = lastLayout.sy(hit.high);
-    const yLow = lastLayout.sy(hit.low);
+    const yHigh = lastLayout.syOf(hit.metric)(hit.high);
+    const yLow = lastLayout.syOf(hit.metric)(hit.low);
     positionHoverCandle(
       i,
       hit.xPx,
@@ -2137,7 +2225,7 @@ function renderHoverAt(clientX, clientY) {
       const factor = metricRenderShowsCounts() ? "" : shownMetricFactor(metric);
       const factorText = factor ? ` x${factor}` : "";
       const unitText = shownUnit ? ` ${shownUnit}` : "";
-      const yPx = lastLayout.sy(
+      const yPx = lastLayout.syOf(metric)(
         Number.isFinite(sampled.plotAvg) ? sampled.plotAvg : sampled.avg,
       );
       const dx = hoverX - cursorX;
@@ -2226,7 +2314,7 @@ function renderHoverAt(clientX, clientY) {
       cursorX,
       cursorY,
       lastLayout.sx,
-      lastLayout.sy,
+      lastLayout.syOf(metric),
     );
     if (nearestRaw) {
       const nearestPoint = nearestRaw.point;
@@ -2259,7 +2347,7 @@ function renderHoverAt(clientX, clientY) {
           : null;
       const stacked = stackedValueAt(metric.name, "avg", sampleT);
       const plotValue = Number.isFinite(stacked) ? stacked : rawValue;
-      const yPx = lastLayout.sy(plotValue);
+      const yPx = lastLayout.syOf(metric)(plotValue);
       const xPx = lastLayout.sx(sampleT);
       const open = Number(nearestPoint.open);
       const close = Number(nearestPoint.close);

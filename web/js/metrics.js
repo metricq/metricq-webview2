@@ -359,6 +359,7 @@ export function addMetric(name, hooks) {
     draw: true,
     drawAvg: true,
     stackMode: "normal",
+    axis: 0,
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -388,6 +389,7 @@ export function addExpressionMetric(name, expr, hooks) {
     draw: true,
     drawAvg: true,
     stackMode: "normal",
+    axis: 0,
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -532,6 +534,60 @@ export function renderHints(hints, hooks) {
   }
 }
 
+function setMetricAxis(name, axis, hooks) {
+  const metric = metricByName(name);
+  if (!metric || (metric.axis === 1 ? 1 : 0) === axis) return;
+  metric.axis = axis;
+  // Stacking is only defined within the primary axis.
+  if (axis === 1) metric.stackMode = "normal";
+  syncYAxisStackedState();
+  renderMetricList(hooks);
+  hooks.loadData();
+  hooks.onStateChanged?.();
+}
+
+let axisDropZoneEl = null;
+
+function ensureAxisDropZone() {
+  if (axisDropZoneEl) return axisDropZoneEl;
+  axisDropZoneEl = document.createElement("div");
+  axisDropZoneEl.className = "metric-axis-dropzone d-none";
+  dom.metricList.after(axisDropZoneEl);
+  return axisDropZoneEl;
+}
+
+function hideAxisDropZone() {
+  if (!axisDropZoneEl) return;
+  axisDropZoneEl.classList.add("d-none");
+  axisDropZoneEl.classList.remove("is-over");
+}
+
+// While a metric is dragged, offer a snap target below the list that moves it
+// to the other y-axis (opening the secondary axis if it does not exist yet).
+function showAxisDropZone(metric, hooks) {
+  const zone = ensureAxisDropZone();
+  const toSecondary = metric.axis !== 1;
+  const targetAxis = toSecondary ? 1 : 0;
+  zone.textContent = toSecondary
+    ? "Hier ablegen: zweite Y-Achse (rechts)"
+    : "Hier ablegen: erste Y-Achse (links)";
+  zone.classList.remove("d-none", "is-over");
+  zone.ondragover = (event) => {
+    if (!draggingMetricName) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    zone.classList.add("is-over");
+  };
+  zone.ondragleave = () => zone.classList.remove("is-over");
+  zone.ondrop = (event) => {
+    event.preventDefault();
+    const name = event.dataTransfer.getData("text/plain") || draggingMetricName;
+    draggingMetricName = "";
+    hideAxisDropZone();
+    setMetricAxis(name, targetAxis, hooks);
+  };
+}
+
 export function renderMetricList(hooks) {
   const clearDropMarkers = () => {
     for (const child of dom.metricList.children) {
@@ -565,6 +621,7 @@ export function renderMetricList(hooks) {
 
     li.addEventListener("dragstart", (event) => {
       draggingMetricName = metric.name;
+      showAxisDropZone(metric, hooks);
       li.classList.add("metric-dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", metric.name);
@@ -593,6 +650,7 @@ export function renderMetricList(hooks) {
     });
     li.addEventListener("dragend", () => {
       draggingMetricName = "";
+      hideAxisDropZone();
       clearDropMarkers();
     });
 
@@ -643,6 +701,22 @@ export function renderMetricList(hooks) {
       (shownUnit ? ` [${shownUnit}]` : "") +
       factorSuffix;
     center.appendChild(mainText);
+    if (metric.axis === 1) {
+      const badge = document.createElement("button");
+      badge.type = "button";
+      badge.className = "metric-axis-badge";
+      badge.textContent = "Y2";
+      badge.title =
+        "Auf der zweiten (rechten) Y-Achse – klicken, um zur ersten Achse zurückzukehren";
+      badge.setAttribute(
+        "data-help",
+        "Diese Metrik nutzt die zweite Y-Achse (rechts). Klicken, um sie wieder der ersten Achse zuzuordnen. Alternativ die Metrik nach unten auf die Ablagefläche ziehen.",
+      );
+      badge.addEventListener("click", () =>
+        setMetricAxis(metric.name, 0, hooks),
+      );
+      mainText.prepend(badge);
+    }
     const description = String(metric.description || "").trim();
     if (description) {
       const desc = document.createElement("div");
@@ -662,7 +736,7 @@ export function renderMetricList(hooks) {
     const editButton = metric.expr
       ? `<button class="btn btn-outline-secondary" data-action="edit" title="Ausdruck bearbeiten" data-help="Öffnet den Editor für die Formel dieser berechneten Metrik."><i class="bi bi-pencil"></i></button>`
       : "";
-    const stackButton = (() => {
+    const stackButton = metric.axis === 1 ? "" : (() => {
       const stacksInYAxis = metric.stackMode !== "normal";
       const stackButtonClass = stacksInYAxis
         ? "btn-outline-secondary active-stack-button"

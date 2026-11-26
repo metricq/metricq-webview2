@@ -1052,3 +1052,38 @@
 .adv-meta-filter-tag button:hover {
     opacity: 1;
 }
+
+.metric-axis-badge {
+    border: 1px solid var(--mq-blue);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--mq-blue);
+    font-size: 0.65rem;
+    line-height: 1;
+    padding: 1px 4px;
+    margin-right: 4px;
+    vertical-align: 1px;
+    cursor: pointer;
+}
+
+.metric-axis-badge:hover {
+    background: var(--mq-blue);
+    color: #fff;
+}
+
+.metric-axis-dropzone {
+    margin: 0.4rem 0.25rem 0;
+    padding: 0.7rem 0.5rem;
+    border: 2px dashed var(--mq-line);
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.8rem;
+    color: #6b7280;
+    transition: border-color 0.12s, background-color 0.12s, color 0.12s;
+}
+
+.metric-axis-dropzone.is-over {
+    border-color: var(--mq-blue);
+    background: rgba(38, 67, 233, 0.08);
+    color: var(--mq-blue);
+}

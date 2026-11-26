@@ -51,7 +51,8 @@ function sanitizeMetricEntry(raw, index, defaultStacked = false) {
     color,
     draw,
     drawAvg: true,
-    stackMode: raw?.ns ? "normal" : (defaultStacked ? "stack" : "normal"),
+    stackMode: raw?.ax === 1 || raw?.ns ? "normal" : (defaultStacked ? "stack" : "normal"),
+    axis: raw?.ax === 1 ? 1 : 0,
     factor: 1,
     manualFactor: 1,
     factorMode: "auto",
@@ -102,6 +103,7 @@ function serializeMetricEntry(metric, index) {
   }
 
   if (metric.stackMode === "normal") entry.ns = 1;
+  if (metric.axis === 1) entry.ax = 1;
 
   return entry;
 }

@@ -16,6 +16,9 @@ export const state = {
   yAxisGlobalMin: null,
   yAxisGlobalMax: null,
   yAxisGlobalMetricsKey: "",
+  yAxis2GlobalMin: null,
+  yAxis2GlobalMax: null,
+  yAxis2GlobalMetricsKey: "",
   yAxisCurrentMin: null,
   yAxisCurrentMax: null,
   yAxisStacked: false,
@@ -54,6 +57,23 @@ export const colors = [
 
 export function metricByName(name) {
   return state.metrics.find((m) => m.name === name);
+}
+
+// A second y-axis only exists while visible metrics sit on both axes;
+// otherwise everything is drawn against the primary axis.
+export function secondaryAxisActive() {
+  let primary = false;
+  let secondary = false;
+  for (const metric of state.metrics) {
+    if (!metric.draw) continue;
+    if (metric.axis === 1) secondary = true;
+    else primary = true;
+  }
+  return primary && secondary;
+}
+
+export function metricAxis(metric) {
+  return metric?.axis === 1 && secondaryAxisActive() ? 1 : 0;
 }
 
 export function syncYAxisStackedState() {

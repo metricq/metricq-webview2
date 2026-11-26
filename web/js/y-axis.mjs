@@ -1,6 +1,6 @@
 import { createYScale } from "./y-scale.mjs";
 import { apiFetch } from "./api.js";
-import { metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
+import { metricAxis, metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
 
 function valueSeriesFrequency(points, index) {
   if (!Array.isArray(points) || points.length < 2) return null;
@@ -110,23 +110,32 @@ function withPadding(minY, maxY, lockMin = false) {
   };
 }
 
-export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConstant = 1) {
-  const localRaw = yAxisStackingActive()
+function globalRange(axis) {
+  return axis === 1
+    ? { min: state.yAxis2GlobalMin, max: state.yAxis2GlobalMax }
+    : { min: state.yAxisGlobalMin, max: state.yAxisGlobalMax };
+}
+
+// axis 0 = primary (left), axis 1 = secondary (right). Manual range and
+// stacking only apply to the primary axis.
+export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConstant = 1, axis = 0) {
+  const stacking = axis === 0 && yAxisStackingActive();
+  const localRaw = stacking
     ? (collectStackedExtents(stackedByMetric) || collectSeriesExtents(seriesList))
     : collectSeriesExtents(seriesList);
   if (!localRaw) return { minY: 0, maxY: 1 };
 
-  if (state.yAxisMode === "manual") {
+  if (axis === 0 && state.yAxisMode === "manual") {
     if (Number.isFinite(state.yAxisManualMin) && Number.isFinite(state.yAxisManualMax) && state.yAxisManualMin < state.yAxisManualMax) {
       return { minY: state.yAxisManualMin, maxY: state.yAxisManualMax };
     }
   }
 
-
+  const range = globalRange(axis);
   if (state.yAxisScale === "symlog") {
-    const global = state.yAxisMode === "global" && Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax);
-    let minY = global ? state.yAxisGlobalMin : localRaw.minY;
-    let maxY = global ? state.yAxisGlobalMax : localRaw.maxY;
+    const global = state.yAxisMode === "global" && Number.isFinite(range.min) && Number.isFinite(range.max);
+    let minY = global ? range.min : localRaw.minY;
+    let maxY = global ? range.max : localRaw.maxY;
     const scale = createYScale(minY, maxY, true, logConstant);
     const low = scale.transform(minY);
     const high = scale.transform(maxY);
@@ -134,18 +143,18 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConsta
     return { minY: scale.inverse(low - pad), maxY: scale.inverse(high + pad) };
   }
   if (state.yAxisMode === "global") {
-    if (Number.isFinite(state.yAxisGlobalMin) && Number.isFinite(state.yAxisGlobalMax) && state.yAxisGlobalMin < state.yAxisGlobalMax) {
-      if (yAxisStackingActive()) {
+    if (Number.isFinite(range.min) && Number.isFinite(range.max) && range.min < range.max) {
+      if (stacking) {
         const minY = 0;
-        const maxY = Math.max(state.yAxisGlobalMax, 0);
+        const maxY = Math.max(range.max, 0);
         return withPadding(minY, maxY, true);
       }
-      const h = applyZeroMinimumHeuristic(state.yAxisGlobalMin, state.yAxisGlobalMax);
+      const h = applyZeroMinimumHeuristic(range.min, range.max);
       return withPadding(h.minY, h.maxY);
     }
   }
 
-  if (yAxisStackingActive()) {
+  if (stacking) {
     const minY = 0;
     const maxY = Math.max(localRaw.maxY, 0);
     return withPadding(minY, maxY, true);
@@ -162,21 +171,39 @@ export function visibleMetricsKey() {
 
 export async function ensureGlobalYAxisRange() {
   if (state.yAxisMode !== "global") return;
+  await ensureGlobalRangeForAxis(0);
+  await ensureGlobalRangeForAxis(1);
+}
+
+function storeGlobalRange(axis, min, max, key) {
+  if (axis === 1) {
+    state.yAxis2GlobalMin = min;
+    state.yAxis2GlobalMax = max;
+    state.yAxis2GlobalMetricsKey = key;
+  } else {
+    state.yAxisGlobalMin = min;
+    state.yAxisGlobalMax = max;
+    state.yAxisGlobalMetricsKey = key;
+  }
+}
+
+async function ensureGlobalRangeForAxis(axis) {
+  const axisMetrics = state.metrics.filter((m) => m.draw && metricAxis(m) === axis);
+  if (axis === 1 && axisMetrics.length === 0) {
+    storeGlobalRange(1, null, null, "");
+    return;
+  }
   if (metricRenderShowsCounts()) {
-    const visibleSeries = state.metrics
-      .filter((metric) => metric.draw)
+    const visibleSeries = axisMetrics
       .map((metric) => ({ metric, series: state.series.get(metric.name) }))
       .filter((item) => item.series && !item.series.error);
     const extents = collectSeriesExtents(visibleSeries);
     if (!extents) return;
-    state.yAxisGlobalMin = extents.minY;
-    state.yAxisGlobalMax = extents.maxY;
-    state.yAxisGlobalMetricsKey = `${visibleMetricsKey()}\nmode:count`;
+    storeGlobalRange(axis, extents.minY, extents.maxY, `${visibleMetricsKey()}\nmode:count`);
     return;
   }
-  const stacked = yAxisStackingActive();
-  const metrics = state.metrics
-    .filter((m) => m.draw)
+  const stacked = axis === 0 && yAxisStackingActive();
+  const metrics = axisMetrics
     .map((m) => ({
       name: m.name,
       factor: Number.isFinite(m.factor) ? m.factor : 1,
@@ -188,11 +215,10 @@ export async function ensureGlobalYAxisRange() {
     .map((m) => `${m.name}:${m.factor.toPrecision(12)}:${m.stacksInYAxis ? "S" : "N"}`)
     .join("\n") + `\nstacked:${stacked ? "1" : "0"}`;
   if (!key) return;
-  if (
-    key === state.yAxisGlobalMetricsKey &&
-    Number.isFinite(state.yAxisGlobalMin) &&
-    Number.isFinite(state.yAxisGlobalMax)
-  ) {
+  const cached = axis === 1
+    ? { key: state.yAxis2GlobalMetricsKey, min: state.yAxis2GlobalMin, max: state.yAxis2GlobalMax }
+    : { key: state.yAxisGlobalMetricsKey, min: state.yAxisGlobalMin, max: state.yAxisGlobalMax };
+  if (key === cached.key && Number.isFinite(cached.min) && Number.isFinite(cached.max)) {
     return;
   }
 
@@ -252,9 +278,7 @@ export async function ensureGlobalYAxisRange() {
     throw new Error("no global y-range available for visible metrics");
   }
 
-  state.yAxisGlobalMin = minY;
-  state.yAxisGlobalMax = maxY;
-  state.yAxisGlobalMetricsKey = key;
+  storeGlobalRange(axis, minY, maxY, key);
 }
 
 // Use data magnitudes so choosing another SI prefix does not change the curve.
