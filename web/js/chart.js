@@ -221,18 +221,23 @@ function setChartErrorVisible(message, kind = "backend") {
   el.classList.toggle("d-none", !message);
 }
 
+function collapsedLegendHosts() {
+  return [dom.collapsedLegend, dom.collapsedLegendSecondary].filter(Boolean);
+}
+
 function updateCollapsedLegendFade(clientX, clientY) {
   if (state.renderMode === "ti") return;
-  const legend = dom.collapsedLegend;
-  if (!legend || legend.classList.contains("d-none")) return;
-  const rect = legend.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return;
-  const overLegend =
-    clientX >= rect.left &&
-    clientX <= rect.right &&
-    clientY >= rect.top &&
-    clientY <= rect.bottom;
-  legend.classList.toggle("is-faded", overLegend);
+  for (const legend of collapsedLegendHosts()) {
+    if (legend.classList.contains("d-none")) continue;
+    const rect = legend.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    const overLegend =
+      clientX >= rect.left &&
+      clientX <= rect.right &&
+      clientY >= rect.top &&
+      clientY <= rect.bottom;
+    legend.classList.toggle("is-faded", overLegend);
+  }
 }
 
 function getVisibleSeries() {
@@ -1248,11 +1253,24 @@ export function renderChart() {
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   if (dom.collapsedLegend) {
-    dom.collapsedLegend.style.left = "auto";
-    dom.collapsedLegend.style.top = `${margin.top + 4}px`;
-    dom.collapsedLegend.style.right = `${margin.right + 4}px`;
-    dom.collapsedLegend.style.maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * 0.34)))}px`;
-    if (state.renderMode === "ti") dom.collapsedLegend.classList.add("d-none");
+    // With two axes the primary legend sits top-left, the secondary top-right.
+    const maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * (hasSecondaryAxis ? 0.3 : 0.34))))}px`;
+    for (const legend of collapsedLegendHosts()) {
+      legend.style.top = `${margin.top + 4}px`;
+      legend.style.maxWidth = maxWidth;
+      if (state.renderMode === "ti") legend.classList.add("d-none");
+    }
+    if (hasSecondaryAxis) {
+      dom.collapsedLegend.style.left = `${margin.left + 4}px`;
+      dom.collapsedLegend.style.right = "auto";
+    } else {
+      dom.collapsedLegend.style.left = "auto";
+      dom.collapsedLegend.style.right = `${margin.right + 4}px`;
+    }
+    if (dom.collapsedLegendSecondary) {
+      dom.collapsedLegendSecondary.style.left = "auto";
+      dom.collapsedLegendSecondary.style.right = `${margin.right + 4}px`;
+    }
   }
 
   const seriesList = getVisibleSeries();
@@ -2290,12 +2308,11 @@ function renderHoverAt(clientX, clientY) {
     dom.hoverBox.style.top = `${top}px`;
     return;
   }
-  if (
-    dom.collapsedLegend &&
-    state.sidebarCollapsed &&
-    window.innerWidth >= LEGEND_MIN_VIEWPORT_PX
-  )
-    dom.collapsedLegend.classList.remove("d-none");
+  if (state.sidebarCollapsed && window.innerWidth >= LEGEND_MIN_VIEWPORT_PX) {
+    for (const legend of collapsedLegendHosts()) {
+      if (legend.childElementCount > 0) legend.classList.remove("d-none");
+    }
+  }
   hideHoverCursorLine();
   const candidates = [];
   const plotRight = margin.left + lastLayout.plotW;
@@ -2490,7 +2507,7 @@ export function hideHover() {
   lastHoverClientY = null;
   hoverBoxContentKey = "";
   dom.hoverBox.classList.add("d-none");
-  if (dom.collapsedLegend) dom.collapsedLegend.classList.remove("is-faded");
+  for (const legend of collapsedLegendHosts()) legend.classList.remove("is-faded");
   hideHoverPoint();
   hideHoverCandle();
   hideHoverCursorLine();

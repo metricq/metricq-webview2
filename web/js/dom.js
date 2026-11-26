@@ -18,6 +18,7 @@ export const dom = {
   dragSelectBox: document.getElementById("dragSelectBox"),
   zoomRangeBadge: document.getElementById("zoomRangeBadge"),
   collapsedLegend: document.getElementById("collapsedLegend"),
+  collapsedLegendSecondary: document.getElementById("collapsedLegendSecondary"),
   fromInput: document.getElementById("fromTime"),
   toInput: document.getElementById("toTime"),
   metricSearch: document.getElementById("metricSearch"),

@@ -1,9 +1,11 @@
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
+  metricAxis,
   metricDisplayName,
   metricRenderShowsCounts,
   metricShownUnit,
+  secondaryAxisActive,
   state,
   yAxisStackingActive,
 } from "./model.js";
@@ -108,17 +110,8 @@ function appendLegendSection(
 // the chart, so it's not worth rendering at all.
 export const LEGEND_MIN_VIEWPORT_PX = 768;
 
-export function renderCollapsedLegend() {
-  const host = dom.collapsedLegend;
-  if (!host) return;
+function fillLegend(host, visible, allowStacking) {
   host.innerHTML = "";
-
-  if (!state.sidebarCollapsed || window.innerWidth < LEGEND_MIN_VIEWPORT_PX) {
-    host.classList.add("d-none");
-    return;
-  }
-
-  const visible = state.metrics.filter((m) => m.draw);
   if (visible.length === 0) {
     host.classList.add("d-none");
     return;
@@ -134,7 +127,7 @@ export function renderCollapsedLegend() {
     })
     : host;
 
-  if (yAxisStackingActive()) {
+  if (allowStacking && yAxisStackingActive()) {
     const nonStacked = visible.filter((metric) => metric.stackMode === "normal");
     const stacked = visible.filter((metric) => metric.stackMode !== "normal");
     if (nonStacked.length > 0)
@@ -150,4 +143,33 @@ export function renderCollapsedLegend() {
   }
 
   host.classList.remove("d-none");
+}
+
+// One legend per y-axis: the primary one and, while a second axis is shown,
+// a separate one for the metrics on that axis.
+export function renderCollapsedLegend() {
+  const host = dom.collapsedLegend;
+  const secondaryHost = dom.collapsedLegendSecondary;
+  if (!host) return;
+  host.innerHTML = "";
+  if (secondaryHost) {
+    secondaryHost.innerHTML = "";
+    secondaryHost.classList.add("d-none");
+  }
+
+  if (!state.sidebarCollapsed || window.innerWidth < LEGEND_MIN_VIEWPORT_PX) {
+    host.classList.add("d-none");
+    return;
+  }
+
+  const visible = state.metrics.filter((m) => m.draw);
+  const split = secondaryAxisActive() && secondaryHost;
+  fillLegend(
+    host,
+    split ? visible.filter((m) => metricAxis(m) === 0) : visible,
+    true,
+  );
+  if (split) {
+    fillLegend(secondaryHost, visible.filter((m) => metricAxis(m) === 1), false);
+  }
 }
