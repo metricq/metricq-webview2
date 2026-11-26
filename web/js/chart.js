@@ -1,5 +1,5 @@
 import { createYScale, logarithmicTicks, formatLogarithmicTick } from "./y-scale.mjs";
-import { LEGEND_MIN_VIEWPORT_PX } from "./collapsed-legend.js";
+import { LEGEND_MIN_VIEWPORT_PX, layoutCollapsedLegends } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
@@ -1253,23 +1253,9 @@ export function renderChart() {
   const plotW = width - margin.left - margin.right;
   const plotH = height - margin.top - margin.bottom;
   if (dom.collapsedLegend) {
-    // With two axes the primary legend sits top-left, the secondary top-right.
-    const maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * (hasSecondaryAxis ? 0.3 : 0.34))))}px`;
-    for (const legend of collapsedLegendHosts()) {
-      legend.style.top = `${margin.top + 4}px`;
-      legend.style.maxWidth = maxWidth;
-      if (state.renderMode === "ti") legend.classList.add("d-none");
-    }
-    if (hasSecondaryAxis) {
-      dom.collapsedLegend.style.left = `${margin.left + 4}px`;
-      dom.collapsedLegend.style.right = "auto";
-    } else {
-      dom.collapsedLegend.style.left = "auto";
-      dom.collapsedLegend.style.right = `${margin.right + 4}px`;
-    }
-    if (dom.collapsedLegendSecondary) {
-      dom.collapsedLegendSecondary.style.left = "auto";
-      dom.collapsedLegendSecondary.style.right = `${margin.right + 4}px`;
+    layoutCollapsedLegends({ margin, plotW, plotH, hasSecondary: hasSecondaryAxis });
+    if (state.renderMode === "ti") {
+      for (const legend of collapsedLegendHosts()) legend.classList.add("d-none");
     }
   }
 

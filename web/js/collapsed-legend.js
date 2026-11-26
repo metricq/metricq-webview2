@@ -1,4 +1,11 @@
 import { dom } from "./dom.js";
+import {
+  isLegendAnchor,
+  legendAnchorStyle,
+  LEGEND_ANCHORS,
+  nearestLegendAnchor,
+  resolveLegendAnchors,
+} from "./legend-position.mjs";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
   metricAxis,
@@ -110,12 +117,164 @@ function appendLegendSection(
 // the chart, so it's not worth rendering at all.
 export const LEGEND_MIN_VIEWPORT_PX = 768;
 
+const ANCHOR_STORAGE_KEY = "metricq.legendAnchors";
+let anchorOverrides = loadAnchorOverrides();
+let lastLayout = null;
+let snapOverlay = null;
+
+function loadAnchorOverrides() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ANCHOR_STORAGE_KEY) || "{}");
+    return {
+      0: isLegendAnchor(raw?.[0]) ? raw[0] : null,
+      1: isLegendAnchor(raw?.[1]) ? raw[1] : null,
+    };
+  } catch (_) {
+    return { 0: null, 1: null };
+  }
+}
+
+function saveAnchorOverrides() {
+  try {
+    localStorage.setItem(ANCHOR_STORAGE_KEY, JSON.stringify(anchorOverrides));
+  } catch (_) {}
+}
+
+function legendHosts() {
+  return [dom.collapsedLegend, dom.collapsedLegendSecondary];
+}
+
+// Called by the chart on every render with the current plot geometry.
+export function layoutCollapsedLegends(layout) {
+  lastLayout = layout;
+  if (!layout || !dom.collapsedLegend) return;
+  const { margin, plotW, plotH, hasSecondary } = layout;
+  const anchors = resolveLegendAnchors(anchorOverrides, hasSecondary);
+  const maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * (hasSecondary ? 0.3 : 0.34))))}px`;
+  legendHosts().forEach((host, axis) => {
+    if (!host) return;
+    Object.assign(host.style, legendAnchorStyle(anchors[axis], margin, plotW, plotH), { maxWidth });
+  });
+}
+
+function showSnapOverlay(wrap, layout) {
+  hideSnapOverlay();
+  const { margin, plotW, plotH } = layout;
+  snapOverlay = document.createElement("div");
+  snapOverlay.className = "legend-snap-overlay";
+  Object.assign(snapOverlay.style, {
+    left: `${margin.left}px`,
+    top: `${margin.top}px`,
+    width: `${plotW}px`,
+    height: `${plotH}px`,
+  });
+  for (const anchor of LEGEND_ANCHORS) {
+    const cell = document.createElement("div");
+    cell.className = "legend-snap-cell";
+    cell.dataset.anchor = anchor;
+    snapOverlay.appendChild(cell);
+  }
+  wrap.appendChild(snapOverlay);
+}
+
+function highlightSnapAnchor(anchor) {
+  if (!snapOverlay) return;
+  for (const cell of snapOverlay.children) {
+    cell.classList.toggle("is-active", cell.dataset.anchor === anchor);
+  }
+}
+
+function hideSnapOverlay() {
+  snapOverlay?.remove();
+  snapOverlay = null;
+}
+
+function wireLegendDrag(host, axis) {
+  host.addEventListener("pointerdown", (event) => {
+    const grip = event.target.closest(".collapsed-legend-grip");
+    if (!grip || !lastLayout || event.button > 0) return;
+    event.preventDefault();
+    const wrap = host.offsetParent || host.parentElement;
+    const wrapRect = wrap.getBoundingClientRect();
+    const hostRect = host.getBoundingClientRect();
+    const offsetX = event.clientX - hostRect.left;
+    const offsetY = event.clientY - hostRect.top;
+    const { margin, plotW, plotH, hasSecondary } = lastLayout;
+    const plotRect = { left: margin.left, top: margin.top, width: plotW, height: plotH };
+    const before = resolveLegendAnchors(anchorOverrides, hasSecondary);
+    let target = before[axis];
+
+    showSnapOverlay(wrap, lastLayout);
+    highlightSnapAnchor(target);
+    host.classList.add("is-dragging");
+    grip.setPointerCapture(event.pointerId);
+
+    const move = (ev) => {
+      const left = ev.clientX - wrapRect.left - offsetX;
+      const top = ev.clientY - wrapRect.top - offsetY;
+      Object.assign(host.style, {
+        left: `${left}px`,
+        top: `${top}px`,
+        right: "auto",
+        bottom: "auto",
+        transform: "none",
+      });
+      target = nearestLegendAnchor(
+        left + hostRect.width / 2,
+        top + hostRect.height / 2,
+        plotRect,
+      );
+      highlightSnapAnchor(target);
+    };
+    const finish = (ev) => {
+      grip.removeEventListener("pointermove", move);
+      grip.removeEventListener("pointerup", finish);
+      grip.removeEventListener("pointercancel", finish);
+      try {
+        grip.releasePointerCapture(ev.pointerId);
+      } catch (_) {}
+      hideSnapOverlay();
+      host.classList.remove("is-dragging");
+      if (ev.type !== "pointercancel" && target !== before[axis]) {
+        // Taking a spot that the other legend occupies swaps the two.
+        const other = 1 - axis;
+        if (hasSecondary && before[other] === target) {
+          anchorOverrides[other] = before[axis];
+        }
+        anchorOverrides[axis] = target;
+        saveAnchorOverrides();
+      }
+      layoutCollapsedLegends(lastLayout);
+    };
+    grip.addEventListener("pointermove", move);
+    grip.addEventListener("pointerup", finish);
+    grip.addEventListener("pointercancel", finish);
+  });
+}
+
+let legendDragWired = false;
+function ensureLegendDragWired() {
+  if (legendDragWired) return;
+  legendHosts().forEach((host, axis) => host && wireLegendDrag(host, axis));
+  legendDragWired = true;
+}
+
+function buildGrip() {
+  const grip = document.createElement("span");
+  grip.className = "collapsed-legend-grip";
+  grip.title = "Legende verschieben";
+  grip.innerHTML = '<i class="bi bi-grip-horizontal" aria-hidden="true"></i>';
+  return grip;
+}
+
 function fillLegend(host, visible, allowStacking) {
   host.innerHTML = "";
   if (visible.length === 0) {
     host.classList.add("d-none");
     return;
   }
+  ensureLegendDragWired();
+  host.appendChild(buildGrip());
 
   const targetHost = metricRenderShowsCounts()
     ? appendLegendSection(host, [], {
