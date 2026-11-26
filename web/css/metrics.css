@@ -1053,24 +1053,6 @@
     opacity: 1;
 }
 
-.metric-axis-badge {
-    border: 1px solid var(--mq-blue);
-    border-radius: 3px;
-    background: transparent;
-    color: var(--mq-blue);
-    font-size: 0.65rem;
-    line-height: 1;
-    padding: 1px 4px;
-    margin-right: 4px;
-    vertical-align: 1px;
-    cursor: pointer;
-}
-
-.metric-axis-badge:hover {
-    background: var(--mq-blue);
-    color: #fff;
-}
-
 .metric-axis-dropzone {
     margin: 0.4rem 0.25rem 0;
     padding: 0.7rem 0.5rem;
@@ -1090,15 +1072,14 @@
 
 .metric-axis-header {
     list-style: none;
-    margin-top: 0.5rem;
-    padding: 0.25rem 0.5rem;
+    margin-top: 0.6rem;
+    padding: 0.3rem 0.5rem;
     font-size: 0.7rem;
     font-weight: 600;
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: #6b7280;
-    background: rgba(38, 67, 233, 0.06);
-    border-top: 1px solid var(--mq-line);
+    background: rgba(107, 114, 128, 0.08);
     border-bottom: 1px solid var(--mq-line);
 }
 
@@ -1108,9 +1089,26 @@
 
 .metric-axis-header-1 {
     color: var(--mq-blue);
-    background: rgba(38, 67, 233, 0.1);
+    background: rgba(38, 67, 233, 0.08);
 }
 
+/* Accent bar per axis group without shifting row content. */
+#metricList > .metric-axis-primary,
 #metricList > .metric-axis-secondary {
-    border-left: 3px solid var(--mq-blue);
+    position: relative;
+}
+
+#metricList > .metric-axis-primary::before,
+#metricList > .metric-axis-secondary::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #9aa4b8;
+}
+
+#metricList > .metric-axis-secondary::before {
+    background: var(--mq-blue);
 }

@@ -629,7 +629,11 @@ export function renderMetricList(hooks) {
     const li = document.createElement("li");
     li.className =
       "list-group-item py-1 px-1 metric-draggable-row" +
-      (axis === 1 ? " metric-axis-secondary" : "");
+      (hasSecondaryGroup
+        ? axis === 1
+          ? " metric-axis-secondary"
+          : " metric-axis-primary"
+        : "");
     li.draggable = true;
     li.dataset.metricName = metric.name;
 
@@ -719,22 +723,6 @@ export function renderMetricList(hooks) {
       (shownUnit ? ` [${shownUnit}]` : "") +
       factorSuffix;
     center.appendChild(mainText);
-    if (metric.axis === 1) {
-      const badge = document.createElement("button");
-      badge.type = "button";
-      badge.className = "metric-axis-badge";
-      badge.textContent = "Y2";
-      badge.title =
-        "Auf der zweiten (rechten) Y-Achse – klicken, um zur ersten Achse zurückzukehren";
-      badge.setAttribute(
-        "data-help",
-        "Diese Metrik nutzt die zweite Y-Achse (rechts). Klicken, um sie wieder der ersten Achse zuzuordnen. Alternativ die Metrik nach unten auf die Ablagefläche ziehen.",
-      );
-      badge.addEventListener("click", () =>
-        setMetricAxis(metric.name, 0, hooks),
-      );
-      mainText.prepend(badge);
-    }
     const description = String(metric.description || "").trim();
     if (description) {
       const desc = document.createElement("div");
