@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `metricq-webview2` is a Go web server that acts as a MetricQ history viewer. It connects to MetricQ via AMQP (RabbitMQ), serves a vanilla JS/HTML/CSS frontend embedded via `go:embed`, and exposes a REST API for metric search, querying, and analysis.
 
-The local `metricq-go` library is referenced via a `replace` directive in `go.mod` pointing to `../metricq-go`.
+`metricq-go` is a regular module dependency pinned in `go.mod` (no `replace`). Update it with `go get github.com/metricq/metricq-go@master && go mod tidy`.
 
 ## Commands
 

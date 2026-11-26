@@ -2,12 +2,10 @@ FROM golang:1.26 AS builder
 
 WORKDIR /src
 
-# The module uses a local replace to ../metricq-go, so the build context
-# should be the parent directory and include both repositories.
-COPY metricq-webview2 ./metricq-webview2
-COPY metricq-go ./metricq-go
+COPY go.mod go.sum ./
+RUN go mod download
 
-WORKDIR /src/metricq-webview2
+COPY . .
 
 RUN go build -o /out/metricq-webview2 .
 

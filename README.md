@@ -14,16 +14,11 @@
 
 ## Getting started
 
-`metricq-webview2` depends on `metricq-go` via a local `replace` directive in `go.mod`, so it expects
-that repository checked out as a sibling directory:
+`metricq-webview2` depends on the published `github.com/metricq/metricq-go` module (pinned in
+`go.mod`). To develop against a local checkout of `metricq-go`, add a temporary
+`replace github.com/metricq/metricq-go => ../metricq-go` (or use a `go.work` file) — don't commit it.
 
-```
-repos/
-├── metricq-webview2/
-└── metricq-go/
-```
-
-Then, from `metricq-webview2`:
+From the repository root:
 
 ```bash
 go run .
@@ -136,8 +131,7 @@ Frontend (no npm, via Node's built-in test runner):
 node --test web/tests/*.test.mjs
 ```
 
-CI (`.github/workflows/ci.yml`) checks out `metricq-webview2` and the sibling `metricq-go` repo, runs
-`go build/vet/test` and the frontend test suite, and — on non-PR events — builds and pushes a
+CI (`.github/workflows/ci.yml`) runs `go build/vet/test` and the frontend test suite, and — on non-PR events — builds and pushes a
 multi-tag Docker image to GHCR.
 
 ## API
