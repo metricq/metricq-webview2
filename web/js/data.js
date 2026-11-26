@@ -356,7 +356,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     rawPoints,
     totalDbMs,
   );
-  if (state.yAxisMode === "global") {
+  if (state.yAxisMode === "global" || state.yAxis2Mode === "global") {
     try {
       await ensureGlobalYAxisRange();
     } catch (_) {}

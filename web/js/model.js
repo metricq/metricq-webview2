@@ -21,6 +21,12 @@ export const state = {
   yAxis2GlobalMetricsKey: "",
   yAxisCurrentMin: null,
   yAxisCurrentMax: null,
+  yAxis2Mode: "local",
+  yAxis2Scale: "linear",
+  yAxis2ManualMin: null,
+  yAxis2ManualMax: null,
+  yAxis2CurrentMin: null,
+  yAxis2CurrentMax: null,
   yAxisStacked: false,
   stackedAligned: null,
   timeMode: "relative",
@@ -54,6 +60,21 @@ export const colors = [
   "#2643e9", "#00897b", "#c62828", "#7b1fa2", "#f57c00",
   "#0277bd", "#558b2f", "#6d4c41", "#00695c", "#8e24aa",
 ];
+
+// Per-axis settings live in flat state fields (axis 0: yAxis*, axis 1: yAxis2*).
+export function axisConfig(axis) {
+  const p = axis === 1 ? "yAxis2" : "yAxis";
+  return {
+    mode: state[`${p}Mode`] ?? "local",
+    scale: state[`${p}Scale`] === "symlog" ? "symlog" : "linear",
+    manualMin: state[`${p}ManualMin`],
+    manualMax: state[`${p}ManualMax`],
+    currentMin: state[`${p}CurrentMin`],
+    currentMax: state[`${p}CurrentMax`],
+    globalMin: state[`${p}GlobalMin`],
+    globalMax: state[`${p}GlobalMax`],
+  };
+}
 
 export function metricByName(name) {
   return state.metrics.find((m) => m.name === name);

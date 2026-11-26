@@ -1,6 +1,6 @@
 import { createYScale } from "./y-scale.mjs";
 import { apiFetch } from "./api.js";
-import { metricAxis, metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
+import { axisConfig, metricAxis, metricRenderShowsCounts, state, yAxisStackingActive } from "./model.js";
 
 function valueSeriesFrequency(points, index) {
   if (!Array.isArray(points) || points.length < 2) return null;
@@ -110,30 +110,25 @@ function withPadding(minY, maxY, lockMin = false) {
   };
 }
 
-function globalRange(axis) {
-  return axis === 1
-    ? { min: state.yAxis2GlobalMin, max: state.yAxis2GlobalMax }
-    : { min: state.yAxisGlobalMin, max: state.yAxisGlobalMax };
-}
-
-// axis 0 = primary (left), axis 1 = secondary (right). Manual range and
-// stacking only apply to the primary axis.
+// axis 0 = primary (left), axis 1 = secondary (right). Each axis has its own
+// scale and range mode; stacking only applies to the primary axis.
 export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConstant = 1, axis = 0) {
+  const cfg = axisConfig(axis);
   const stacking = axis === 0 && yAxisStackingActive();
   const localRaw = stacking
     ? (collectStackedExtents(stackedByMetric) || collectSeriesExtents(seriesList))
     : collectSeriesExtents(seriesList);
   if (!localRaw) return { minY: 0, maxY: 1 };
 
-  if (axis === 0 && state.yAxisMode === "manual") {
-    if (Number.isFinite(state.yAxisManualMin) && Number.isFinite(state.yAxisManualMax) && state.yAxisManualMin < state.yAxisManualMax) {
-      return { minY: state.yAxisManualMin, maxY: state.yAxisManualMax };
+  if (cfg.mode === "manual") {
+    if (Number.isFinite(cfg.manualMin) && Number.isFinite(cfg.manualMax) && cfg.manualMin < cfg.manualMax) {
+      return { minY: cfg.manualMin, maxY: cfg.manualMax };
     }
   }
 
-  const range = globalRange(axis);
-  if (state.yAxisScale === "symlog") {
-    const global = state.yAxisMode === "global" && Number.isFinite(range.min) && Number.isFinite(range.max);
+  const range = { min: cfg.globalMin, max: cfg.globalMax };
+  if (cfg.scale === "symlog") {
+    const global = cfg.mode === "global" && Number.isFinite(range.min) && Number.isFinite(range.max);
     let minY = global ? range.min : localRaw.minY;
     let maxY = global ? range.max : localRaw.maxY;
     const scale = createYScale(minY, maxY, true, logConstant);
@@ -142,7 +137,7 @@ export function resolveYAxisDomain(seriesList, stackedByMetric = null, logConsta
     const pad = Math.max(high - low, 0.1) * 0.05;
     return { minY: scale.inverse(low - pad), maxY: scale.inverse(high + pad) };
   }
-  if (state.yAxisMode === "global") {
+  if (cfg.mode === "global") {
     if (Number.isFinite(range.min) && Number.isFinite(range.max) && range.min < range.max) {
       if (stacking) {
         const minY = 0;
@@ -170,9 +165,8 @@ export function visibleMetricsKey() {
 }
 
 export async function ensureGlobalYAxisRange() {
-  if (state.yAxisMode !== "global") return;
-  await ensureGlobalRangeForAxis(0);
-  await ensureGlobalRangeForAxis(1);
+  if (axisConfig(0).mode === "global") await ensureGlobalRangeForAxis(0);
+  if (axisConfig(1).mode === "global") await ensureGlobalRangeForAxis(1);
 }
 
 function storeGlobalRange(axis, min, max, key) {

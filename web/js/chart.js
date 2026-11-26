@@ -3,6 +3,7 @@ import { LEGEND_MIN_VIEWPORT_PX } from "./collapsed-legend.js";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
+  axisConfig,
   metricAxis,
   metricDisplayName,
   metricRenderShowsBands,
@@ -1142,7 +1143,7 @@ function drawYAxisAndAxes(
   }
 }
 
-function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, seriesList) {
+function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, seriesList, logarithmic) {
   const axisX = width - margin.right;
   const yTickLen = 4;
   ctx.save();
@@ -1152,7 +1153,6 @@ function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, serie
   ctx.lineTo(axisX, height - margin.bottom);
   ctx.stroke();
 
-  const logarithmic = state.yAxisScale === "symlog";
   ctx.font = "11px sans-serif";
   ctx.fillStyle = "#000000";
   ctx.textAlign = "left";
@@ -1241,7 +1241,7 @@ export function renderChart() {
   const hasSecondaryAxis = secondaryAxisActive();
   const margin = {
     top: 12,
-    right: hasSecondaryAxis ? (state.yAxisScale === "symlog" ? 84 : 52) : 18,
+    right: hasSecondaryAxis ? (axisConfig(1).scale === "symlog" ? 84 : 52) : 18,
     bottom: 34,
     left: state.yAxisScale === "symlog" ? 84 : 52,
   };
@@ -1345,13 +1345,13 @@ export function renderChart() {
         true,
       )
     : null;
-  const logarithmic = state.yAxisScale === "symlog";
   const buildAxis = (axis) => {
+    const logarithmic = axisConfig(axis).scale === "symlog";
     const items = domainSeries.filter((item) => metricAxis(item.metric) === axis);
     const stacked = axis === 0 ? domainStacked : null;
     const logConstant = logarithmic ? resolveLogConstant(items, stacked) : 1;
     const domain = resolveYAxisDomain(items, stacked, logConstant, axis);
-    return { domain, scale: createYScale(domain.minY, domain.maxY, logarithmic, logConstant) };
+    return { domain, logarithmic, scale: createYScale(domain.minY, domain.maxY, logarithmic, logConstant) };
   };
   const primaryAxis = buildAxis(0);
   const domain = primaryAxis.domain;
@@ -1359,6 +1359,10 @@ export function renderChart() {
   state.yAxisCurrentMin = domain.minY;
   state.yAxisCurrentMax = domain.maxY;
   const secondaryAxis = hasSecondaryAxis ? buildAxis(1) : null;
+  if (secondaryAxis) {
+    state.yAxis2CurrentMin = secondaryAxis.domain.minY;
+    state.yAxis2CurrentMax = secondaryAxis.domain.maxY;
+  }
   const xMin = state.from;
   const xMax = state.to;
   const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
@@ -1380,7 +1384,7 @@ export function renderChart() {
     yValueAt: yScale.valueAt,
   };
 
-  const yTicks = logarithmic
+  const yTicks = primaryAxis.logarithmic
     ? logarithmicTicks(domain.minY, domain.maxY, plotH, yScale)
     : buildYTicks(domain.minY, domain.maxY, plotH);
   drawXAxisGrid(ctx, width, height, margin, plotW, sx, xMin, xMax);
@@ -1396,7 +1400,7 @@ export function renderChart() {
   );
   if (secondaryAxis) {
     const d2 = secondaryAxis.domain;
-    const ticks2 = logarithmic
+    const ticks2 = secondaryAxis.logarithmic
       ? logarithmicTicks(d2.minY, d2.maxY, plotH, secondaryAxis.scale)
       : buildYTicks(d2.minY, d2.maxY, plotH);
     drawSecondaryYAxis(
@@ -1408,6 +1412,7 @@ export function renderChart() {
       sySecondary,
       ticks2,
       seriesList.filter((item) => metricAxis(item.metric) === 1),
+      secondaryAxis.logarithmic,
     );
   }
 

@@ -94,3 +94,17 @@ test("visible zero takes priority over nearby logarithmic labels", () => {
   const positive = createYScale(1e-6, 100, true, 1e-7);
   assert.ok(!logarithmicTicks(1e-6, 100, 600, positive).includes(0));
 });
+
+test("secondary axis settings are serialized separately and restored", () => {
+  const settings = { yAxisMode: "local", yAxisScale: "linear", yAxis2Mode: "manual", yAxis2ManualMin: 1, yAxis2ManualMax: 5, yAxis2Scale: "symlog" };
+  const payload = JSON.parse(JSON.stringify(serializeYAxisSettings(settings)));
+  assert.deepEqual(payload.y2, { m: "manual", scale: "symlog", min: 1, max: 5 });
+  const restored = {};
+  applyYAxisSettings(restored, payload);
+  assert.equal(restored.yAxisScale, "linear");
+  assert.equal(restored.yAxis2Mode, "manual");
+  assert.equal(restored.yAxis2Scale, "symlog");
+  assert.equal(restored.yAxis2ManualMax, 5);
+  applyYAxisSettings(restored, { m: "global" });
+  assert.equal(restored.yAxis2Mode, "local");
+});

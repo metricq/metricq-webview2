@@ -291,40 +291,14 @@
             <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
-            <div class="mb-3">
-              <label for="yAxisScale" class="form-label">Achsenskalierung</label>
-              <select id="yAxisScale" class="form-select" aria-describedby="yAxisScaleHint">
-                <option value="linear">Linear</option>
-                <option value="symlog">Symmetrisch logarithmisch</option>
-              </select>
-              <div class="form-text" id="yAxisScaleHint" aria-live="polite">Gleiche Wertunterschiede haben gleiche Abstände auf der Achse.</div>
-            </div>
-            <div class="mb-3">
+            <ul class="nav nav-pills nav-fill mb-3 d-none" id="yAxisTabs">
+              <li class="nav-item"><button type="button" class="nav-link active" data-axis="0">Linke Achse</button></li>
+              <li class="nav-item"><button type="button" class="nav-link" data-axis="1">Rechte Achse (Y2)</button></li>
+            </ul>
+            <div id="yAxisPanes"></div>
+            <div class="mt-3">
               <div class="form-label">Anzeigeeinheit</div>
               <div id="yAxisUnits" class="d-grid gap-2"></div>
-            </div>
-            <div class="form-label">Achsenbereich</div>
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeLocal" checked />
-              <label class="form-check-label" for="yAxisModeLocal">Lokal (sichtbarer Zeitraum)</label>
-            </div>
-            <div class="form-check mb-2">
-              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeGlobal" />
-              <label class="form-check-label" for="yAxisModeGlobal">Global (historisches Min/Max)</label>
-            </div>
-            <div class="form-check mb-3">
-              <input class="form-check-input" type="radio" name="yAxisMode" id="yAxisModeManual" />
-              <label class="form-check-label" for="yAxisModeManual">Manuell</label>
-            </div>
-            <div class="row g-2">
-              <div class="col">
-                <label for="yAxisManualMin" class="form-label">Min</label>
-                <input id="yAxisManualMin" type="text" class="form-control" inputmode="decimal" />
-              </div>
-              <div class="col">
-                <label for="yAxisManualMax" class="form-label">Max</label>
-                <input id="yAxisManualMax" type="text" class="form-control" inputmode="decimal" />
-              </div>
             </div>
           </div>
           <div class="modal-footer">

@@ -1,7 +1,7 @@
 import { applyAutoScaling } from "./auto-factor.mjs";
 import { SI_PREFIXES, formatSIUnit, parseSIUnit } from "./si-units.mjs";
 import { dom } from "./dom.js";
-import { normalizeMetricRenderMode, state } from "./model.js";
+import { axisConfig, normalizeMetricRenderMode, state } from "./model.js";
 import { loadData } from "./data.js";
 import { exportCSV, exportJSON, exportPNG } from "./exporters.js";
 import { runAnalyze } from "./analyze.js";
@@ -462,27 +462,105 @@ function hideDragSelection() {
   dom.dragSelectBox.classList.add("d-none");
 }
 
-function selectedYAxisMode() {
-  if (dom.yAxisModeManual.checked) return "manual";
-  if (dom.yAxisModeGlobal.checked) return "global";
-  return "local";
+const yAxisPanes = [];
+
+function createYAxisPane(axis) {
+  const root = document.createElement("div");
+  const id = (name) => `yAxis${axis}${name}`;
+  root.innerHTML = `
+    <div class="mb-3">
+      <label for="${id("Scale")}" class="form-label">Achsenskalierung</label>
+      <select id="${id("Scale")}" class="form-select" aria-describedby="${id("ScaleHint")}">
+        <option value="linear">Linear</option>
+        <option value="symlog">Symmetrisch logarithmisch</option>
+      </select>
+      <div class="form-text" id="${id("ScaleHint")}" aria-live="polite"></div>
+    </div>
+    <div class="form-label">Achsenbereich</div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="radio" name="${id("Mode")}" id="${id("ModeLocal")}" value="local" checked />
+      <label class="form-check-label" for="${id("ModeLocal")}">Lokal (sichtbarer Zeitraum)</label>
+    </div>
+    <div class="form-check mb-2">
+      <input class="form-check-input" type="radio" name="${id("Mode")}" id="${id("ModeGlobal")}" value="global" />
+      <label class="form-check-label" for="${id("ModeGlobal")}">Global (historisches Min/Max)</label>
+    </div>
+    <div class="form-check mb-3">
+      <input class="form-check-input" type="radio" name="${id("Mode")}" id="${id("ModeManual")}" value="manual" />
+      <label class="form-check-label" for="${id("ModeManual")}">Manuell</label>
+    </div>
+    <div class="row g-2">
+      <div class="col">
+        <label for="${id("ManualMin")}" class="form-label">Min</label>
+        <input id="${id("ManualMin")}" type="text" class="form-control" inputmode="decimal" />
+      </div>
+      <div class="col">
+        <label for="${id("ManualMax")}" class="form-label">Max</label>
+        <input id="${id("ManualMax")}" type="text" class="form-control" inputmode="decimal" />
+      </div>
+    </div>`;
+  const pane = {
+    axis,
+    root,
+    scale: root.querySelector(`#${id("Scale")}`),
+    hint: root.querySelector(`#${id("ScaleHint")}`),
+    modes: [...root.querySelectorAll(`input[name="${id("Mode")}"]`)],
+    min: root.querySelector(`#${id("ManualMin")}`),
+    max: root.querySelector(`#${id("ManualMax")}`),
+  };
+  const selectedMode = () => pane.modes.find((r) => r.checked)?.value || "local";
+  pane.selectedMode = selectedMode;
+  pane.updateManualEnabled = () => {
+    const manual = selectedMode() === "manual";
+    pane.min.disabled = !manual;
+    pane.max.disabled = !manual;
+  };
+  pane.updateHint = () => {
+    pane.hint.textContent = pane.scale.value === "symlog"
+      ? "Nahe Null annähernd linear, bei größeren Beträgen logarithmisch. Negative Werte werden spiegelbildlich dargestellt. Der Übergangsbereich passt sich den sichtbaren Daten an."
+      : "Gleiche Wertunterschiede haben gleiche Abstände auf der Achse.";
+  };
+  pane.scale.addEventListener("change", pane.updateHint);
+  for (const radio of pane.modes) radio.addEventListener("change", pane.updateManualEnabled);
+  return pane;
 }
 
-function updateYAxisManualInputsEnabled() {
-  const manual = selectedYAxisMode() === "manual";
-  dom.yAxisManualMin.disabled = !manual;
-  dom.yAxisManualMax.disabled = !manual;
+function ensureYAxisPanes() {
+  if (yAxisPanes.length) return;
+  for (const axis of [0, 1]) {
+    const pane = createYAxisPane(axis);
+    yAxisPanes.push(pane);
+    dom.yAxisPanes.append(pane.root);
+  }
+  dom.yAxisTabs.addEventListener("click", (event) => {
+    const button = event.target.closest("button[data-axis]");
+    if (button) showYAxisPane(Number(button.dataset.axis));
+  });
 }
 
-function updateYAxisScaleHint() {
-  dom.yAxisScaleHint.textContent = dom.yAxisScale.value === "symlog"
-    ? "Nahe Null annähernd linear, bei größeren Beträgen logarithmisch. Negative Werte werden spiegelbildlich dargestellt. Der Übergangsbereich passt sich den sichtbaren Daten an."
-    : "Gleiche Wertunterschiede haben gleiche Abstände auf der Achse.";
+function showYAxisPane(axis) {
+  for (const pane of yAxisPanes) pane.root.classList.toggle("d-none", pane.axis !== axis);
+  for (const button of dom.yAxisTabs.querySelectorAll("button[data-axis]")) {
+    button.classList.toggle("active", Number(button.dataset.axis) === axis);
+  }
 }
 
 function syncYAxisModalFromState() {
-  dom.yAxisScale.value = state.yAxisScale;
-  updateYAxisScaleHint();
+  ensureYAxisPanes();
+  const hasSecondary = state.metrics.some((m) => m.axis === 1);
+  dom.yAxisTabs.classList.toggle("d-none", !hasSecondary);
+  showYAxisPane(0);
+  for (const pane of yAxisPanes) {
+    const cfg = axisConfig(pane.axis);
+    pane.scale.value = cfg.scale;
+    pane.updateHint();
+    for (const radio of pane.modes) radio.checked = radio.value === cfg.mode;
+    const fillMin = Number.isFinite(cfg.manualMin) ? cfg.manualMin : cfg.currentMin;
+    const fillMax = Number.isFinite(cfg.manualMax) ? cfg.manualMax : cfg.currentMax;
+    pane.min.value = Number.isFinite(fillMin) ? formatDecimalInput(fillMin) : "";
+    pane.max.value = Number.isFinite(fillMax) ? formatDecimalInput(fillMax) : "";
+    pane.updateManualEnabled();
+  }
   dom.yAxisUnits.replaceChildren();
   const families = [...new Set(state.metrics.map((m) => parseSIUnit(m.unit)?.family).filter(Boolean))];
   for (const family of families) {
@@ -500,22 +578,6 @@ function syncYAxisModalFromState() {
     dom.yAxisUnits.append(label);
   }
   if (families.length === 0) dom.yAxisUnits.textContent = "Keine skalierbaren Einheiten vorhanden.";
-  dom.yAxisModeLocal.checked = state.yAxisMode === "local";
-  dom.yAxisModeGlobal.checked = state.yAxisMode === "global";
-  dom.yAxisModeManual.checked = state.yAxisMode === "manual";
-  const fillMin = Number.isFinite(state.yAxisManualMin)
-    ? state.yAxisManualMin
-    : state.yAxisCurrentMin;
-  const fillMax = Number.isFinite(state.yAxisManualMax)
-    ? state.yAxisManualMax
-    : state.yAxisCurrentMax;
-  dom.yAxisManualMin.value = Number.isFinite(fillMin)
-    ? formatDecimalInput(fillMin)
-    : "";
-  dom.yAxisManualMax.value = Number.isFinite(fillMax)
-    ? formatDecimalInput(fillMax)
-    : "";
-  updateYAxisManualInputsEnabled();
 }
 
 function updateDragSelection() {
@@ -766,21 +828,20 @@ function wireModalEvents() {
 }
 
 function wireYAxisEvents() {
-  dom.yAxisScale.addEventListener("change", updateYAxisScaleHint);
   dom.btnYAxis.addEventListener("click", syncYAxisModalFromState);
   dom.yAxisModal.addEventListener("shown.bs.modal", syncYAxisModalFromState);
-  dom.yAxisModeLocal.addEventListener("change", updateYAxisManualInputsEnabled);
-  dom.yAxisModeGlobal.addEventListener(
-    "change",
-    updateYAxisManualInputsEnabled,
-  );
-  dom.yAxisModeManual.addEventListener(
-    "change",
-    updateYAxisManualInputsEnabled,
-  );
   dom.btnApplyYAxis.addEventListener("click", async () => {
-    state.yAxisMode = selectedYAxisMode();
-    state.yAxisScale = dom.yAxisScale.value === "symlog" ? "symlog" : "linear";
+    ensureYAxisPanes();
+    for (const pane of yAxisPanes) {
+      const prefix = pane.axis === 1 ? "yAxis2" : "yAxis";
+      const mode = pane.selectedMode();
+      state[`${prefix}Mode`] = mode;
+      state[`${prefix}Scale`] = pane.scale.value === "symlog" ? "symlog" : "linear";
+      const manualMin = parseLocalizedNumber(pane.min.value);
+      const manualMax = parseLocalizedNumber(pane.max.value);
+      state[`${prefix}ManualMin`] = mode === "manual" && Number.isFinite(manualMin) ? manualMin : null;
+      state[`${prefix}ManualMax`] = mode === "manual" && Number.isFinite(manualMax) ? manualMax : null;
+    }
     const units = { ...state.yAxisUnits };
     for (const select of dom.yAxisUnits.querySelectorAll("select[data-family]")) {
       if (select.value === "auto") delete units[select.dataset.family];
@@ -790,11 +851,7 @@ function wireYAxisEvents() {
     applyAutoScaling(state.metrics, state.series);
     renderMetricList(hooks);
     renderCollapsedLegend();
-    const manualMin = parseLocalizedNumber(dom.yAxisManualMin.value);
-    const manualMax = parseLocalizedNumber(dom.yAxisManualMax.value);
-    state.yAxisManualMin = state.yAxisMode === "manual" && Number.isFinite(manualMin) ? manualMin : null;
-    state.yAxisManualMax = state.yAxisMode === "manual" && Number.isFinite(manualMax) ? manualMax : null;
-    if (state.yAxisMode === "global") {
+    if (state.yAxisMode === "global" || state.yAxis2Mode === "global") {
       try {
         await ensureGlobalYAxisRange();
       } catch (_) {}

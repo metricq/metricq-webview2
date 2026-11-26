@@ -9,23 +9,44 @@ export function normalizeUnitOverrides(raw) {
   return result;
 }
 
+const AXIS_PREFIXES = ["yAxis", "yAxis2"];
+
+function serializeAxisBlock(state, prefix) {
+  const mode = state[`${prefix}Mode`] ?? "local";
+  const b = { m: mode };
+  if (state[`${prefix}Scale`] === "symlog") b.scale = "symlog";
+  const min = state[`${prefix}ManualMin`];
+  const max = state[`${prefix}ManualMax`];
+  if (mode === "manual" && Number.isFinite(min) && Number.isFinite(max) && min < max) {
+    b.min = min;
+    b.max = max;
+  }
+  return b;
+}
+
+function applyAxisBlock(state, prefix, y) {
+  state[`${prefix}Scale`] = y?.scale === "symlog" ? "symlog" : "linear";
+  const mode = ["manual", "global"].includes(y?.m) ? y.m : "local";
+  state[`${prefix}Mode`] = mode;
+  const valid = (v) => mode === "manual" && typeof v === "number" && Number.isFinite(v) ? v : null;
+  state[`${prefix}ManualMin`] = valid(y?.min);
+  state[`${prefix}ManualMax`] = valid(y?.max);
+}
+
 export function serializeYAxisSettings(state) {
   const units = normalizeUnitOverrides(state.yAxisUnits);
-  const y = { m: state.yAxisMode };
+  const y = serializeAxisBlock(state, AXIS_PREFIXES[0]);
   if (state.yAxisStacked) y.s = 1;
-  if (state.yAxisScale === "symlog") y.scale = "symlog";
   if (Object.keys(units).length) y.units = units;
-  if (y.m === "manual" && Number.isFinite(state.yAxisManualMin) && Number.isFinite(state.yAxisManualMax) && state.yAxisManualMin < state.yAxisManualMax) {
-    y.min = state.yAxisManualMin;
-    y.max = state.yAxisManualMax;
-  }
+  // Secondary axis settings are stored compactly and only when non-default.
+  const y2 = serializeAxisBlock(state, AXIS_PREFIXES[1]);
+  if (y2.m === "local") delete y2.m;
+  if (Object.keys(y2).length) y.y2 = y2;
   return y.m === "local" && Object.keys(y).length === 1 ? null : y;
 }
 
 export function applyYAxisSettings(state, y) {
-  state.yAxisScale = y?.scale === "symlog" ? "symlog" : "linear";
+  applyAxisBlock(state, AXIS_PREFIXES[0], y);
+  applyAxisBlock(state, AXIS_PREFIXES[1], y?.y2);
   state.yAxisUnits = normalizeUnitOverrides(y?.units);
-  state.yAxisMode = ["manual", "global"].includes(y?.m) ? y.m : "local";
-  state.yAxisManualMin = state.yAxisMode === "manual" && typeof y?.min === "number" && Number.isFinite(y.min) ? y.min : null;
-  state.yAxisManualMax = state.yAxisMode === "manual" && typeof y?.max === "number" && Number.isFinite(y.max) ? y.max : null;
 }
