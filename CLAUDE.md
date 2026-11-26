@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`metricq-codex` is a Go web server that acts as a MetricQ history viewer. It connects to MetricQ via AMQP (RabbitMQ), serves a vanilla JS/HTML/CSS frontend embedded via `go:embed`, and exposes a REST API for metric search, querying, and analysis.
+`metricq-webview2` is a Go web server that acts as a MetricQ history viewer. It connects to MetricQ via AMQP (RabbitMQ), serves a vanilla JS/HTML/CSS frontend embedded via `go:embed`, and exposes a REST API for metric search, querying, and analysis.
 
 The local `metricq-go` library is referenced via a `replace` directive in `go.mod` pointing to `../metricq-go`.
 
@@ -39,7 +39,7 @@ node --test web/tests/units.test.mjs
 
 **Build binary:**
 ```bash
-go build -o metricq-codex .
+go build -o metricq-webview2 .
 ```
 
 ## Environment Variables
@@ -48,7 +48,7 @@ go build -o metricq-codex .
 |---|---|---|
 | `LISTEN_ADDR` | `:80` | HTTP listen address |
 | `METRICQ_SERVER` | `amqp://guest:guest@localhost:5672/` | RabbitMQ URL |
-| `METRICQ_TOKEN` | `metricq-codex` | MetricQ agent token |
+| `METRICQ_TOKEN` | `metricq-webview2` | MetricQ agent token |
 | `QUERY_TIMEOUT_SECONDS` | `30` | Query timeout |
 | `WEB_DIR` | *(empty)* | If set, serve frontend from filesystem instead of embedded |
 

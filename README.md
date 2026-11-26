@@ -1,6 +1,6 @@
-# metricq-codex
+# metricq-webview2
 
-`metricq-codex` is a modern reimplementation of the MetricQ web viewer:
+`metricq-webview2` is a modern reimplementation of the MetricQ web viewer:
 - no Vue 2, no frontend build step
 - vanilla HTML/CSS/JS + Bootstrap 5 (vendored, no CDN dependency)
 - Go backend talking to MetricQ directly via `metricq-go`
@@ -14,16 +14,16 @@
 
 ## Getting started
 
-`metricq-codex` depends on `metricq-go` via a local `replace` directive in `go.mod`, so it expects
+`metricq-webview2` depends on `metricq-go` via a local `replace` directive in `go.mod`, so it expects
 that repository checked out as a sibling directory:
 
 ```
 repos/
-├── metricq-codex/
+├── metricq-webview2/
 └── metricq-go/
 ```
 
-Then, from `metricq-codex`:
+Then, from `metricq-webview2`:
 
 ```bash
 go run .
@@ -35,7 +35,7 @@ go run .
 |---|---|---|
 | `LISTEN_ADDR` | `:80` | HTTP listen address |
 | `METRICQ_SERVER` | `amqp://guest:guest@localhost:5672/` | AMQP broker URL for the MetricQ agent connection |
-| `METRICQ_TOKEN` | `metricq-codex` | MetricQ agent identity token |
+| `METRICQ_TOKEN` | `metricq-webview2` | MetricQ agent identity token |
 | `QUERY_TIMEOUT_SECONDS` | `30` | Per-query timeout for `/api/query*` and `/api/analyze` |
 | `WEB_DIR` | *(unset)* | If set, serve the frontend from this filesystem path instead of the embedded copy (see below) |
 | `LEGACY_CHARTS_BASE_URL` | *(unset)* | Base URL for the "open in legacy chart" link, exposed via `/api/config` |
@@ -45,7 +45,7 @@ Example:
 ```bash
 LISTEN_ADDR=:80 \
 METRICQ_SERVER=amqp://user:pass@rabbitmq:5672/ \
-METRICQ_TOKEN=metricq-codex \
+METRICQ_TOKEN=metricq-webview2 \
 go run .
 ```
 
@@ -109,7 +109,7 @@ Frontend (no npm, via Node's built-in test runner):
 node --test web/tests/*.test.mjs
 ```
 
-CI (`.github/workflows/ci.yml`) checks out `metricq-codex` and the sibling `metricq-go` repo, runs
+CI (`.github/workflows/ci.yml`) checks out `metricq-webview2` and the sibling `metricq-go` repo, runs
 `go build/vet/test` and the frontend test suite, and — on non-PR events — builds and pushes a
 multi-tag Docker image to GHCR.
 

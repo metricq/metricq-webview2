@@ -70,7 +70,7 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	log.Printf("metricq-codex listening on %s", cfg.ListenAddr)
+	log.Printf("metricq-webview2 listening on %s", cfg.ListenAddr)
 	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("http server failed: %v", err)
 	}

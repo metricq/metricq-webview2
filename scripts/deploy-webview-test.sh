@@ -2,9 +2,9 @@
 set -euo pipefail
 
 REMOTE_HOST="${1:-webview-test}"
-REMOTE_BIN_PATH="${REMOTE_BIN_PATH:-~/metricq-codex}"
-REMOTE_TMP_PATH="${REMOTE_TMP_PATH:-~/metricq-codex.new}"
-REMOTE_SERVICE="${REMOTE_SERVICE:-metricq-codex.service}"
+REMOTE_BIN_PATH="${REMOTE_BIN_PATH:-~/metricq-webview2}"
+REMOTE_TMP_PATH="${REMOTE_TMP_PATH:-~/metricq-webview2.new}"
+REMOTE_SERVICE="${REMOTE_SERVICE:-metricq-webview2.service}"
 REMOTE_HEALTH_URL="${REMOTE_HEALTH_URL:-http://127.0.0.1:8086/api/health}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,11 +12,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${REPO_ROOT}"
 
-echo "[1/4] building metricq-codex"
-go build -o metricq-codex .
+echo "[1/4] building metricq-webview2"
+go build -o metricq-webview2 .
 
 echo "[2/4] uploading binary to ${REMOTE_HOST}:${REMOTE_TMP_PATH}"
-scp ./metricq-codex "${REMOTE_HOST}:${REMOTE_TMP_PATH}"
+scp ./metricq-webview2 "${REMOTE_HOST}:${REMOTE_TMP_PATH}"
 
 echo "[3/4] activating binary and restarting ${REMOTE_SERVICE}"
 ssh "${REMOTE_HOST}" "set -euo pipefail; \

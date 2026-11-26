@@ -12,7 +12,7 @@ func configFromEnv() config {
 	cfg := config{
 		ListenAddr:    ":80",
 		MetricQServer: "amqp://guest:guest@localhost:5672/",
-		MetricQToken:  "metricq-codex",
+		MetricQToken:  "metricq-webview2",
 		QueryTimeout:  30 * time.Second,
 	}
 	if v := strings.TrimSpace(os.Getenv("LISTEN_ADDR")); v != "" {

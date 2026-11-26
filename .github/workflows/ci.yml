@@ -12,13 +12,13 @@ jobs:
     name: Test & build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout metricq-codex
+      - name: Checkout metricq-webview2
         uses: actions/checkout@v4
         with:
-          path: metricq-codex
+          path: metricq-webview2
 
       # go.mod has a local "replace github.com/metricq/metricq-go => ../metricq-go",
-      # so the sibling repo has to be checked out next to metricq-codex for
+      # so the sibling repo has to be checked out next to metricq-webview2 for
       # go build/vet/test to resolve it, same as local development.
       - name: Checkout metricq-go
         uses: actions/checkout@v4
@@ -29,18 +29,18 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version-file: metricq-codex/go.mod
+          go-version-file: metricq-webview2/go.mod
 
       - name: go build
-        working-directory: metricq-codex
+        working-directory: metricq-webview2
         run: go build ./...
 
       - name: go vet
-        working-directory: metricq-codex
+        working-directory: metricq-webview2
         run: go vet ./...
 
       - name: go test
-        working-directory: metricq-codex
+        working-directory: metricq-webview2
         run: go test ./... -count=1
 
       - name: Set up Node
@@ -49,7 +49,7 @@ jobs:
           node-version: 22
 
       - name: Frontend tests
-        working-directory: metricq-codex
+        working-directory: metricq-webview2
         run: node --test web/tests/*.test.mjs
 
   docker:
@@ -60,10 +60,10 @@ jobs:
       contents: read
       packages: write
     steps:
-      - name: Checkout metricq-codex
+      - name: Checkout metricq-webview2
         uses: actions/checkout@v4
         with:
-          path: metricq-codex
+          path: metricq-webview2
 
       - name: Checkout metricq-go
         uses: actions/checkout@v4
@@ -94,12 +94,12 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       # Build context is the workspace root, which now contains both
-      # metricq-codex/ and metricq-go/ as siblings (see Dockerfile).
+      # metricq-webview2/ and metricq-go/ as siblings (see Dockerfile).
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: metricq-codex/Dockerfile
+          file: metricq-webview2/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -4,12 +4,12 @@ WORKDIR /src
 
 # The module uses a local replace to ../metricq-go, so the build context
 # should be the parent directory and include both repositories.
-COPY metricq-codex ./metricq-codex
+COPY metricq-webview2 ./metricq-webview2
 COPY metricq-go ./metricq-go
 
-WORKDIR /src/metricq-codex
+WORKDIR /src/metricq-webview2
 
-RUN go build -o /out/metricq-codex .
+RUN go build -o /out/metricq-webview2 .
 
 FROM debian:bookworm-slim
 
@@ -19,10 +19,10 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY --from=builder /out/metricq-codex /usr/local/bin/metricq-codex
+COPY --from=builder /out/metricq-webview2 /usr/local/bin/metricq-webview2
 
 ENV LISTEN_ADDR=:80
 
 EXPOSE 80
 
-CMD ["metricq-codex"]
+CMD ["metricq-webview2"]

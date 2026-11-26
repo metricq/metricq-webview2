@@ -75,7 +75,7 @@ export function exportJSON() {
     series: Object.fromEntries(state.series.entries()),
   };
   downloadBlob(
-    "metricq-codex.json",
+    "metricq-webview2.json",
     "application/json",
     JSON.stringify(payload, null, 2),
   );
@@ -113,7 +113,7 @@ export function exportCSV() {
       );
     }
   }
-  downloadBlob("metricq-codex.csv", "text/csv", rows.join("\n"));
+  downloadBlob("metricq-webview2.csv", "text/csv", rows.join("\n"));
 }
 
 // One legend per y-axis, placed like the on-screen legends.
@@ -389,7 +389,7 @@ export function exportPNG() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "metricq-codex.png";
+    a.download = "metricq-webview2.png";
     a.click();
     URL.revokeObjectURL(url);
   });
