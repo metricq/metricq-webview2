@@ -1087,3 +1087,30 @@
     background: rgba(38, 67, 233, 0.08);
     color: var(--mq-blue);
 }
+
+.metric-axis-header {
+    list-style: none;
+    margin-top: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6b7280;
+    background: rgba(38, 67, 233, 0.06);
+    border-top: 1px solid var(--mq-line);
+    border-bottom: 1px solid var(--mq-line);
+}
+
+.metric-axis-header:first-child {
+    margin-top: 0;
+}
+
+.metric-axis-header-1 {
+    color: var(--mq-blue);
+    background: rgba(38, 67, 233, 0.1);
+}
+
+#metricList > .metric-axis-secondary {
+    border-left: 3px solid var(--mq-blue);
+}

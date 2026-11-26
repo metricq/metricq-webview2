@@ -608,10 +608,28 @@ export function renderMetricList(hooks) {
     return true;
   };
 
+  // Keep both axis groups contiguous (stable sort) so they can be shown apart.
+  state.metrics.sort((x, y) => (x.axis === 1 ? 1 : 0) - (y.axis === 1 ? 1 : 0));
+  const hasSecondaryGroup = state.metrics.some((m) => m.axis === 1);
+  const addAxisHeader = (text, axis) => {
+    const header = document.createElement("li");
+    header.className = `metric-axis-header metric-axis-header-${axis}`;
+    header.textContent = text;
+    dom.metricList.appendChild(header);
+  };
+
   dom.metricList.innerHTML = "";
+  let lastAxis = -1;
   for (const metric of state.metrics) {
+    const axis = metric.axis === 1 ? 1 : 0;
+    if (hasSecondaryGroup && axis !== lastAxis) {
+      addAxisHeader(axis === 1 ? "Y2 · rechte Achse" : "Y1 · linke Achse", axis);
+    }
+    lastAxis = axis;
     const li = document.createElement("li");
-    li.className = "list-group-item py-1 px-1 metric-draggable-row";
+    li.className =
+      "list-group-item py-1 px-1 metric-draggable-row" +
+      (axis === 1 ? " metric-axis-secondary" : "");
     li.draggable = true;
     li.dataset.metricName = metric.name;
 
