@@ -638,6 +638,10 @@ export function renderMetricList(hooks) {
     hooks.onStateChanged?.();
   };
 
+  // A second axis needs at least two metrics; a lone metric stays on Y1.
+  if (state.metrics.length < 2) {
+    for (const m of state.metrics) m.axis = 0;
+  }
   // Keep both axis groups contiguous (stable sort) so they can be shown apart.
   state.metrics.sort((x, y) => (x.axis === 1 ? 1 : 0) - (y.axis === 1 ? 1 : 0));
   const hasSecondaryGroup = state.metrics.some((m) => m.axis === 1);
@@ -697,7 +701,7 @@ export function renderMetricList(hooks) {
       draggingMetricName = metric.name;
       // The snap zone only opens the second axis; once it exists, metrics are
       // dragged between the axis groups of the list directly.
-      if (!hasSecondaryGroup) showAxisDropZone(metric, hooks);
+      if (!hasSecondaryGroup && state.metrics.length >= 2) showAxisDropZone(metric, hooks);
       li.classList.add("metric-dragging");
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", metric.name);
