@@ -1,6 +1,6 @@
-@import url("/css/base.css?v=18");
-@import url("/css/chart.css?v=18");
-@import url("/css/metrics.css?v=18");
+@import url("css/base.css?v=18");
+@import url("css/chart.css?v=18");
+@import url("css/metrics.css?v=18");
 
 .analyze-table th {
   white-space: nowrap;

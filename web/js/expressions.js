@@ -803,7 +803,7 @@ async function fetchMetricDetails(metricName) {
   const cached = metricMetadataCache.get(metricName);
   if (cached) return cached;
   try {
-    const body = await apiFetch(`/api/metadata?metric=${encodeURIComponent(metricName)}`);
+    const body = await apiFetch(`api/metadata?metric=${encodeURIComponent(metricName)}`);
     const details = {
       unit: normalizeSIUnit(body?.metadata?.unit),
       description: String(body?.metadata?.description || "").trim(),
@@ -939,7 +939,7 @@ async function metricExistsForToken(metricName) {
   if (state.metrics.some((m) => m.name === name)) return true;
   if (metricExistenceCache.has(name)) return metricExistenceCache.get(name);
   try {
-    await apiFetch(`/api/metadata?metric=${encodeURIComponent(name)}`);
+    await apiFetch(`api/metadata?metric=${encodeURIComponent(name)}`);
     metricExistenceCache.set(name, true);
     return true;
   } catch (_) {
@@ -1187,7 +1187,7 @@ async function validateExpressionViaBackend(expr) {
   const text = String(expr || "").trim();
   if (!text) return { ok: false, message: "Der Ausdruck ist leer.", info: { type: "empty_expression" } };
   try {
-    const body = await apiFetch("/api/expression/validate", {
+    const body = await apiFetch("api/expression/validate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -1315,7 +1315,7 @@ async function fetchExpressionPreview(exprText, statusSeq) {
   const { from, to } = currentExpressionPreviewRange();
   let body = null;
   try {
-    body = await apiFetch("/api/query", {
+    body = await apiFetch("api/query", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

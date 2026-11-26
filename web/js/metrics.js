@@ -141,7 +141,7 @@ async function fetchMetricHintDetails(metricName) {
   }
   try {
     const body = await apiFetch(
-      `/api/metadata?metric=${encodeURIComponent(metricName)}`,
+      `api/metadata?metric=${encodeURIComponent(metricName)}`,
     );
     const details = {
       unit: normalizeSIUnit(body?.metadata?.unit),
@@ -214,7 +214,7 @@ async function resolveExternalReferenceScale(metricName) {
   let unit = "";
   try {
     const metadata = await apiFetch(
-      `/api/metadata?metric=${encodeURIComponent(key)}`,
+      `api/metadata?metric=${encodeURIComponent(key)}`,
     );
     unit = normalizeSIUnit(metadata?.metadata?.unit || "");
   } catch (_) {
@@ -231,7 +231,7 @@ async function resolveExternalReferenceScale(metricName) {
   try {
     const now = Date.now();
     const tenYearsMs = 10 * 365 * 24 * 60 * 60 * 1000;
-    const body = await apiFetch("/api/query/range", {
+    const body = await apiFetch("api/query/range", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -475,7 +475,7 @@ export function clearMetrics(hooks) {
 export async function fetchMetadata(name, hooks) {
   try {
     const body = await apiFetch(
-      `/api/metadata?metric=${encodeURIComponent(name)}`,
+      `api/metadata?metric=${encodeURIComponent(name)}`,
     );
     const metric = metricByName(name);
     if (!metric) return;
@@ -513,7 +513,7 @@ export async function searchMetricHints(query, options = {}) {
   const search = raw;
   try {
     const body = await apiFetch(
-      `/api/metrics?query=${encodeURIComponent(search)}&mode=${encodeURIComponent(mode)}&limit=25`,
+      `api/metrics?query=${encodeURIComponent(search)}&mode=${encodeURIComponent(mode)}&limit=25`,
     );
     return body.metrics || [];
   } catch (_) {

@@ -221,7 +221,7 @@ async function ensureGlobalRangeForAxis(axis) {
   const results = await Promise.all(
     metrics.map(async (metric) => {
       try {
-        const body = await apiFetch("/api/query/range", {
+        const body = await apiFetch("api/query/range", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

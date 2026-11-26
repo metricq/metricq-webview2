@@ -32,12 +32,12 @@ async function buildAnalyzeTargets() {
     visibleMetrics,
     async (metricName) => {
       const body = await apiFetch(
-        `/api/metadata?metric=${encodeURIComponent(metricName)}`,
+        `api/metadata?metric=${encodeURIComponent(metricName)}`,
       );
       return body?.metadata?.unit || "";
     },
     async (metricName) => {
-      const body = await apiFetch("/api/query/range", {
+      const body = await apiFetch("api/query/range", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -77,7 +77,7 @@ async function ensureDescriptions() {
     missing.map(async (metric) => {
       try {
         const body = await apiFetch(
-          `/api/metadata?metric=${encodeURIComponent(metric.name)}`,
+          `api/metadata?metric=${encodeURIComponent(metric.name)}`,
         );
         metric.description = String(body?.metadata?.description || "");
       } catch (_) {}
@@ -94,7 +94,7 @@ export async function runAnalyze() {
 
   await ensureDescriptions();
   parseRangeFromInputs();
-  const body = await apiFetch("/api/analyze", {
+  const body = await apiFetch("api/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

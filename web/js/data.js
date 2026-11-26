@@ -38,7 +38,7 @@ async function fetchMetricUnitCached(metricName) {
   let unit = "";
   try {
     const body = await apiFetch(
-      `/api/metadata?metric=${encodeURIComponent(key)}`,
+      `api/metadata?metric=${encodeURIComponent(key)}`,
     );
     unit = String(body?.metadata?.unit || "").trim();
   } catch (_) {
@@ -171,7 +171,7 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
     state.metrics,
     fetchMetricUnitCached,
     async (metricName) => {
-      const body = await apiFetch("/api/query/range", {
+      const body = await apiFetch("api/query/range", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -246,14 +246,14 @@ export async function loadData(renderChart, onStateChanged = () => {}) {
   try {
     [body, stackedBody] = await Promise.all([
       queryTargets.length > 0
-        ? apiFetch("/api/query", {
+        ? apiFetch("api/query", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(req),
           })
         : Promise.resolve({ series: [] }),
       yAxisStackingActive() && stackedTargets.length > 0
-        ? apiFetch("/api/query/stacked", {
+        ? apiFetch("api/query/stacked", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({

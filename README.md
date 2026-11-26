@@ -62,6 +62,33 @@ Files served this way are sent with `Cache-Control: no-store`, so a plain browse
 to pick up HTML/CSS/JS changes — no Go process restart, and no risk of the browser silently caching
 a stale module across edits.
 
+### Running behind a reverse proxy under a path prefix
+
+The frontend uses only page-relative URLs (`api/query`, `js/main.js`, `vendor/...`), and the share
+link and QR code are built from the current `location`. The same image therefore works at the host
+root and under any prefix, without configuration. The proxy has to strip the prefix, so the Go server
+keeps seeing `/api/...`, `/js/...` and so on.
+
+Apache example for `https://metricq.example.org/webview/`:
+
+```apache
+# The trailing slash matters: relative URLs resolve against /webview/, not /.
+RedirectMatch 301 ^/webview$ /webview/
+ProxyPass        "/webview/" "http://webview-container:80/"
+ProxyPassReverse "/webview/" "http://webview-container:80/"
+```
+
+The container image listens on `:80` (`LISTEN_ADDR` default). Use a different port in the
+`ProxyPass` target only if you override `LISTEN_ADDR`, e.g. `LISTEN_ADDR=:8080` →
+`http://webview-container:8080/`.
+
+nginx equivalent:
+
+```nginx
+location = /webview { return 301 /webview/; }
+location /webview/ { proxy_pass http://webview-container:80/; }
+```
+
 ## Frontend features
 
 - **Metric search** — plain substring/infix search by default; a `/` prefix switches to

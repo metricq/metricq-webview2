@@ -206,7 +206,7 @@ async function runSearch() {
   showSpinner();
 
   try {
-    const body = await apiFetch("/api/metrics/search", {
+    const body = await apiFetch("api/metrics/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -235,7 +235,7 @@ async function runMetadataSearch() {
   showSpinner();
 
   try {
-    const body = await apiFetch("/api/metrics/search", {
+    const body = await apiFetch("api/metrics/search", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -437,7 +437,7 @@ function addAllMetrics() {
 
 async function loadSuggestableFields() {
   try {
-    const body = await apiFetch("/api/metrics/suggest-fields");
+    const body = await apiFetch("api/metrics/suggest-fields");
     suggestableFields = body.fields || [];
     populateFieldSelect();
   } catch (_) {
@@ -470,7 +470,7 @@ async function onFieldSelected() {
     const qs = new URLSearchParams({ field, limit: "200" });
     if (filterParam) qs.set("filter", JSON.stringify(filterParam));
 
-    const body = await apiFetch(`/api/metrics/suggest?${qs}`);
+    const body = await apiFetch(`api/metrics/suggest?${qs}`);
     const values = body.values || [];
 
     dom.advMetaValueSelect.innerHTML =

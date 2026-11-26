@@ -26,7 +26,7 @@ let frontendConfigPromise = null;
 
 export function fetchFrontendConfig() {
   if (!frontendConfigPromise) {
-    frontendConfigPromise = apiFetch("/api/config");
+    frontendConfigPromise = apiFetch("api/config");
   }
   return frontendConfigPromise;
 }
