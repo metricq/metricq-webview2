@@ -1,3 +1,4 @@
+import { AXIS_COLORS } from "./axis-colors.mjs";
 import { dom } from "./dom.js";
 import {
   isLegendAnchor,
@@ -267,8 +268,10 @@ function buildGrip() {
   return grip;
 }
 
-function fillLegend(host, visible, allowStacking) {
+function fillLegend(host, visible, allowStacking, axisStripe = null) {
   host.innerHTML = "";
+  host.classList.toggle("has-axis-stripe", axisStripe != null);
+  if (axisStripe != null) host.style.setProperty("--legend-axis-color", AXIS_COLORS[axisStripe]);
   if (visible.length === 0) {
     host.classList.add("d-none");
     return;
@@ -327,8 +330,9 @@ export function renderCollapsedLegend() {
     host,
     split ? visible.filter((m) => metricAxis(m) === 0) : visible,
     true,
+    split ? 0 : null,
   );
   if (split) {
-    fillLegend(secondaryHost, visible.filter((m) => metricAxis(m) === 1), false);
+    fillLegend(secondaryHost, visible.filter((m) => metricAxis(m) === 1), false, 1);
   }
 }

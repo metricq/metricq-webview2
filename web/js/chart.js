@@ -1,5 +1,6 @@
 import { createYScale, logarithmicTicks, formatLogarithmicTick } from "./y-scale.mjs";
 import { LEGEND_MIN_VIEWPORT_PX, layoutCollapsedLegends } from "./collapsed-legend.js";
+import { AXIS_COLORS } from "./axis-colors.mjs";
 import { dom } from "./dom.js";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
@@ -1712,6 +1713,15 @@ export function renderChart() {
   }
 
   ctx.restore();
+
+  // Color stripes beside the axes tie each axis to its metric group.
+  if (secondaryAxis) {
+    const stripeW = 3;
+    ctx.fillStyle = AXIS_COLORS[0];
+    ctx.fillRect(margin.left, margin.top, stripeW, plotH);
+    ctx.fillStyle = AXIS_COLORS[1];
+    ctx.fillRect(width - margin.right - stripeW, margin.top, stripeW, plotH);
+  }
 }
 
 export function timestampAtCanvasX(clientX) {

@@ -693,3 +693,7 @@
   border-color: #2643e9;
   background: rgba(38, 67, 233, 0.12);
 }
+
+.collapsed-legend.has-axis-stripe {
+  border-left: 3px solid var(--legend-axis-color);
+}
