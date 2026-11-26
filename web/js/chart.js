@@ -28,6 +28,7 @@ export const MIN_ZOOM_RANGE_MS = 1000;
 export const MAX_ZOOM_RANGE_MS = 1000 * 3600 * 24 * 365 * 25;
 
 const CANDLE_DOWN_ALPHA = 0.35;
+const AXIS_STRIPE_PX = 3;
 
 // Resolves any valid CSS color (hex, hsl(...), rgb(...), named, ...) to RGB
 // components by letting the canvas itself parse and normalize it, rather than
@@ -1097,6 +1098,7 @@ function drawYAxisAndAxes(
   sy,
   yTicks,
   seriesList,
+  stripeW = 0,
 ) {
   const yTickLen = 4;
   ctx.strokeStyle = "#d9dee8";
@@ -1142,14 +1144,14 @@ function drawYAxisAndAxes(
     const y = sy(value);
     // Small black tick marker for each rendered y-label.
     ctx.beginPath();
-    ctx.moveTo(margin.left, y);
-    ctx.lineTo(margin.left - yTickLen, y);
+    ctx.moveTo(margin.left - stripeW, y);
+    ctx.lineTo(margin.left - stripeW - yTickLen, y);
     ctx.stroke();
-    ctx.fillText(yTickLabels[i], margin.left - 6, y + 4);
+    ctx.fillText(yTickLabels[i], margin.left - stripeW - 6, y + 4);
   }
 }
 
-function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, seriesList, logarithmic) {
+function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, seriesList, logarithmic, stripeW = 0) {
   const axisX = width - margin.right;
   const yTickLen = 4;
   ctx.save();
@@ -1168,10 +1170,10 @@ function drawSecondaryYAxis(ctx, width, height, margin, plotH, sy, yTicks, serie
   for (let i = 0; i < yTicks.length; i += 1) {
     const y = sy(yTicks[i]);
     ctx.beginPath();
-    ctx.moveTo(axisX, y);
-    ctx.lineTo(axisX + yTickLen, y);
+    ctx.moveTo(axisX + stripeW, y);
+    ctx.lineTo(axisX + stripeW + yTickLen, y);
     ctx.stroke();
-    ctx.fillText(labels[i], axisX + 6, y + 4);
+    ctx.fillText(labels[i], axisX + stripeW + 6, y + 4);
   }
 
   const yUnits = yAxisUnitsLabel(seriesList);
@@ -1402,6 +1404,7 @@ export function renderChart() {
     syPrimary,
     yTicks,
     seriesList.filter((item) => metricAxis(item.metric) === 0),
+    secondaryAxis ? AXIS_STRIPE_PX : 0,
   );
   if (secondaryAxis) {
     const d2 = secondaryAxis.domain;
@@ -1418,6 +1421,7 @@ export function renderChart() {
       ticks2,
       seriesList.filter((item) => metricAxis(item.metric) === 1),
       secondaryAxis.logarithmic,
+      AXIS_STRIPE_PX,
     );
   }
 
@@ -1714,13 +1718,13 @@ export function renderChart() {
 
   ctx.restore();
 
-  // Color stripes beside the axes tie each axis to its metric group.
+  // Color stripes on the outer side of the axes tie each axis to its metric
+  // group (ticks and labels are shifted outwards to make room).
   if (secondaryAxis) {
-    const stripeW = 3;
     ctx.fillStyle = AXIS_COLORS[0];
-    ctx.fillRect(margin.left, margin.top, stripeW, plotH);
+    ctx.fillRect(margin.left - AXIS_STRIPE_PX, margin.top, AXIS_STRIPE_PX, plotH);
     ctx.fillStyle = AXIS_COLORS[1];
-    ctx.fillRect(width - margin.right - stripeW, margin.top, stripeW, plotH);
+    ctx.fillRect(width - margin.right, margin.top, AXIS_STRIPE_PX, plotH);
   }
 }
 
