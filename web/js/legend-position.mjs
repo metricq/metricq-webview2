@@ -58,6 +58,23 @@ export function legendAnchorStyle(anchor, margin, plotW, plotH, inset = 4) {
   return style;
 }
 
+// Top-left corner of a legend box of size (boxW, boxH) for the given anchor,
+// in canvas coordinates; mirrors legendAnchorStyle for canvas drawing.
+export function legendBoxPosition(anchor, margin, plotW, plotH, boxW, boxH, inset = 4) {
+  const { v, h } = parts(anchor);
+  const x = h === "left"
+    ? margin.left + inset
+    : h === "right"
+      ? margin.left + plotW - inset - boxW
+      : margin.left + (plotW - boxW) / 2;
+  const y = v === "top"
+    ? margin.top + inset
+    : v === "bottom"
+      ? margin.top + plotH - inset - boxH
+      : margin.top + (plotH - boxH) / 2;
+  return { x, y };
+}
+
 // Cell of the 3x3 grid containing (x, y); rect is relative to the same origin.
 export function nearestLegendAnchor(x, y, rect) {
   const rel = (value, start, size) => (size > 0 ? (value - start) / size : 0.5);

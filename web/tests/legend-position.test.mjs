@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   legendAnchorStyle,
+  legendBoxPosition,
   nearestLegendAnchor,
   resolveLegendAnchors,
 } from "../js/legend-position.mjs";
@@ -33,4 +34,11 @@ test("anchor style positions relative to the plot area", () => {
   assert.equal(s.top, "auto");
   assert.equal(s.transform, "translateX(-50%)");
   assert.equal(legendAnchorStyle("top-right", margin, 400, 200).right, "22px");
+});
+
+test("canvas legend box positions mirror the css anchors", () => {
+  const margin = { left: 50, right: 20, top: 10, bottom: 30 };
+  assert.deepEqual(legendBoxPosition("top-left", margin, 400, 200, 100, 40), { x: 54, y: 14 });
+  assert.deepEqual(legendBoxPosition("bottom-right", margin, 400, 200, 100, 40), { x: 346, y: 166 });
+  assert.deepEqual(legendBoxPosition("center", margin, 400, 200, 100, 40), { x: 200, y: 90 });
 });

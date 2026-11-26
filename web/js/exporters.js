@@ -1,9 +1,14 @@
+import { getChartLayout } from "./chart.js";
+import { AXIS_COLORS } from "./axis-colors.mjs";
 import { dom } from "./dom.js";
+import { legendBoxPosition, resolveLegendAnchors } from "./legend-position.mjs";
 import { shownMetricFactor } from "./factor-format.mjs";
 import {
+  metricAxis,
   metricDisplayName,
   metricRenderShowsCounts,
   metricShownUnit,
+  secondaryAxisActive,
   state,
   yAxisStackingActive,
 } from "./model.js";
@@ -111,8 +116,33 @@ export function exportCSV() {
   downloadBlob("metricq-codex.csv", "text/csv", rows.join("\n"));
 }
 
-function drawLegend(ctx, cssWidth, cssHeight) {
+// One legend per y-axis, placed like the on-screen legends.
+function drawLegends(ctx, cssWidth, cssHeight) {
   const visible = state.metrics.filter((m) => m.draw);
+  if (visible.length === 0) return;
+  const layout = getChartLayout();
+  const geometry = layout
+    ? { margin: layout.margin, plotW: layout.plotW, plotH: layout.plotH }
+    : { margin: { left: 0, right: 0, top: 0, bottom: 0 }, plotW: cssWidth, plotH: cssHeight };
+  const split = secondaryAxisActive();
+  const anchors = resolveLegendAnchors(state.legendAnchors, split);
+  if (!split) {
+    drawLegendBox(ctx, cssWidth, visible, { ...geometry, anchor: anchors[0], allowStacking: true });
+    return;
+  }
+  [0, 1].forEach((axis) => {
+    drawLegendBox(ctx, cssWidth, visible.filter((m) => metricAxis(m) === axis), {
+      ...geometry,
+      anchor: anchors[axis],
+      allowStacking: axis === 0,
+      stripeColor: AXIS_COLORS[axis],
+      widthShare: 0.3,
+    });
+  });
+}
+
+function drawLegendBox(ctx, cssWidth, visible, options) {
+  const { margin, plotW, plotH, anchor, allowStacking, stripeColor = null, widthShare = 0.42 } = options;
   if (visible.length === 0) return;
 
   const pad = 8;
@@ -126,7 +156,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   const textX = pad + indicatorSize + 10;
   const maxAllowedWidth = Math.min(
     520,
-    Math.max(220, Math.floor(cssWidth * 0.42)),
+    Math.max(220, Math.floor(cssWidth * widthShare)),
   );
   const minAllowedWidth = 190;
 
@@ -141,7 +171,7 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     });
 
   const sections = (() => {
-    if (!yAxisStackingActive()) {
+    if (!allowStacking || !yAxisStackingActive()) {
       if (metricRenderShowsCounts()) {
         return [{
           title: `Frequenz (${visible.length})`,
@@ -227,8 +257,15 @@ function drawLegend(ctx, cssWidth, cssHeight) {
     if (i < sections.length - 1) boxH += sectionGap;
   }
 
-  const boxX = cssWidth - 10 - boxWidth;
-  const boxY = 10;
+  const { x: boxX, y: boxY } = legendBoxPosition(
+    anchor,
+    margin,
+    plotW,
+    plotH,
+    boxWidth,
+    boxH,
+    margin.left === 0 && margin.top === 0 ? 10 : 4,
+  );
 
   ctx.fillStyle = "rgba(255, 255, 255, 0.86)";
   ctx.strokeStyle = "#cfd6e4";
@@ -237,6 +274,15 @@ function drawLegend(ctx, cssWidth, cssHeight) {
   ctx.roundRect(boxX, boxY, boxWidth, boxH, 7);
   ctx.fill();
   ctx.stroke();
+  if (stripeColor) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(boxX, boxY, boxWidth, boxH, 7);
+    ctx.clip();
+    ctx.fillStyle = stripeColor;
+    ctx.fillRect(boxX, boxY, 3, boxH);
+    ctx.restore();
+  }
 
   let y = boxY + pad;
   const rowMaxTextWidth = boxWidth - textX - pad;
@@ -335,7 +381,7 @@ export function exportPNG() {
   const ratio = out.width / Math.max(1, cssWidth);
   ctx.save();
   ctx.scale(ratio, ratio);
-  drawLegend(ctx, cssWidth, cssHeight);
+  drawLegends(ctx, cssWidth, cssHeight);
   ctx.restore();
 
   out.toBlob((blob) => {

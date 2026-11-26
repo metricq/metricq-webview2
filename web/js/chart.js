@@ -1743,6 +1743,10 @@ export function timestampAtCanvasX(clientX) {
   return Math.round(state.from + rel * (state.to - state.from));
 }
 
+export function getChartLayout() {
+  return lastLayout;
+}
+
 export function getPlotXBoundsInCanvas() {
   if (!lastLayout) return null;
   return {
