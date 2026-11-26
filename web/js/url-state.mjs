@@ -1,5 +1,6 @@
 import { serializeYAxisSettings, applyYAxisSettings } from "./axis-settings.mjs";
 import { dom } from "./dom.js";
+import { isLegendAnchor } from "./legend-position.mjs";
 import {
   colors,
   normalizeMetricRenderMode,
@@ -138,6 +139,12 @@ function buildPayload() {
 
   const y = serializeYAxis();
   if (y) payload.y = y;
+
+  const lg = {};
+  for (const axis of [0, 1]) {
+    if (isLegendAnchor(state.legendAnchors?.[axis])) lg[axis] = state.legendAnchors[axis];
+  }
+  if (Object.keys(lg).length) payload.lg = lg;
 
   return payload;
 }
@@ -335,6 +342,10 @@ export async function applyStateFromUrl() {
       : (payload?.rb === 0 ? "line" : "bands");
 
   applyYAxisConfig(payload?.y);
+  state.legendAnchors = {
+    0: isLegendAnchor(payload?.lg?.[0]) ? payload.lg[0] : null,
+    1: isLegendAnchor(payload?.lg?.[1]) ? payload.lg[1] : null,
+  };
   syncYAxisStackedState();
 
   return true;
@@ -378,6 +389,7 @@ export function applyLegacyWebviewHashFallback() {
     .filter(Boolean);
   state.renderMode = "standard";
   state.metricRenderMode = "bands";
+  state.legendAnchors = { 0: null, 1: null };
   syncYAxisStackedState();
 
   return state.metrics.length > 0;

@@ -62,6 +62,8 @@ function syncUrlStateIfAllowed() {
   void syncUrlStateNow().catch(() => {});
 }
 
+document.addEventListener("metricq:legend-moved", () => syncUrlStateIfAllowed());
+
 function onStateChangedCombined() {
   renderContextualHelp();
   syncUrlStateIfAllowed();

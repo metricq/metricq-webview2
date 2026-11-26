@@ -28,6 +28,8 @@ export const state = {
   yAxis2CurrentMin: null,
   yAxis2CurrentMax: null,
   yAxisStacked: false,
+  // User-chosen legend anchors per axis ({0|1: anchor|null}); null = default.
+  legendAnchors: { 0: null, 1: null },
   stackedAligned: null,
   timeMode: "relative",
   renderMode: "standard",

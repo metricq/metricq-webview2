@@ -1,7 +1,7 @@
 import { AXIS_COLORS } from "./axis-colors.mjs";
 import { dom } from "./dom.js";
 import {
-  isLegendAnchor,
+  defaultLegendAnchor,
   legendAnchorStyle,
   LEGEND_ANCHORS,
   nearestLegendAnchor,
@@ -118,28 +118,8 @@ function appendLegendSection(
 // the chart, so it's not worth rendering at all.
 export const LEGEND_MIN_VIEWPORT_PX = 768;
 
-const ANCHOR_STORAGE_KEY = "metricq.legendAnchors";
-let anchorOverrides = loadAnchorOverrides();
 let lastLayout = null;
 let snapOverlay = null;
-
-function loadAnchorOverrides() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(ANCHOR_STORAGE_KEY) || "{}");
-    return {
-      0: isLegendAnchor(raw?.[0]) ? raw[0] : null,
-      1: isLegendAnchor(raw?.[1]) ? raw[1] : null,
-    };
-  } catch (_) {
-    return { 0: null, 1: null };
-  }
-}
-
-function saveAnchorOverrides() {
-  try {
-    localStorage.setItem(ANCHOR_STORAGE_KEY, JSON.stringify(anchorOverrides));
-  } catch (_) {}
-}
 
 function legendHosts() {
   return [dom.collapsedLegend, dom.collapsedLegendSecondary];
@@ -150,7 +130,7 @@ export function layoutCollapsedLegends(layout) {
   lastLayout = layout;
   if (!layout || !dom.collapsedLegend) return;
   const { margin, plotW, plotH, hasSecondary } = layout;
-  const anchors = resolveLegendAnchors(anchorOverrides, hasSecondary);
+  const anchors = resolveLegendAnchors(state.legendAnchors, hasSecondary);
   const maxWidth = `${Math.max(180, Math.min(360, Math.floor(plotW * (hasSecondary ? 0.3 : 0.34))))}px`;
   legendHosts().forEach((host, axis) => {
     if (!host) return;
@@ -202,7 +182,7 @@ function wireLegendDrag(host, axis) {
     const offsetY = event.clientY - hostRect.top;
     const { margin, plotW, plotH, hasSecondary } = lastLayout;
     const plotRect = { left: margin.left, top: margin.top, width: plotW, height: plotH };
-    const before = resolveLegendAnchors(anchorOverrides, hasSecondary);
+    const before = resolveLegendAnchors(state.legendAnchors, hasSecondary);
     let target = before[axis];
 
     showSnapOverlay(wrap, lastLayout);
@@ -240,10 +220,17 @@ function wireLegendDrag(host, axis) {
         // Taking a spot that the other legend occupies swaps the two.
         const other = 1 - axis;
         if (hasSecondary && before[other] === target) {
-          anchorOverrides[other] = before[axis];
+          state.legendAnchors[other] = before[axis];
         }
-        anchorOverrides[axis] = target;
-        saveAnchorOverrides();
+        state.legendAnchors[axis] = target;
+        // Only non-default positions are stored (and end up in the link).
+        for (const a of [0, 1]) {
+          if (state.legendAnchors[a] === defaultLegendAnchor(a, hasSecondary)) {
+            state.legendAnchors[a] = null;
+          }
+        }
+        // The positions are part of the shared link.
+        document.dispatchEvent(new CustomEvent("metricq:legend-moved"));
       }
       layoutCollapsedLegends(lastLayout);
     };
