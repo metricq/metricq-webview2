@@ -392,7 +392,7 @@
   padding: 0.35rem 0.5rem;
   z-index: 8;
   font-size: 0.75rem;
-  pointer-events: none;
+  pointer-events: auto;
   transition: opacity 120ms ease;
 }
 
@@ -648,22 +648,31 @@
 }
 
 .collapsed-legend-grip {
-  display: block;
-  text-align: center;
-  line-height: 0.7;
-  margin: -0.15rem 0 0.1rem;
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% - 1px);
+  padding: 0 0.6rem;
+  font-size: 0.7rem;
+  line-height: 1;
   color: #9aa4b8;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #cfd6e4;
+  border-bottom: 0;
+  border-radius: 0.35rem 0.35rem 0 0;
   cursor: grab;
-  pointer-events: auto;
   touch-action: none;
   opacity: 0;
-  transition: opacity 0.12s;
+  transform: translate(-50%, 100%);
+  transition: opacity 0.12s, transform 0.12s;
+  pointer-events: none;
 }
 
 .collapsed-legend:hover .collapsed-legend-grip,
 .collapsed-legend.is-dragging .collapsed-legend-grip,
 .collapsed-legend-grip:focus-visible {
   opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
 }
 
 .collapsed-legend-grip:hover {
@@ -673,6 +682,8 @@
 @media (hover: none) {
   .collapsed-legend-grip {
     opacity: 1;
+    transform: translate(-50%, 0);
+    pointer-events: auto;
   }
 }
 
