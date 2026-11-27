@@ -1,0 +1,72 @@
+name: Update vendored frontend assets
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    name: Check Bootstrap / Bootstrap Icons releases
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Update vendored Bootstrap
+        run: |
+          set -euo pipefail
+          current=$(ls web/vendor/bootstrap)
+          latest=$(gh release view --repo twbs/bootstrap --json tagName -q .tagName | sed 's/^v//')
+          if [ "$current" = "$latest" ]; then
+            echo "Bootstrap is already at $current"
+            exit 0
+          fi
+
+          tmp=$(mktemp -d)
+          gh release download "v$latest" --repo twbs/bootstrap --pattern "bootstrap-$latest-dist.zip" --dir "$tmp"
+          unzip -q "$tmp/bootstrap-$latest-dist.zip" -d "$tmp/extract"
+
+          mkdir -p "web/vendor/bootstrap/$latest/css" "web/vendor/bootstrap/$latest/js"
+          cp "$tmp/extract/bootstrap-$latest-dist/css/bootstrap.min.css" "web/vendor/bootstrap/$latest/css/"
+          cp "$tmp/extract/bootstrap-$latest-dist/js/bootstrap.bundle.min.js" "web/vendor/bootstrap/$latest/js/"
+          rm -rf "web/vendor/bootstrap/$current"
+
+          sed -i "s#vendor/bootstrap/$current/#vendor/bootstrap/$latest/#g" web/index.html
+
+      - name: Update vendored Bootstrap Icons
+        run: |
+          set -euo pipefail
+          current=$(ls web/vendor/bootstrap-icons)
+          latest=$(gh release view --repo twbs/icons --json tagName -q .tagName | sed 's/^v//')
+          if [ "$current" = "$latest" ]; then
+            echo "Bootstrap Icons is already at $current"
+            exit 0
+          fi
+
+          tmp=$(mktemp -d)
+          gh release download "v$latest" --repo twbs/icons --pattern "bootstrap-icons-$latest.zip" --dir "$tmp"
+          unzip -q "$tmp/bootstrap-icons-$latest.zip" -d "$tmp/extract"
+
+          mkdir -p "web/vendor/bootstrap-icons/$latest/css/fonts"
+          cp "$tmp/extract/bootstrap-icons-$latest/bootstrap-icons.min.css" "web/vendor/bootstrap-icons/$latest/css/"
+          cp "$tmp/extract/bootstrap-icons-$latest/fonts/bootstrap-icons.woff" "web/vendor/bootstrap-icons/$latest/css/fonts/"
+          cp "$tmp/extract/bootstrap-icons-$latest/fonts/bootstrap-icons.woff2" "web/vendor/bootstrap-icons/$latest/css/fonts/"
+          rm -rf "web/vendor/bootstrap-icons/$current"
+
+          sed -i "s#vendor/bootstrap-icons/$current/#vendor/bootstrap-icons/$latest/#g" web/index.html
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: "Update vendored Bootstrap / Bootstrap Icons"
+          title: "Update vendored Bootstrap / Bootstrap Icons"
+          body: Automated check of the vendored `web/vendor/bootstrap` and `web/vendor/bootstrap-icons` assets against the latest twbs/bootstrap and twbs/icons GitHub releases.
+          branch: update-frontend-vendor
+          delete-branch: true
