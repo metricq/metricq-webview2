@@ -1,0 +1,37 @@
+name: Update metricq-go
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    name: Check for new metricq-go commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Update metricq-go to latest master
+        run: |
+          go get github.com/metricq/metricq-go@master
+          go mod tidy
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "Update metricq-go to latest master"
+          title: "Update metricq-go to latest master"
+          body: Automated update of `metricq-go` to the latest commit on its master branch.
+          branch: update-metricq-go
+          delete-branch: true
