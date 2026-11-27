@@ -656,10 +656,24 @@
   cursor: grab;
   pointer-events: auto;
   touch-action: none;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.collapsed-legend:hover .collapsed-legend-grip,
+.collapsed-legend.is-dragging .collapsed-legend-grip,
+.collapsed-legend-grip:focus-visible {
+  opacity: 1;
 }
 
 .collapsed-legend-grip:hover {
   color: #2643e9;
+}
+
+@media (hover: none) {
+  .collapsed-legend-grip {
+    opacity: 1;
+  }
 }
 
 .collapsed-legend.is-dragging {
